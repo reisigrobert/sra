@@ -3,42 +3,6 @@
 # ==============================================
 
 # ========================
-# JavaScript Libraries (if using local copies)
-# ========================
-lib/
-libs/
-node_modules/
-bower_components/
-
-# ========================
-# IDE and Editor Files
-# ========================
-# Visual Studio Code
-.vscode/
-.history/
-
-# IntelliJ IDEA / WebStorm
-.idea/
-*.iml
-*.iws
-
-# Sublime Text
-*.sublime-project
-*.sublime-workspace
-
-# Vim
-*.swp
-*.swo
-*~
-
-# Emacs
-*~
-\#*\#
-/.emacs.desktop
-/.emacs.desktop.lock
-*.elc
-
-# ========================
 # Operating System Files
 # ========================
 # macOS
@@ -55,14 +19,64 @@ Thumbs.db
 Thumbs.db:encryptable
 ehthumbs.db
 ehthumbs_vista.db
-*.stackdump
-[Dd]esktop.ini
+Desktop.ini
 $RECYCLE.BIN/
 
 # Linux
 *~
 .directory
-.trash-*
+
+# ========================
+# IDE and Editor Files
+# ========================
+# Visual Studio Code
+.vscode/
+.history/
+
+# IntelliJ IDEA / WebStorm
+.idea/
+*.iml
+
+# Sublime Text
+*.sublime-project
+*.sublime-workspace
+
+# Vim
+*.swp
+*.swo
+
+# Emacs
+*~
+\#*\#
+
+# ========================
+# Library Management
+# ========================
+# Keep our CDN loader scripts, but ignore full library files
+lib/*-full.js
+lib/*.full.js
+lib/papaparse-*.js
+lib/chart-*.js
+lib/jstat-*.js
+lib/html2canvas-*.js
+
+# Ignore if someone downloads full libraries with different names
+lib/papaparse.js
+lib/chart.js
+lib/jstat.js
+lib/html2canvas.js
+
+# Node modules (if anyone uses npm)
+node_modules/
+
+# ========================
+# Data Files
+# ========================
+# Keep sample data, ignore large or private datasets
+*.csv.large
+private-data/
+test-datasets/
+large-data/
 
 # ========================
 # Temporary Files
@@ -70,65 +84,39 @@ $RECYCLE.BIN/
 *.tmp
 *.temp
 *.log
-*.cache
-.sass-cache/
-.grunt/
-
-# ========================
-# Backup Files
-# ========================
 *.bak
 *.backup
 *.old
-*_backup.*
-*_old.*
 
 # ========================
-# Archive Files (unless intentional)
+# Archive Files
 # ========================
 *.zip
 *.rar
 *.7z
-*.tar
-*.gz
-
-# ========================
-# Test Data (keep sample data, ignore large test files)
-# ========================
-test-data/
-large-datasets/
-private-data/
-*.csv.large
-
-# ========================
-# Documentation Build Files
-# ========================
-docs/_build/
-site/
+*.tar.gz
 
 # ========================
 # Environment Files
 # ========================
 .env
 .env.local
-.env.*.local
 
 # ========================
-# Package Manager Files
+# Build and Cache Files
 # ========================
-package-lock.json
-yarn.lock
-.pnpm-debug.log*
+.cache/
+dist/
+build/
 
 # ========================
-# Version Control
+# Documentation
 # ========================
-.git/
-.svn/
+docs/_build/
 
 # ========================
 # Misc
 # ========================
-.htaccess
+*.stackdump
 error_log
 access_log
