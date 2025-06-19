@@ -1,0 +1,31 @@
+# Statistical Research Analyzer - Group Definitions
+# Created: 2025-06-18 17:59:18
+
+[Group 1]
+Condition_1: Sex = Female
+Condition_2: Treatment = A
+Connection: AND
+
+[Group 2]
+Condition_1: Sex = Female
+Condition_2: Treatment = B
+Connection: AND
+
+[Group 3]
+Condition_1: Sex = Female
+Condition_2: Treatment = C
+Connection: AND
+
+[Group 4]
+Condition_1: Sex = Male
+Condition_2: Age > 30
+Connection: AND
+
+[Group 5]
+Condition_1: Sex = Male
+
+[SETTINGS]
+ExportDate: 2025-06-19T21:02:34.080Z
+TotalRecords: 200
+Parameters: 7
+
