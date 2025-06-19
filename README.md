@@ -1,143 +1,139 @@
-# README.md
+# 📊 Statistical Research Analyzer (SRA)
 
-```markdown
-# Statistical Research Analyzer (SRA)
+> **100% Offline Statistical Analysis Tool for Sensitive Data**
 
-## What is this for?
+A comprehensive web-based application designed for researchers who need to analyze sensitive data without uploading it to online services.
 
-This tool is designed for **offline statistical analysis of sensitive data** - perfect when you can't upload your data to online tools due to privacy concerns.
+## 🎯 What is this for?
 
-**Ideal for:**
-- 🏥 **Medical researchers** working with patient data
-- 🏢 **Corporate analysts** handling confidential business data  
-- 🎓 **Academic researchers** with sensitive study data
-- 📊 **Anyone** who needs to keep their data completely private
+**Perfect for sensitive data analysis when privacy is essential:**
 
-## Why use this tool?
+🏥 **Medical researchers** working with patient data  
+🏢 **Corporate analysts** handling confidential business information  
+🎓 **Academic researchers** with sensitive study data  
+📊 **Anyone** who needs complete data privacy  
+
+## ✨ Why use this tool?
 
 ✅ **100% Offline** - Your data never leaves your computer  
 ✅ **No coding required** - Simple point-and-click interface  
-✅ **Quick analysis** - Test ideas and explore data fast  
+✅ **Quick analysis** - Test hypotheses and explore data fast  
 ✅ **No installation** - Just open in your web browser  
 ✅ **Free forever** - No subscriptions or licenses needed  
+✅ **Professional results** - Comprehensive statistical output  
 
-## What can it do?
+## 🚀 Features
 
-- Import CSV data with automatic type detection
-- Create custom groups based on your criteria
-- Calculate comprehensive statistics (mean, median, etc.)
-- Run significance tests (t-tests, ANOVA, chi-square)
-- Create charts and visualizations
-- Export results and charts
+- **CSV Data Import** with automatic type detection
+- **Custom Group Creation** based on your criteria
+- **Statistical Tests**: t-tests, ANOVA, chi-square
+- **Data Visualization** with interactive charts
+- **Export Functionality** for results and charts
+- **Comprehensive Statistics** (mean, median, std dev, quartiles, etc.)
 
-## Important Note
+## ⚠️ Important Note
 
 This tool is designed for **quick exploration and hypothesis testing**. For final research publications or critical business decisions, always validate your results with dedicated statistical software like R, SPSS, or similar professional tools.
 
-## Getting Started
+## 🛠️ Setup Instructions
 
-### Step 1: Download Required Files
+### Step 1: Download Required Libraries
 
-Download these JavaScript libraries and place them in a `lib/` folder:
+Create a `lib/` folder and download these JavaScript libraries:
 
-1. **PapaParse** (CSV parsing): [Download here](https://www.papaparse.com/)
-2. **Chart.js** (charts): [Download here](https://www.chartjs.org/)
-3. **jStat** (statistics): [Download here](https://jstat.github.io/)
-4. **html2canvas** (image export): [Download here](https://html2canvas.hertzen.com/)
+| Library | Purpose | Download Link |
+|---------|---------|---------------|
+| **PapaParse** | CSV parsing | [papaparse.com](https://www.papaparse.com/) |
+| **Chart.js** | Data visualization | [chartjs.org](https://www.chartjs.org/) |
+| **jStat** | Statistical functions | [jstat.github.io](https://jstat.github.io/) |
+| **html2canvas** | Image export | [html2canvas.hertzen.com](https://html2canvas.hertzen.com/) |
 
-### Step 2: Set Up Your Files
+### Step 2: File Structure
 
-Create this folder structure:
 ```
 your-project-folder/
-├── index.html (the main SRA file)
-├── lib/
-│   ├── papaparse.min.js
-│   ├── chart.umd.js
-│   ├── jstat.min.js
-│   └── html2canvas.min.js
+├── index.html          (main SRA file)
+└── lib/
+    ├── papaparse.min.js
+    ├── chart.umd.js
+    ├── jstat.min.js
+    └── html2canvas.min.js
 ```
 
 ### Step 3: Prepare Your Data
 
-Create a CSV file with this format:
-- **Row 1**: Column names (e.g., Age, Gender, Treatment)
-- **Row 2**: Data types (`f` for numbers, `k` for categories)
-- **Row 3+**: Your actual data
+Create a CSV file with this exact format:
 
-Example:
 ```csv
 Age;Gender;Treatment;Outcome
 f;k;k;f
 25;Male;A;85.2
 30;Female;B;92.1
+35;Male;A;78.5
 ```
 
-### Step 4: Start Analyzing
+**Format Rules:**
+- **Row 1:** Column names
+- **Row 2:** Data types (`f` = numeric, `k` = categorical)  
+- **Row 3+:** Your data
+- **Separator:** Semicolon (`;`)
+- **Decimals:** Comma (`,`) or period (`.`)
 
-1. Open `index.html` in your web browser
-2. Upload your CSV file
-3. Define your groups (e.g., "Treatment A vs Treatment B")
-4. Click "Apply Groups & Analyze"
-5. Explore your results in the different tabs
+## 📖 How to Use
 
-## Supported Statistical Tests
+1. **Open** `index.html` in your web browser
+2. **Upload** your CSV file
+3. **Define groups** (e.g., "Treatment A vs Treatment B")
+4. **Click** "Apply Groups & Analyze"
+5. **Explore** results in the different tabs
 
-- **t-Test**: Compare means between two groups
-- **ANOVA**: Compare means across multiple groups  
-- **Chi-Square**: Test relationships between categorical variables
+## 📊 Statistical Tests Available
 
-## Browser Requirements
+| Test | Use Case | Requirements |
+|------|----------|--------------|
+| **t-Test** | Compare means between 2 groups | Numeric data, 2 groups |
+| **ANOVA** | Compare means across multiple groups | Numeric data, 2+ groups |
+| **Chi-Square** | Test relationships in categorical data | Categorical data |
+
+## 💻 Browser Requirements
 
 - Any modern web browser (Chrome, Firefox, Safari, Edge)
-- JavaScript must be enabled
+- JavaScript enabled
 - No internet connection required after setup
 
-## Data Privacy
+## 🔒 Data Privacy
 
-Your data is processed entirely within your browser. Nothing is sent to any server or external service. This makes it safe for:
-- Medical data (HIPAA compliance)
-- Financial data
-- Proprietary business information
-- Personal research data
+**Your data is 100% private:**
+- ✅ Processed entirely within your browser
+- ✅ Nothing sent to any server or external service
+- ✅ Safe for HIPAA, financial, and proprietary data
+- ✅ Works completely offline
 
-## Limitations
+## ⚡ Performance
 
-- Maximum recommended dataset size: ~10,000 rows
-- Basic statistical tests only
-- Simple visualization options
-- No advanced statistical modeling
+- **Recommended:** Up to 10,000 rows
+- **Supports:** Basic statistical tests and simple visualizations
+- **For larger datasets:** Use R, Python, SPSS, or SAS
 
-For complex analyses, use professional statistical software like R, Python (pandas/scipy), SPSS, or SAS.
+## 🔧 Troubleshooting
 
-## Troubleshooting
+**Charts not displaying?**  
+→ Check that all library files are in the `lib/` folder
 
-**Problem**: Charts not displaying  
-**Solution**: Make sure all library files are in the `lib/` folder
+**CSV import fails?**  
+→ Verify semicolon (`;`) separators and correct format
 
-**Problem**: CSV import fails  
-**Solution**: Check that your CSV uses semicolons (;) as separators and follows the required format
+**Tests not working?**  
+→ Ensure sufficient data points and correct data types
 
-**Problem**: Significance tests not working  
-**Solution**: Ensure you have enough data points and the right data types for your test
+## 📄 License
 
-## Example Data
+**Public Domain** - Use for any purpose without restrictions. No attribution required.
 
-Check the `sample-data/` folder for an example CSV file that demonstrates the correct format.
+## 🤝 Contributing
 
-## Contributing
-
-This is open-source software. Feel free to modify, improve, or redistribute as needed. No attribution required.
-
-## License
-
-This software is released into the public domain under The Unlicense. Use for any purpose without restrictions.
-
-## Version History
-
-- **v1.0.0** (2024) - Initial release with core statistical analysis features
+This is open-source software. Feel free to modify, improve, or redistribute as needed.
 
 ---
 
-**Created for researchers who value data privacy and need quick, reliable statistical analysis tools.**
-```
+**Made for researchers who value data privacy** 🔐
