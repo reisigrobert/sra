@@ -1,0 +1,4210 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Statistical Research Analyzer (SRA)</title>
+    
+    <!-- Favicon -->
+    <link rel="icon" type="image/svg+xml" href="graphics/favicon.svg">
+    
+    <!-- Local library imports (these files must be downloaded to the /lib folder) -->
+    <script src="lib/papaparse.min.js"></script>
+    <script src="lib/chart.umd.js"></script>
+    <script src="lib/jstat.min.js"></script>
+    <script src="lib/html2canvas.min.js"></script>
+    
+    <style>
+        /**
+         * Main CSS Stylesheet
+         * This includes all the styling for the application components
+         */
+        
+        /* Variables for consistent theming */
+        :root {
+            --primary-color: #3498db;
+            --secondary-color: #2ecc71;
+            --accent-color: #f39c12;
+            --danger-color: #e74c3c;
+            --dark-color: #2c3e50;
+            --light-color: #f5f7fa;
+            --border-color: #ddd;
+            --text-color: #333;
+            --text-light: #666;
+            --box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+            --transition-speed: 0.3s;
+        }
+        
+        /* Base styling */
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+        }
+        
+        html, body {
+            height: 100%;
+            width: 100%;
+            overflow-x: hidden;
+        }
+        
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            line-height: 1.6;
+            color: var(--text-color);
+            background-color: var(--light-color);
+            padding: 20px;
+        }
+        
+        /* Container to hold application content */
+        .container {
+            max-width: 1400px;
+            margin: 0 auto;
+        }
+        
+        /* Header styling */
+        header {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            margin-bottom: 25px;
+            padding-bottom: 15px;
+            border-bottom: 2px solid var(--primary-color);
+        }
+        
+        .header-title h1 {
+            color: var(--dark-color);
+            margin-bottom: 5px;
+        }
+        
+        .header-title p {
+            color: var(--text-light);
+            font-style: italic;
+        }
+        
+        .header-actions {
+            display: flex;
+            gap: 10px;
+        }
+        
+        /* Card component for sections */
+        .card {
+            background: white;
+            border-radius: 8px;
+            box-shadow: var(--box-shadow);
+            padding: 20px;
+            margin-bottom: 25px;
+        }
+        
+        /* Section headers */
+        h2, h3, h4 {
+            color: var(--dark-color);
+            margin-bottom: 15px;
+        }
+        
+        /* File upload area */
+        .file-input {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            padding: 30px;
+            border: 2px dashed var(--border-color);
+            border-radius: 8px;
+            text-align: center;
+            transition: all var(--transition-speed) ease;
+        }
+        
+        .file-input:hover {
+            border-color: var(--primary-color);
+            background-color: rgba(52, 152, 219, 0.05);
+        }
+        
+        .file-input.dragover {
+            border-color: var(--primary-color);
+            background-color: rgba(52, 152, 219, 0.1);
+        }
+        
+        .file-input input {
+            display: none;
+        }
+        
+        .file-input label {
+            padding: 12px 24px;
+            background-color: var(--primary-color);
+            color: white;
+            border-radius: 5px;
+            cursor: pointer;
+            margin-top: 15px;
+            transition: background-color var(--transition-speed);
+        }
+        
+        .file-input label:hover {
+            background-color: #2980b9;
+        }
+        
+        /* Data preview table */
+        .data-preview {
+            overflow-x: auto;
+            max-height: 400px;
+            margin-top: 20px;
+            border: 1px solid var(--border-color);
+            border-radius: 5px;
+        }
+        
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            font-size: 14px;
+        }
+        
+        table th, table td {
+            border: 1px solid var(--border-color);
+            padding: 8px;
+            text-align: left;
+        }
+        
+        table th {
+            background-color: #f8f9fa;
+            position: sticky;
+            top: 0;
+            z-index: 10;
+            font-weight: bold;
+        }
+        
+        table tbody tr:nth-child(even) {
+            background-color: #f9f9f9;
+        }
+        
+        /* Data pagination */
+        .pagination {
+            display: flex;
+            justify-content: center;
+            margin-top: 15px;
+            gap: 5px;
+        }
+        
+        .pagination button {
+            padding: 5px 10px;
+            border: 1px solid var(--border-color);
+            background-color: white;
+            cursor: pointer;
+            transition: all var(--transition-speed);
+        }
+        
+        .pagination button:hover {
+            background-color: #f0f0f0;
+        }
+        
+        .pagination button.active {
+            background-color: var(--primary-color);
+            color: white;
+            border-color: var(--primary-color);
+        }
+        
+        /* Group parameter definitions */
+        .parameter-groups {
+            margin-bottom: 20px;
+        }
+        
+        .parameter-group {
+            border: 1px solid var(--border-color);
+            border-radius: 8px;
+            padding: 20px;
+            margin-bottom: 20px;
+            background-color: #f8f9fa;
+            position: relative;
+        }
+        
+        .parameter-group-title {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 15px;
+            padding-bottom: 10px;
+            border-bottom: 1px solid var(--border-color);
+        }
+        
+        .parameter-controls {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 15px;
+            margin-bottom: 15px;
+        }
+        
+        .parameter-control {
+            flex: 1;
+            min-width: 300px;
+            padding: 15px;
+            border: 1px solid var(--border-color);
+            border-radius: 5px;
+            background-color: white;
+            position: relative;
+        }
+        
+        .parameter-control label {
+            font-weight: bold;
+            margin-bottom: 10px;
+            display: block;
+        }
+        
+        .condition-controls {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 10px;
+            align-items: center;
+            margin-bottom: 10px;
+        }
+        
+        /* Form elements */
+        select, 
+        input[type="number"], 
+        input[type="text"] {
+            padding: 8px;
+            border: 1px solid var(--border-color);
+            border-radius: 3px;
+            background-color: white;
+            font-family: inherit;
+            font-size: 14px;
+        }
+        
+        select {
+            min-width: 120px;
+        }
+        
+        input[type="number"] {
+            width: 120px;
+        }
+        
+        /* Parameter info display */
+        .parameter-info {
+            font-size: 0.9em;
+            margin-top: 10px;
+            padding-top: 10px;
+            border-top: 1px solid #eee;
+            color: var(--text-light);
+        }
+        
+        /* Group distribution statistics */
+        .group-distribution {
+            background-color: rgba(0,0,0,0.02);
+            border-radius: 5px;
+            padding: 10px;
+            margin-top: 10px;
+            font-size: 0.9em;
+        }
+        
+        .distribution-bar {
+            height: 8px;
+            background-color: #e0e0e0;
+            border-radius: 4px;
+            margin: 5px 0;
+            overflow: hidden;
+        }
+        
+        .distribution-fill {
+            height: 100%;
+            background-color: var(--primary-color);
+            transition: width var(--transition-speed);
+        }
+        
+        /* Tab navigation */
+        .tabs {
+            margin-top: 20px;
+        }
+        
+        .tab-buttons {
+            display: flex;
+            overflow-x: auto;
+            border-bottom: 1px solid var(--border-color);
+            margin-bottom: 20px;
+            background-color: white;
+        }
+        
+        .tab-button {
+            padding: 12px 20px;
+            background-color: #f8f9fa;
+            border: none;
+            cursor: pointer;
+            font-weight: bold;
+            border-radius: 8px 8px 0 0;
+            margin-right: 2px;
+            white-space: nowrap;
+            transition: all var(--transition-speed) ease;
+        }
+        
+        .tab-button:hover {
+            background-color: #e9ecef;
+        }
+        
+        .tab-button.active {
+            background-color: var(--primary-color);
+            color: white;
+        }
+        
+        .tab-content {
+            display: none;
+            animation: fadeIn var(--transition-speed) ease-in;
+        }
+        
+        .tab-content.active {
+            display: block;
+        }
+        
+        @keyframes fadeIn {
+            from { opacity: 0; }
+            to { opacity: 1; }
+        }
+        
+        /* Chart containers */
+        .chart-container {
+            height: 400px;
+            margin-bottom: 30px;
+            padding: 15px;
+            border: 1px solid var(--border-color);
+            border-radius: 8px;
+            background-color: white;
+        }
+        
+        .chart-container.small {
+            height: 300px;
+        }
+        
+        /* Flexible grid layouts */
+        .stats-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(350px, 1fr));
+            gap: 20px;
+            margin-bottom: 20px;
+        }
+        
+        .stats-card {
+            border: 1px solid var(--border-color);
+            border-radius: 8px;
+            padding: 15px;
+            background-color: white;
+        }
+        
+        .stats-card h4 {
+            border-bottom: 1px solid #eee;
+            padding-bottom: 10px;
+            margin-bottom: 15px;
+        }
+        
+        /* Group badges */
+        .group-badge {
+            display: inline-block;
+            padding: 4px 12px;
+            border-radius: 20px;
+            color: white;
+            font-size: 12px;
+            font-weight: bold;
+            margin-right: 8px;
+        }
+        
+        /* Buttons */
+        .btn {
+            padding: 10px 20px;
+            border: none;
+            border-radius: 5px;
+            color: white;
+            font-weight: bold;
+            cursor: pointer;
+            transition: all var(--transition-speed) ease;
+            margin: 5px;
+            font-size: 14px;
+        }
+        
+        .btn:hover {
+            transform: translateY(-1px);
+            box-shadow: 0 4px 8px rgba(0,0,0,0.2);
+        }
+        
+        .btn:active {
+            transform: translateY(0);
+        }
+        
+        .btn-primary { background-color: var(--primary-color); }
+        .btn-secondary { background-color: var(--secondary-color); }
+        .btn-accent { background-color: var(--accent-color); }
+        .btn-danger { background-color: var(--danger-color); }
+        
+        .btn-small {
+            padding: 5px 10px;
+            font-size: 12px;
+        }
+        
+        /* Flexible container */
+        .flex-container {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 20px;
+        }
+        
+        .flex-item {
+            flex: 1;
+            min-width: 300px;
+        }
+        
+        /* Loading indicator */
+        .loading {
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            height: 100px;
+            font-size: 18px;
+            color: var(--primary-color);
+        }
+        
+        .loading::after {
+            content: "";
+            width: 20px;
+            height: 20px;
+            border: 3px solid var(--primary-color);
+            border-top: 3px solid transparent;
+            border-radius: 50%;
+            margin-left: 10px;
+            animation: spin 1s linear infinite;
+        }
+        
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+        
+        /* Message boxes */
+        .error {
+            color: var(--danger-color);
+            font-weight: bold;
+            padding: 15px;
+            border: 1px solid var(--danger-color);
+            border-radius: 5px;
+            background-color: #fadbd8;
+            margin-bottom: 20px;
+        }
+        
+        .success {
+            color: var(--secondary-color);
+            font-weight: bold;
+            padding: 15px;
+            border: 1px solid var(--secondary-color);
+            border-radius: 5px;
+            background-color: #d4efdf;
+            margin-bottom: 20px;
+        }
+        
+        /* Significance test results */
+        .significance-result {
+            margin-top: 15px;
+            padding: 15px;
+            border-radius: 5px;
+            border-left: 4px solid;
+            position: relative;
+        }
+        
+        .significance-result.significant {
+            background-color: #d4efdf;
+            border-left-color: var(--secondary-color);
+        }
+        
+        .significance-result.not-significant {
+            background-color: #fadbd8;
+            border-left-color: var(--danger-color);
+        }
+                
+        /* Checkbox styling */
+        .checkbox-container {
+            display: flex;
+            align-items: center;
+            margin-bottom: 10px;
+        }
+        
+        .checkbox-container input[type="checkbox"] {
+            margin-right: 10px;
+        }
+        
+        /* Parameter selector */
+        .parameter-selector {
+            margin-bottom: 20px;
+            padding: 15px;
+            background-color: #f8f9fa;
+            border-radius: 5px;
+            display: flex;
+            flex-wrap: wrap;
+            align-items: center;
+            gap: 10px;
+        }
+        
+        .parameter-selector label {
+            font-weight: bold;
+            margin-right: 10px;
+        }
+        
+        .parameter-selector select {
+            padding: 8px;
+            min-width: 200px;
+        }
+        
+        /* Statistics table */
+        .stats-table-container {
+            overflow-x: auto;
+            margin-top: 20px;
+        }
+        
+        /* Clear button for results */
+        .clear-results {
+            display: block;
+            margin: 10px 0;
+            padding: 5px 10px;
+            background-color: #f8f9fa;
+            border: 1px solid var(--border-color);
+            border-radius: 3px;
+            cursor: pointer;
+            font-size: 12px;
+        }
+        
+        .clear-results:hover {
+            background-color: #e9ecef;
+        }
+        
+        /* Help tooltips */
+        .tooltip {
+            position: relative;
+            display: inline-block;
+            cursor: help;
+            margin-left: 5px;
+            font-size: 14px;
+            color: var(--primary-color);
+        }
+        
+        .tooltip .tooltip-text {
+            visibility: hidden;
+            width: 200px;
+            background-color: var(--dark-color);
+            color: white;
+            text-align: center;
+            border-radius: 5px;
+            padding: 5px;
+            position: absolute;
+            z-index: 100;
+            bottom: 125%;
+            left: 50%;
+            margin-left: -100px;
+            opacity: 0;
+            transition: opacity var(--transition-speed);
+            font-size: 12px;
+            font-weight: normal;
+        }
+        
+        .tooltip:hover .tooltip-text {
+            visibility: visible;
+            opacity: 1;
+        }
+        
+        /* Responsive adjustments */
+        @media (max-width: 768px) {
+            .parameter-control {
+                min-width: 100%;
+            }
+            
+            .tab-button {
+                padding: 8px 15px;
+                font-size: 14px;
+            }
+            
+            .flex-item {
+                min-width: 100%;
+            }
+            
+            .condition-controls {
+                flex-direction: column;
+                align-items: stretch;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <header>
+            <div class="header-title">
+                <h1>Statistical Research Analyzer (SRA)</h1>
+                <p>A comprehensive tool for statistical analysis and visualization</p>
+            </div>
+            <div class="header-actions">
+                <button id="about-btn" class="btn btn-accent">About</button>
+            </div>
+        </header>
+        
+        <!-- File Import Section -->
+        <div class="card">
+            <h2>Data Import</h2>
+            <div class="file-input" id="file-input-area">
+                <h3>Import CSV Data</h3>
+                <p>Upload a CSV file with the following format:</p>
+                <ul style="text-align: left; margin: 10px 0;">
+                    <li><strong>Row 1:</strong> Column Headers</li>
+                    <li><strong>Row 2:</strong> Data Types (f = numeric, k = category)</li>
+                    <li><strong>Row 3+:</strong> Data Rows</li>
+                </ul>
+                <p><em>Delimiter: Semicolon (;) | Decimal: Comma (,) or Point (.)</em></p>
+                <input type="file" id="csv-file" accept=".csv">
+                <label for="csv-file">Select File or Drag & Drop</label>
+            </div>
+            
+            <div id="loading" class="loading" style="display: none;">
+                Processing data...
+            </div>
+            
+            <div id="error-message" class="error" style="display: none;"></div>
+            <div id="success-message" class="success" style="display: none;"></div>
+        </div>
+        
+        <!-- Data Preview Section -->
+        <div id="data-preview-container" class="card" style="display: none;">
+            <h2>Data Preview</h2>
+            <div id="data-summary" style="margin-bottom: 15px;"></div>
+            
+            <div class="data-preview">
+                <table id="data-preview-table"></table>
+            </div>
+            
+            <!-- Pagination Controls -->
+            <div class="pagination" id="data-pagination"></div>
+            
+            <!-- Data Options -->
+            <div class="flex-container" style="margin-top: 15px;">
+                <div class="flex-item">
+                    <label for="rows-per-page">Rows per page:</label>
+                    <select id="rows-per-page" onchange="updateDataPagination()">
+                        <option value="10">10</option>
+                        <option value="25" selected>25</option>
+                        <option value="50">50</option>
+                        <option value="100">100</option>
+                        <option value="200">200</option>
+                    </select>
+                </div>
+                <div class="flex-item">
+                    <button id="export-preview-csv" class="btn btn-accent">Export Preview as CSV</button>
+                </div>
+            </div>
+        </div>
+        
+        <!-- Group Definition Section -->
+        <div id="group-definition-container" class="card" style="display: none;">
+            <h2>Define Subgroups</h2>
+            <p>Create subgroups by combining different parameters with logical AND operations:</p>
+            
+            <div class="parameter-groups" id="parameter-groups">
+                <!-- Dynamically populated -->
+            </div>
+            
+            <div style="margin-top: 20px;">
+                <button id="add-group" class="btn btn-primary">Add New Subgroup</button>
+                <button id="apply-groups" class="btn btn-secondary">Apply Groups & Analyze</button>
+                <button id="reset-groups" class="btn btn-danger">Reset</button>
+                <button id="import-groups" class="btn btn-accent">Import Definition</button>
+                <button id="export-groups" class="btn btn-accent">Export Definition</button>
+            </div>
+        </div>
+        
+        <!-- Analysis Results Section -->
+        <div id="analysis-results" class="card" style="display: none;">
+            <h2>Analysis Results</h2>
+            
+            <div class="tabs">
+                <div class="tab-buttons">
+                    <button class="tab-button active" data-tab="overview">Overview</button>
+                    <button class="tab-button" data-tab="detailed">Detailed Analysis</button>
+                    <button class="tab-button" data-tab="significance">Significance Tests</button>
+                    <button class="tab-button" data-tab="visualization">Visualization</button>
+                    <button class="tab-button" data-tab="export">Export</button>
+                </div>
+                
+                <!-- Overview Tab -->
+                <div class="tab-content active" id="overview">
+                    <h3>Group Overview</h3>
+                    <div class="flex-container">
+                        <div class="flex-item">
+                            <div id="group-summary-table"></div>
+                        </div>
+                        <div class="flex-item">
+                            <div class="chart-container small">
+                                <canvas id="group-distribution-chart"></canvas>
+                            </div>
+                            <div class="text-center">
+                                <button class="btn btn-small btn-accent" onclick="exportChartAsImage('group-distribution-chart')">Export Chart</button>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <h3>Statistical Metrics for All Parameters</h3>
+                    <div class="stats-table-container">
+                        <table id="overview-stats-table"></table>
+                    </div>
+                    <div class="text-center">
+                        <button class="btn btn-small btn-accent" onclick="exportTableAsCSV('overview-stats-table', 'overview_statistics')">Export Statistics</button>
+                    </div>
+                </div>
+                
+                <!-- Detailed Analysis Tab -->
+                <div class="tab-content" id="detailed">
+                    <h3>Detailed Parameter Analysis</h3>
+                    
+                    <div class="parameter-selector">
+                        <label for="detail-parameter-select">Select Parameter:</label>
+                        <select id="detail-parameter-select">
+                            <option value="">Please select a parameter</option>
+                        </select>
+                        <span class="tooltip">ⓘ
+                            <span class="tooltip-text">Select a numeric parameter to view detailed statistics across all groups</span>
+                        </span>
+                    </div>
+                    
+                    <div id="detail-analysis-content">
+                        <div class="flex-container">
+                            <div class="flex-item">
+                                <h4>Mean Values with Error Bars</h4>
+                                <div class="chart-container">
+                                    <canvas id="detail-mean-chart"></canvas>
+                                </div>
+                                <div class="text-center">
+                                    <button class="btn btn-small btn-accent" onclick="exportChartAsImage('detail-mean-chart')">Export Chart</button>
+                                </div>
+                            </div>
+                            <div class="flex-item">
+                                <h4>Distribution Comparison</h4>
+                                <div class="chart-container">
+                                    <canvas id="detail-distribution-chart"></canvas>
+                                </div>
+                                <div class="text-center">
+                                    <button class="btn btn-small btn-accent" onclick="exportChartAsImage('detail-distribution-chart')">Export Chart</button>
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <h4>Detailed Statistics</h4>
+                        <div class="stats-table-container">
+                            <table id="detail-stats-table"></table>
+                        </div>
+                        <div class="text-center">
+                            <button class="btn btn-small btn-accent" onclick="exportTableAsCSV('detail-stats-table', 'detailed_statistics')">Export Statistics</button>
+                        </div>
+                    </div>
+                </div>
+                
+                <!-- Significance Tests Tab -->
+                <div class="tab-content" id="significance">
+                    <h3>Statistical Significance Tests</h3>
+                    
+                    <div class="flex-container" style="margin-bottom: 20px;">
+                        <div class="flex-item">
+                            <label for="sig-parameter-select">Parameter for Testing:</label>
+                            <select id="sig-parameter-select" style="width: 100%; margin-top: 5px;">
+                                <option value="">Select parameter</option>
+                            </select>
+                        </div>
+                        <div class="flex-item">
+                            <label for="sig-test-type">Test Method:</label>
+                            <select id="sig-test-type" style="width: 100%; margin-top: 5px;">
+                                <option value="auto">Auto-select</option>
+                                <option value="ttest">T-Test (2 groups, numeric)</option>
+                                <option value="anova">ANOVA (>2 groups, numeric)</option>
+                                <option value="chi-square">Chi-Square (categorical)</option>
+                            </select>
+                        </div>
+                    </div>
+                    
+                    <div class="flex-container" style="margin-bottom: 20px;">
+                        <div class="flex-item">
+                            <label for="sig-alpha">Significance Level (α):</label>
+                            <select id="sig-alpha" style="width: 100%; margin-top: 5px;">
+                                <option value="0.05">0.05 (5%)</option>
+                                <option value="0.01">0.01 (1%)</option>
+                                <option value="0.1">0.10 (10%)</option>
+                                <option value="custom">Custom</option>
+                            </select>
+                            <input type="number" id="sig-custom-alpha" style="width: 100%; margin-top: 5px; display: none;" 
+                                   min="0.001" max="0.5" step="0.001" value="0.05" placeholder="Enter custom alpha (0.001-0.5)">
+                        </div>
+                        <div class="flex-item">
+                            <label for="sig-direction">Test Direction:</label>
+                            <select id="sig-direction" style="width: 100%; margin-top: 5px;">
+                                <option value="two-sided">Two-sided (≠)</option>
+                                <option value="left">Left-sided (<)</option>
+                                <option value="right">Right-sided (>)</option>
+                            </select>
+                            <div style="margin-top: 5px;">
+                                <span class="tooltip">ⓘ
+                                    <span class="tooltip-text">
+                                        Two-sided: Tests if groups are different<br>
+                                        Left-sided: Tests if Group 1 < Group 2<br>
+                                        Right-sided: Tests if Group 1 > Group 2
+                                    </span>
+                                </span>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <div style="margin-bottom: 20px;">
+                        <h4>Select Groups for Comparison:</h4>
+                        <div id="sig-group-selection" class="flex-container" style="margin-top: 10px;"></div>
+                    </div>
+                    
+                    <button id="run-significance-test" class="btn btn-primary">Run Significance Test</button>
+                    <button id="clear-significance-results" class="btn btn-danger">Clear Results</button>
+                    
+                    <div id="significance-results"></div>
+                </div>
+                
+                <!-- Visualization Tab -->
+                <div class="tab-content" id="visualization">
+                    <h3>Custom Visualization</h3>
+                    
+                    <div class="flex-container" style="margin-bottom: 20px;">
+                        <div class="flex-item">
+                            <label for="viz-parameter-x">X-Axis Parameter:</label>
+                            <select id="viz-parameter-x" style="width: 100%; margin-top: 5px;"></select>
+                        </div>
+                        <div class="flex-item">
+                            <label for="viz-parameter-y">Y-Axis Parameter:</label>
+                            <select id="viz-parameter-y" style="width: 100%; margin-top: 5px;"></select>
+                        </div>
+                        <div class="flex-item">
+                            <label for="viz-chart-type">Chart Type:</label>
+                            <select id="viz-chart-type" style="width: 100%; margin-top: 5px;">
+                                <option value="scatter">Scatter Plot</option>
+                                <option value="bar">Bar Chart</option>
+                                <option value="line">Line Chart</option>
+                            </select>
+                        </div>
+                    </div>
+                    
+                    <button id="generate-visualization" class="btn btn-primary">Generate Chart</button>
+                    
+                    <div class="chart-container">
+                        <canvas id="custom-visualization-chart"></canvas>
+                    </div>
+                    
+                    <div class="text-center">
+                        <button class="btn btn-accent" onclick="exportChartAsImage('custom-visualization-chart')">Export Chart</button>
+                    </div>
+                </div>
+                
+                <!-- Export Tab -->
+                <div class="tab-content" id="export">
+                    <h3>Export Data</h3>
+                    
+                    <div class="flex-container">
+                        <div class="flex-item">
+                            <h4>Data Export</h4>
+                            <p>Export the grouped analysis as a CSV file:</p>
+                            <div style="margin: 15px 0;">
+                                <div class="checkbox-container">
+                                    <input type="checkbox" id="export-raw-data" checked>
+                                    <label for="export-raw-data">Raw data with grouping</label>
+                                </div>
+                                <div class="checkbox-container">
+                                    <input type="checkbox" id="export-statistics" checked>
+                                    <label for="export-statistics">Statistical metrics</label>
+                                </div>
+                                <div class="checkbox-container">
+                                    <input type="checkbox" id="export-group-definitions" checked>
+                                    <label for="export-group-definitions">Group definitions</label>
+                                </div>
+                            </div>
+                            <button id="export-csv-data" class="btn btn-secondary">Export as CSV</button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+        
+        <!-- About Modal -->
+        <div id="about-modal" style="display: none; position: fixed; top: 0; left: 0; right: 0; bottom: 0; background-color: rgba(0,0,0,0.5); z-index: 1000;">
+            <div style="position: relative; width: 80%; max-width: 600px; margin: 100px auto; background-color: white; padding: 20px; border-radius: 8px; box-shadow: 0 5px 15px rgba(0,0,0,0.3);">
+                <button id="close-about" style="position: absolute; top: 10px; right: 10px; background: none; border: none; font-size: 20px; cursor: pointer;">×</button>
+                <h2>About Statistical Research Analyzer</h2>
+                <p style="margin: 15px 0;">
+                    This application is designed for statistical analysis of research data, allowing for subgroup definition, 
+                    statistical testing, and visualization of results.
+                </p>
+                <h4>Features:</h4>
+                <ul style="margin-left: 20px; margin-bottom: 15px;">
+                    <li>CSV data import and parsing</li>
+                    <li>Flexible subgroup definition</li>
+                    <li>Comprehensive statistical analysis</li>
+                    <li>Multiple visualization options</li>
+                    <li>Statistical significance testing</li>
+                    <li>Data and chart export functionality</li>
+                </ul>
+                <p>Version 1.0</p>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        /**
+         * Statistical Research Analyzer (SRA)
+         * 
+         * A comprehensive tool for statistical analysis and visualization of research data.
+         * This application allows importing CSV data, defining subgroups, performing statistical
+         * tests, and visualizing results with various chart types.
+         * 
+         * Features:
+         * - CSV import with automatic data type detection
+         * - Flexible subgroup definition with real-time distribution metrics
+         * - Comprehensive statistical analysis (mean, median, std dev, quartiles, etc.)
+         * - Multiple significance tests (t-test, ANOVA, chi-square)
+         * - Various visualization options (bar charts, scatter plots, line charts)
+         * - Export functionality for data, charts, and complete reports
+         */
+
+        /**
+         * Global State Management
+         * 
+         * This object stores all application state including imported data,
+         * group definitions, calculated statistics, and chart references.
+         */
+        const globalState = {
+            // Data related properties
+            rawData: [],                // Original data from CSV
+            columnTypes: {},            // Data types for each column (f=numeric, k=category)
+            columnNames: [],            // Column names from CSV header
+            processedData: {},          // Data organized by groups
+            
+            // Group related properties
+            groupDefinitions: [],       // User defined group criteria
+            currentGroups: {},          // Current active groups
+            
+            // UI state
+            charts: {},                 // References to all created charts
+            isProcessing: false,        // Processing state flag
+            currentPage: 1,             // Current page for data pagination
+            rowsPerPage: 25,            // Number of rows per page
+            
+            // Analysis state
+            selectedParameter: null,    // Currently selected parameter for analysis
+            significanceResults: []     // Stored significance test results
+        };
+
+        /**
+         * Color Palette for Groups
+         * 
+         * Consistent colors for group visualization across the application.
+         * Each color has a background (semi-transparent) and border (solid) variant.
+         */
+        const groupColors = [
+            { bg: 'rgba(52, 152, 219, 0.7)', border: 'rgba(52, 152, 219, 1)', name: 'Blue' },
+            { bg: 'rgba(46, 204, 113, 0.7)', border: 'rgba(46, 204, 113, 1)', name: 'Green' },
+            { bg: 'rgba(155, 89, 182, 0.7)', border: 'rgba(155, 89, 182, 1)', name: 'Purple' },
+            { bg: 'rgba(243, 156, 18, 0.7)', border: 'rgba(243, 156, 18, 1)', name: 'Orange' },
+            { bg: 'rgba(231, 76, 60, 0.7)', border: 'rgba(231, 76, 60, 1)', name: 'Red' },
+            { bg: 'rgba(26, 188, 156, 0.7)', border: 'rgba(26, 188, 156, 1)', name: 'Turquoise' },
+            { bg: 'rgba(230, 126, 34, 0.7)', border: 'rgba(230, 126, 34, 1)', name: 'Dark Orange' },
+            { bg: 'rgba(149, 165, 166, 0.7)', border: 'rgba(149, 165, 166, 1)', name: 'Gray' }
+        ];
+
+        /**
+         * Utility Functions
+         * 
+         * General helper functions used throughout the application.
+         */
+        const utils = {
+            /**
+             * Parse a numeric value from various formats
+             * Handles both comma and period decimal separators
+             * 
+             * @param {*} value - The value to parse
+             * @returns {number} - Parsed numeric value or NaN if invalid
+             */
+            parseNumericValue(value) {
+                // Handle null, undefined or empty values
+                if (value === null || value === undefined || value === '') {
+                    return NaN;
+                }
+                
+                // If already a number, just check if it's valid
+                if (typeof value === 'number') {
+                    return isNaN(value) ? NaN : value;
+                }
+                
+                // Process string values
+                let stringValue = String(value).trim();
+                
+                // Empty strings become NaN
+                if (stringValue === '') return NaN;
+                
+                // Replace comma with period for parseFloat
+                stringValue = stringValue.replace(',', '.');
+                
+                const parsed = parseFloat(stringValue);
+                return isNaN(parsed) ? NaN : parsed;
+            },
+
+            /**
+             * Calculate appropriate Y-axis range for charts
+             * Always includes zero for proper scientific visualization
+             * Maintains backward compatibility with padding parameter
+             * 
+             * @param {Array<number>} values - Array of numeric values
+             * @param {boolean|number} forceIncludeZeroOrPadding - Whether to include 0 or legacy padding value
+             * @returns {Object} - Object with min and max properties
+             */
+            calculateYAxisRange(values, forceIncludeZeroOrPadding = true) {
+                // Handle empty or invalid arrays
+                const validValues = values.filter(v => !isNaN(v) && isFinite(v));
+                if (validValues.length === 0) {
+                    return { min: 0, max: 10 };
+                }
+                
+                let min = Math.min(...validValues);
+                let max = Math.max(...validValues);
+                
+                // Handle legacy calls with numeric padding parameter
+                let forceIncludeZero = true;
+                if (typeof forceIncludeZeroOrPadding === 'number') {
+                    forceIncludeZero = false; // Legacy mode, don't force zero
+                } else {
+                    forceIncludeZero = forceIncludeZeroOrPadding;
+                }
+                
+                // Always include 0 for proper scientific visualization (unless legacy mode)
+                if (forceIncludeZero) {
+                    if (min > 0) min = 0;
+                    if (max < 0) max = 0;
+                }
+                
+                // Handle case where all values are the same
+                if (min === max) {
+                    return {
+                        min: min < 0 ? min * 1.1 : 0,
+                        max: max > 0 ? max * 1.1 : (max === 0 ? 10 : 0)
+                    };
+                }
+                
+                // Add small padding only if it doesn't hide important reference points
+                const range = max - min;
+                const padding = range * 0.05; // Reduced padding
+                
+                return {
+                    min: min - (min < 0 ? padding : 0),
+                    max: max + (max > 0 ? padding : 0)
+                };
+            },
+
+            /**
+             * Display error message to the user
+             * 
+             * @param {string} message - Error message to display
+             */
+            showError(message) {
+                const errorElement = document.getElementById('error-message');
+                const successElement = document.getElementById('success-message');
+                
+                successElement.style.display = 'none';
+                errorElement.textContent = message;
+                errorElement.style.display = 'block';
+                
+                console.error('Error:', message);
+                
+                // Auto-hide after 10 seconds
+                setTimeout(() => {
+                    errorElement.style.display = 'none';
+                }, 10000);
+            },
+
+            /**
+             * Display success message to the user
+             * 
+             * @param {string} message - Success message to display
+             */
+            showSuccess(message) {
+                const errorElement = document.getElementById('error-message');
+                const successElement = document.getElementById('success-message');
+                
+                errorElement.style.display = 'none';
+                successElement.textContent = message;
+                successElement.style.display = 'block';
+                
+                // Auto-hide after 5 seconds
+                setTimeout(() => {
+                    successElement.style.display = 'none';
+                }, 5000);
+            },
+
+            /**
+             * Safely destroy a chart instance
+             * 
+             * @param {string} chartId - ID of the chart to destroy
+             */
+            destroyChart(chartId) {
+                if (globalState.charts[chartId]) {
+                    try {
+                        globalState.charts[chartId].destroy();
+                    } catch (e) {
+                        console.warn('Error destroying chart:', chartId, e);
+                    }
+                    delete globalState.charts[chartId];
+                }
+            },
+
+            /**
+             * Destroy all chart instances
+             */
+            destroyAllCharts() {
+                Object.keys(globalState.charts).forEach(chartId => {
+                    this.destroyChart(chartId);
+                });
+            },
+
+            /**
+             * Set application loading state
+             * 
+             * @param {boolean} isLoading - Whether the app is in loading state
+             */
+            setLoading(isLoading) {
+                globalState.isProcessing = isLoading;
+                const loadingElement = document.getElementById('loading');
+                loadingElement.style.display = isLoading ? 'flex' : 'none';
+            },
+            
+            /**
+             * Format a number with thousands separators and fixed decimals
+             * 
+             * @param {number} value - Number to format
+             * @param {number} decimals - Number of decimal places
+             * @returns {string} - Formatted number string
+             */
+            formatNumber(value, decimals = 2) {
+                if (value === null || value === undefined || isNaN(value)) {
+                    return '-';
+                }
+                
+                // Format with fixed decimals
+                const fixed = value.toFixed(decimals);
+                
+                // Add thousands separator
+                const parts = fixed.split('.');
+                parts[0] = parts[0].replace(/\B(?=(\d{3})+(?!\d))/g, ',');
+                
+                return parts.join('.');
+            },
+            
+            /**
+             * Export a table to CSV format
+             * 
+             * @param {string} tableId - ID of the HTML table
+             * @param {string} filename - Name for the exported file
+             */
+            exportTableToCSV(tableId, filename) {
+                const table = document.getElementById(tableId);
+                if (!table) return;
+                
+                let csv = '\uFEFF'; // UTF-8 BOM for Excel
+                
+                // Get headers
+                const headers = Array.from(table.querySelectorAll('thead th'))
+                    .map(th => th.textContent.trim());
+                csv += headers.join(';') + '\n';
+                
+                // Get rows
+                const rows = table.querySelectorAll('tbody tr');
+                rows.forEach(row => {
+                    const cells = Array.from(row.querySelectorAll('td'))
+                        .map(cell => {
+                            // Escape quotes and handle semicolons
+                            let content = cell.textContent.trim();
+                            if (content.includes(';') || content.includes('"')) {
+                                content = '"' + content.replace(/"/g, '""') + '"';
+                            }
+                            return content;
+                        });
+                    csv += cells.join(';') + '\n';
+                });
+                
+                // Create download
+                const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
+                const link = document.createElement('a');
+                const url = URL.createObjectURL(blob);
+                
+                link.setAttribute('href', url);
+                link.setAttribute('download', `${filename}_${new Date().toISOString().slice(0,10)}.csv`);
+                link.style.visibility = 'hidden';
+                
+                document.body.appendChild(link);
+                link.click();
+                document.body.removeChild(link);
+                
+                URL.revokeObjectURL(url);
+            },
+            
+            /**
+             * Generate a text representation of a group definition
+             * Used for exporting group definitions to text format
+             * 
+             * @param {Object} group - Group definition object
+             * @returns {string} - Text representation of the group
+             */
+            groupDefinitionToText(group) {
+                let text = `[${group.name}]\n`;
+                
+                group.conditions.forEach((condition, index) => {
+                    let conditionText = `Condition_${index + 1}: ${condition.parameter} `;
+                    
+                    switch (condition.operator) {
+                        case '<': conditionText += '< '; break;
+                        case '<=': conditionText += '<= '; break;
+                        case '=': conditionText += '= '; break;
+                        case '>=': conditionText += '>= '; break;
+                        case '>': conditionText += '> '; break;
+                        case '!=': conditionText += '!= '; break;
+                        default: conditionText += `${condition.operator} `;
+                    }
+                    
+                    conditionText += condition.value;
+                    
+                    text += conditionText + '\n';
+                });
+                
+                if (group.conditions.length > 1) {
+                    text += 'Connection: AND\n';
+                }
+                
+                text += '\n';
+                return text;
+            }
+        };
+
+        /**
+         * Statistical Functions
+         * 
+         * Functions for calculating various statistical metrics and performing
+         * statistical tests on data.
+         */
+        const statistics = {
+            /**
+             * Calculate comprehensive statistical metrics for a set of values
+             * 
+             * @param {Array<number>} values - Array of numeric values
+             * @returns {Object} - Object containing calculated statistics
+             */
+            calculate(values) {
+                // Filter out invalid values
+                const validValues = values.filter(v => !isNaN(v) && isFinite(v));
+                
+                if (validValues.length === 0) {
+                    return {
+                        count: 0,
+                        min: null,
+                        max: null,
+                        mean: null,
+                        median: null,
+                        stdDev: null,
+                        variance: null,
+                        q1: null,
+                        q3: null,
+                        iqr: null,
+                        range: null,
+                        sum: null
+                    };
+                }
+
+                // Sort values for quantile calculations
+                const sorted = [...validValues].sort((a, b) => a - b);
+                const n = sorted.length;
+
+                // Basic statistics
+                const min = sorted[0];
+                const max = sorted[n - 1];
+                const range = max - min;
+                const sum = validValues.reduce((acc, val) => acc + val, 0);
+                const mean = sum / n;
+
+                // Median
+                let median;
+                if (n % 2 === 0) {
+                    median = (sorted[Math.floor(n / 2) - 1] + sorted[Math.floor(n / 2)]) / 2;
+                } else {
+                    median = sorted[Math.floor(n / 2)];
+                }
+
+                // Variance and standard deviation
+                let variance = 0;
+                let stdDev = 0;
+                if (n > 1) {
+                    // Use sample variance formula (n-1 denominator)
+                    variance = validValues.reduce((acc, val) => acc + Math.pow(val - mean, 2), 0) / (n - 1);
+                    stdDev = Math.sqrt(variance);
+                }
+
+                // Quartiles and IQR
+                const q1 = this.quantile(sorted, 0.25);
+                const q3 = this.quantile(sorted, 0.75);
+                const iqr = q3 - q1;
+
+                return {
+                    count: n,
+                    min: min,
+                    max: max,
+                    mean: mean,
+                    median: median,
+                    stdDev: stdDev,
+                    variance: variance,
+                    q1: q1,
+                    q3: q3,
+                    iqr: iqr,
+                    range: range,
+                    sum: sum
+                };
+            },
+
+            /**
+             * Calculate a specific quantile from sorted data
+             * 
+             * @param {Array<number>} sortedArray - Array of values sorted in ascending order
+             * @param {number} q - Quantile to calculate (0-1)
+             * @returns {number|null} - Calculated quantile or null if array is empty
+             */
+            quantile(sortedArray, q) {
+                if (sortedArray.length === 0) return null;
+                
+                const pos = (sortedArray.length - 1) * q;
+                const base = Math.floor(pos);
+                const rest = pos - base;
+                
+                if (sortedArray[base + 1] !== undefined) {
+                    return sortedArray[base] + rest * (sortedArray[base + 1] - sortedArray[base]);
+                } else {
+                    return sortedArray[base];
+                }
+            },
+
+            /**
+             * Perform Student's t-test between two groups
+             * 
+             * @param {Array<number>} group1 - Values from first group
+             * @param {Array<number>} group2 - Values from second group
+             * @param {Object} options - Test options (alpha, direction)
+             * @returns {Object|null} - Test results or null if test cannot be performed
+             */
+            tTest(group1, group2, options = {}) {
+                const stats1 = this.calculate(group1);
+                const stats2 = this.calculate(group2);
+                
+                // Default options
+                const alpha = options.alpha || 0.05;
+                const direction = options.direction || 'two-sided';
+                
+                // Need at least 2 observations in each group for t-test
+                if (stats1.count < 2 || stats2.count < 2) {
+                    return null;
+                }
+
+                // Calculate pooled variance
+                const pooledVariance = ((stats1.count - 1) * stats1.variance + (stats2.count - 1) * stats2.variance) 
+                                     / (stats1.count + stats2.count - 2);
+                
+                // Calculate t-statistic
+                const t = (stats1.mean - stats2.mean) / 
+                         Math.sqrt(pooledVariance * (1/stats1.count + 1/stats2.count));
+                
+                // Degrees of freedom
+                const df = stats1.count + stats2.count - 2;
+                
+                // Calculate p-value based on test direction
+                let pValue;
+                
+                if (direction === 'two-sided') {
+                    // Two-sided test (default)
+                    pValue = 2 * (1 - jStat.studentt.cdf(Math.abs(t), df));
+                } else if (direction === 'left') {
+                    // Left-sided test (group1 < group2)
+                    pValue = jStat.studentt.cdf(t, df);
+                } else if (direction === 'right') {
+                    // Right-sided test (group1 > group2)
+                    pValue = 1 - jStat.studentt.cdf(t, df);
+                } else {
+                    // Fallback to two-sided if direction is invalid
+                    pValue = 2 * (1 - jStat.studentt.cdf(Math.abs(t), df));
+                }
+                
+                // Calculate effect size (Cohen's d)
+                const effectSize = Math.abs(stats1.mean - stats2.mean) / Math.sqrt(pooledVariance);
+                
+                // Calculate confidence intervals for the difference in means
+                const criticalT = jStat.studentt.inv(1 - alpha/2, df);
+                const se = Math.sqrt(pooledVariance * (1/stats1.count + 1/stats2.count));
+                const meanDiff = stats1.mean - stats2.mean;
+                const ciLower = meanDiff - criticalT * se;
+                const ciUpper = meanDiff + criticalT * se;
+                
+                return {
+                    test: 't-Test',
+                    statistic: t,
+                    pValue: pValue,
+                    df: df,
+                    significant: pValue < alpha,
+                    alpha: alpha,
+                    direction: direction,
+                    group1Stats: stats1,
+                    group2Stats: stats2,
+                    effectSize: effectSize,
+                    meanDifference: meanDiff,
+                    confidenceInterval: [ciLower, ciUpper],
+                    confidenceLevel: 1 - alpha
+                };
+            },
+
+            /**
+             * Perform Analysis of Variance (ANOVA) across multiple groups
+             * 
+             * @param {Array<Array<number>>} groups - Arrays of values from each group
+             * @param {Object} options - Test options (alpha)
+             * @returns {Object|null} - Test results or null if test cannot be performed
+             */
+            anova(groups, options = {}) {
+                // Filter out empty groups
+                const validGroups = groups.filter(group => group.length > 0);
+                const alpha = options.alpha || 0.05;
+                
+                // Need at least 2 groups for ANOVA
+                if (validGroups.length < 2) return null;
+
+                // Combine all values for overall statistics
+                const allValues = [].concat(...validGroups);
+                const overallMean = allValues.reduce((sum, val) => sum + val, 0) / allValues.length;
+                
+                // Calculate sum of squares
+                let ssb = 0; // Sum of squares between groups
+                let ssw = 0; // Sum of squares within groups
+                
+                // Group means and counts
+                const groupStats = validGroups.map(group => {
+                    const mean = group.reduce((sum, val) => sum + val, 0) / group.length;
+                    return {
+                        n: group.length,
+                        mean: mean
+                    };
+                });
+                
+                // Calculate sum of squares between and within groups
+                validGroups.forEach((group, i) => {
+                    const groupMean = groupStats[i].mean;
+                    
+                    // Between groups
+                    ssb += group.length * Math.pow(groupMean - overallMean, 2);
+                    
+                    // Within groups
+                    group.forEach(val => {
+                        ssw += Math.pow(val - groupMean, 2);
+                    });
+                });
+                
+                // Degrees of freedom
+                const dfb = validGroups.length - 1;
+                const dfw = allValues.length - validGroups.length;
+                
+                // Mean squares
+                const msb = ssb / dfb;
+                const msw = ssw / dfw;
+                
+                // F statistic
+                const f = msb / msw;
+                
+                // P-value
+                const pValue = 1 - jStat.centralF.cdf(f, dfb, dfw);
+                
+                // Effect size (eta-squared)
+                const etaSquared = ssb / (ssb + ssw);
+                
+                return {
+                    test: 'ANOVA',
+                    statistic: f,
+                    pValue: pValue,
+                    dfBetween: dfb,
+                    dfWithin: dfw,
+                    significant: pValue < alpha,
+                    alpha: alpha,
+                    ssb: ssb,
+                    ssw: ssw,
+                    msb: msb,
+                    msw: msw,
+                    etaSquared: etaSquared,
+                    groupStats: groupStats
+                };
+            },
+            
+            /**
+             * Perform Chi-Square Test for categorical data
+             * Tests for differences in categorical variable distributions between groups
+             * 
+             * @param {string} paramName - Categorical parameter name to test
+             * @param {Object} groupData - Data object containing records for each group
+             * @param {Object} options - Test options (alpha)
+             * @returns {Object|null} - Test results or null if test cannot be performed
+             */
+            chiSquareTest(paramName, groupData, options = {}) {
+                const alpha = options.alpha || 0.05;
+                
+                // Get unique categories for the parameter
+                const categories = [...new Set(globalState.rawData
+                    .map(row => row[paramName])
+                    .filter(val => val !== null && val !== undefined && val !== ''))];
+                
+                // Get group IDs
+                const groupIds = Object.keys(groupData);
+                
+                // Need at least 2 categories and 1 group for the test
+                if (categories.length < 2 || groupIds.length < 1) {
+                    return {
+                        error: "Chi-Square test requires at least 2 categories and 1 group"
+                    };
+                }
+                
+                // Create contingency table
+                const observed = [];
+                const rowTotals = [];
+                const colTotals = Array(groupIds.length).fill(0);
+                let totalCount = 0;
+                
+                // Build observed frequencies table
+                categories.forEach(category => {
+                    const row = [];
+                    let rowTotal = 0;
+                    
+                    groupIds.forEach((groupId, colIndex) => {
+                        // Count records where parameter equals this category
+                        const count = groupData[groupId].filter(record => 
+                            String(record[paramName]) === String(category)
+                        ).length;
+                        
+                        row.push(count);
+                        rowTotal += count;
+                        colTotals[colIndex] += count;
+                        totalCount += count;
+                    });
+                    
+                    observed.push(row);
+                    rowTotals.push(rowTotal);
+                });
+                
+                // Calculate expected frequencies
+                const expected = [];
+                for (let i = 0; i < categories.length; i++) {
+                    const expectRow = [];
+                    for (let j = 0; j < groupIds.length; j++) {
+                        expectRow.push((rowTotals[i] * colTotals[j]) / totalCount);
+                    }
+                    expected.push(expectRow);
+                }
+                
+                // Check if we have any expected frequencies less than 5
+                let hasLowExpected = false;
+                for (let i = 0; i < expected.length; i++) {
+                    for (let j = 0; j < expected[i].length; j++) {
+                        if (expected[i][j] < 5) {
+                            hasLowExpected = true;
+                            break;
+                        }
+                    }
+                    if (hasLowExpected) break;
+                }
+                
+                // Calculate chi-square statistic
+                let chiSquare = 0;
+                for (let i = 0; i < observed.length; i++) {
+                    for (let j = 0; j < observed[i].length; j++) {
+                        const o = observed[i][j];
+                        const e = expected[i][j];
+                        
+                        // Skip if expected is 0 to avoid division by zero
+                        if (e > 0) {
+                            chiSquare += Math.pow(o - e, 2) / e;
+                        }
+                    }
+                }
+                
+                // Degrees of freedom
+                const df = (categories.length - 1) * (groupIds.length - 1);
+                
+                // Calculate p-value
+                const pValue = 1 - jStat.chisquare.cdf(chiSquare, df);
+                
+                // Calculate Cramer's V (effect size)
+                const minDim = Math.min(categories.length - 1, groupIds.length - 1);
+                const cramersV = Math.sqrt(chiSquare / (totalCount * minDim));
+                
+                return {
+                    test: 'Chi-Square',
+                    statistic: chiSquare,
+                    pValue: pValue,
+                    df: df,
+                    significant: pValue < alpha,
+                    alpha: alpha,
+                    cramersV: cramersV,
+                    observed: observed,
+                    expected: expected,
+                    categories: categories,
+                    groups: groupIds.map(id => globalState.currentGroups[id].name),
+                    warning: hasLowExpected ? 'Some expected frequencies are less than 5, interpret with caution.' : null
+                };
+            }
+        };
+
+        /**
+         * Event Handlers & Initialization
+         * 
+         * Setup event listeners and initialize the application.
+         */
+        document.addEventListener('DOMContentLoaded', function() {
+            setupEventListeners();
+            setupDragAndDrop();
+            setupTabs();
+            setupAboutModal();
+            setupSignificanceTestOptions();
+        });
+
+        /**
+         * Set up all event listeners for the application
+         */
+        function setupEventListeners() {
+            // File upload
+            document.getElementById('csv-file').addEventListener('change', handleFileUpload);
+            
+            // Data pagination
+            document.getElementById('rows-per-page').addEventListener('change', updateDataPagination);
+            document.getElementById('export-preview-csv').addEventListener('click', exportDataPreview);
+            
+            // Group management
+            document.getElementById('add-group').addEventListener('click', addNewGroup);
+            document.getElementById('apply-groups').addEventListener('click', applyGroupsAndAnalyze);
+            document.getElementById('reset-groups').addEventListener('click', resetGroups);
+            document.getElementById('import-groups').addEventListener('click', importGroupDefinitions);
+            document.getElementById('export-groups').addEventListener('click', exportGroupDefinitions);
+            
+            // Analysis tabs
+            document.getElementById('detail-parameter-select').addEventListener('change', updateDetailAnalysis);
+            document.getElementById('run-significance-test').addEventListener('click', runSignificanceTest);
+            document.getElementById('clear-significance-results').addEventListener('click', clearSignificanceResults);
+            document.getElementById('generate-visualization').addEventListener('click', generateCustomVisualization);
+            
+            // Export functionality
+            document.getElementById('export-csv-data').addEventListener('click', exportAnalysisResults);
+        }
+
+        /**
+         * Set up drag and drop functionality for file upload
+         */
+        function setupDragAndDrop() {
+            const fileInputArea = document.getElementById('file-input-area');
+            
+            ['dragenter', 'dragover', 'dragleave', 'drop'].forEach(eventName => {
+                fileInputArea.addEventListener(eventName, preventDefaults, false);
+            });
+            
+            function preventDefaults(e) {
+                e.preventDefault();
+                e.stopPropagation();
+            }
+            
+            ['dragenter', 'dragover'].forEach(eventName => {
+                fileInputArea.addEventListener(eventName, () => {
+                    fileInputArea.classList.add('dragover');
+                }, false);
+            });
+            
+            ['dragleave', 'drop'].forEach(eventName => {
+                fileInputArea.addEventListener(eventName, () => {
+                    fileInputArea.classList.remove('dragover');
+                }, false);
+            });
+            
+            fileInputArea.addEventListener('drop', (e) => {
+                const files = e.dataTransfer.files;
+                if (files.length > 0) {
+                    document.getElementById('csv-file').files = files;
+                    handleFileUpload({ target: { files: files } });
+                }
+            }, false);
+        }
+
+        /**
+         * Set up tab navigation
+         */
+        function setupTabs() {
+            const tabButtons = document.querySelectorAll('.tab-button');
+            
+            tabButtons.forEach(button => {
+                button.addEventListener('click', () => {
+                    // Deactivate all tabs
+                    tabButtons.forEach(btn => btn.classList.remove('active'));
+                    document.querySelectorAll('.tab-content').forEach(content => content.classList.remove('active'));
+                    
+                    // Activate selected tab
+                    button.classList.add('active');
+                    const tabId = button.getAttribute('data-tab');
+                    document.getElementById(tabId).classList.add('active');
+                    
+                    // Resize charts in active tab
+                    setTimeout(() => {
+                        Object.keys(globalState.charts).forEach(chartId => {
+                            if (globalState.charts[chartId] && document.getElementById(chartId)) {
+                                try {
+                                    globalState.charts[chartId].resize();
+                                } catch (e) {
+                                    console.warn('Chart resize error:', e);
+                                }
+                            }
+                        });
+                    }, 100);
+                });
+            });
+        }
+
+        /**
+         * Set up the about modal
+         */
+        function setupAboutModal() {
+            const aboutBtn = document.getElementById('about-btn');
+            const aboutModal = document.getElementById('about-modal');
+            const closeAbout = document.getElementById('close-about');
+            
+            aboutBtn.addEventListener('click', () => {
+                aboutModal.style.display = 'block';
+            });
+            
+            closeAbout.addEventListener('click', () => {
+                aboutModal.style.display = 'none';
+            });
+            
+            window.addEventListener('click', (e) => {
+                if (e.target === aboutModal) {
+                    aboutModal.style.display = 'none';
+                }
+            });
+        }
+
+        /**
+         * Set up significance test option interactions
+         */
+        function setupSignificanceTestOptions() {
+            const alphaSelect = document.getElementById('sig-alpha');
+            const customAlphaInput = document.getElementById('sig-custom-alpha');
+            
+            alphaSelect.addEventListener('change', () => {
+                if (alphaSelect.value === 'custom') {
+                    customAlphaInput.style.display = 'block';
+                } else {
+                    customAlphaInput.style.display = 'none';
+                }
+            });
+        }
+
+        /**
+         * Handle file upload event
+         * 
+         * @param {Event} event - File input change event
+         */
+        function handleFileUpload(event) {
+            const file = event.target.files[0];
+            if (!file) return;
+
+            if (globalState.isProcessing) {
+                utils.showError("A file is already being processed. Please wait.");
+                return;
+            }
+
+            utils.setLoading(true);
+            utils.destroyAllCharts();
+
+            const reader = new FileReader();
+            
+            reader.onload = function(e) {
+                try {
+                    // Parse CSV with PapaParse
+                    Papa.parse(e.target.result, {
+                        delimiter: ';',
+                        header: false,
+                        skipEmptyLines: true,
+                        complete: function(results) {
+                            if (results.errors.length > 0) {
+                                utils.showError("CSV parsing error: " + results.errors[0].message);
+                                utils.setLoading(false);
+                                return;
+                            }
+                            
+                            processCSVData(results.data);
+                        },
+                        error: function(error) {
+                            utils.showError("Error reading CSV file: " + error.message);
+                            utils.setLoading(false);
+                        }
+                    });
+                } catch (error) {
+                    utils.showError("Unexpected error processing file: " + error.message);
+                    utils.setLoading(false);
+                }
+            };
+            
+            reader.onerror = function() {
+                utils.showError("Error reading file");
+                utils.setLoading(false);
+            };
+            
+            reader.readAsText(file);
+        }
+
+        /**
+         * Process CSV data after parsing
+         * 
+         * @param {Array<Array>} csvRows - Parsed CSV data as array of arrays
+         */
+        function processCSVData(csvRows) {
+            try {
+                if (csvRows.length < 3) {
+                    throw new Error("CSV file must contain at least 3 rows (header, types, data)");
+                }
+
+                // Extract header and types
+                globalState.columnNames = csvRows[0];
+                const typeRow = csvRows[1];
+
+                // Map column types
+                globalState.columnTypes = {};
+                for (let i = 0; i < globalState.columnNames.length; i++) {
+                    const columnName = globalState.columnNames[i];
+                    const typeCode = typeRow[i] ? typeRow[i].toLowerCase().trim() : 'k';
+                    
+                    if (['f', 'k'].includes(typeCode)) {
+                        globalState.columnTypes[columnName] = typeCode;
+                    } else {
+                        globalState.columnTypes[columnName] = 'k'; // Default to category
+                    }
+                }
+
+                // Process data rows
+                globalState.rawData = [];
+                for (let i = 2; i < csvRows.length; i++) {
+                    const row = csvRows[i];
+                    const dataRow = {};
+                    
+                    for (let j = 0; j < globalState.columnNames.length; j++) {
+                        const columnName = globalState.columnNames[j];
+                        const cellValue = row[j] || '';
+                        const columnType = globalState.columnTypes[columnName];
+                        
+                        // Type-specific conversion
+                        if (columnType === 'f') {
+                            dataRow[columnName] = utils.parseNumericValue(cellValue);
+                        } else {
+                            dataRow[columnName] = cellValue;
+                        }
+                    }
+                    
+                    globalState.rawData.push(dataRow);
+                }
+
+                // Update UI
+                displayDataPreview();
+                initializeGroupDefinition();
+                
+                // Show containers
+                document.getElementById('data-preview-container').style.display = 'block';
+                document.getElementById('group-definition-container').style.display = 'block';
+                
+                utils.showSuccess(`File successfully loaded: ${globalState.rawData.length} records with ${globalState.columnNames.length} parameters.`);
+                
+            } catch (error) {
+                utils.showError("Error processing CSV data: " + error.message);
+            } finally {
+                utils.setLoading(false);
+            }
+        }
+
+        /**
+         * Display data preview
+         */
+        function displayDataPreview() {
+            const table = document.getElementById('data-preview-table');
+            table.innerHTML = '';
+
+            // Create header row
+            const thead = document.createElement('thead');
+            let headerRow = document.createElement('tr');
+            
+            globalState.columnNames.forEach(name => {
+                const th = document.createElement('th');
+                th.textContent = name;
+                headerRow.appendChild(th);
+            });
+            thead.appendChild(headerRow);
+
+            // Create type row
+            headerRow = document.createElement('tr');
+            globalState.columnNames.forEach(name => {
+                const th = document.createElement('th');
+                const type = globalState.columnTypes[name];
+                const typeText = type === 'f' ? 'Numeric' : 'Category';
+                th.textContent = typeText;
+                th.style.fontStyle = 'italic';
+                th.style.fontSize = '12px';
+                headerRow.appendChild(th);
+            });
+            thead.appendChild(headerRow);
+            table.appendChild(thead);
+
+            // Create data rows (paginated)
+            updateDataPagination();
+
+            // Update summary
+            const summary = document.getElementById('data-summary');
+            let summaryText = `📊 <strong>${globalState.rawData.length}</strong> records with <strong>${globalState.columnNames.length}</strong> parameters loaded`;
+            
+            const numericParams = globalState.columnNames.filter(name => globalState.columnTypes[name] === 'f').length;
+            const categoricParams = globalState.columnNames.filter(name => globalState.columnTypes[name] === 'k').length;
+            
+            summaryText += ` (${numericParams} numeric, ${categoricParams} categorical)`;
+            
+            summary.innerHTML = summaryText;
+        }
+
+        /**
+         * Update data pagination
+         */
+        function updateDataPagination() {
+            // Get pagination settings
+            const rowsPerPage = parseInt(document.getElementById('rows-per-page').value);
+            globalState.rowsPerPage = rowsPerPage;
+            
+            // Calculate total pages
+            const totalPages = Math.ceil(globalState.rawData.length / rowsPerPage);
+            
+            // Ensure current page is valid
+            if (globalState.currentPage > totalPages) {
+                globalState.currentPage = totalPages;
+            }
+            if (globalState.currentPage < 1) {
+                globalState.currentPage = 1;
+            }
+            
+            // Update table content
+            const table = document.getElementById('data-preview-table');
+            const tbody = document.createElement('tbody');
+            
+            const startIndex = (globalState.currentPage - 1) * rowsPerPage;
+            const endIndex = Math.min(startIndex + rowsPerPage, globalState.rawData.length);
+            
+            for (let i = startIndex; i < endIndex; i++) {
+                const row = globalState.rawData[i];
+                const tr = document.createElement('tr');
+                
+                globalState.columnNames.forEach(columnName => {
+                    const td = document.createElement('td');
+                    const cellValue = row[columnName];
+                    const columnType = globalState.columnTypes[columnName];
+                    
+                    if (columnType === 'f' && !isNaN(cellValue)) {
+                        td.textContent = utils.formatNumber(cellValue, 2);
+                    } else {
+                        td.textContent = cellValue || '';
+                    }
+                    
+                    tr.appendChild(td);
+                });
+                
+                tbody.appendChild(tr);
+            }
+            
+            // Replace tbody if it exists, otherwise append new one
+            const existingTbody = table.querySelector('tbody');
+            if (existingTbody) {
+                table.removeChild(existingTbody);
+            }
+            table.appendChild(tbody);
+            
+            // Update pagination controls
+            updatePaginationControls(totalPages);
+        }
+
+        /**
+         * Update pagination control buttons
+         * 
+         * @param {number} totalPages - Total number of pages
+         */
+        function updatePaginationControls(totalPages) {
+            const paginationContainer = document.getElementById('data-pagination');
+            paginationContainer.innerHTML = '';
+            
+            // "First" and "Previous" buttons
+            const firstBtn = document.createElement('button');
+            firstBtn.textContent = '««';
+            firstBtn.disabled = globalState.currentPage === 1;
+            firstBtn.addEventListener('click', () => {
+                globalState.currentPage = 1;
+                updateDataPagination();
+            });
+            paginationContainer.appendChild(firstBtn);
+            
+            const prevBtn = document.createElement('button');
+            prevBtn.textContent = '«';
+            prevBtn.disabled = globalState.currentPage === 1;
+            prevBtn.addEventListener('click', () => {
+                globalState.currentPage--;
+                updateDataPagination();
+            });
+            paginationContainer.appendChild(prevBtn);
+            
+            // Page number buttons
+            const maxButtons = 5; // Max number of page buttons to show
+            let startPage = Math.max(1, globalState.currentPage - Math.floor(maxButtons / 2));
+            let endPage = Math.min(totalPages, startPage + maxButtons - 1);
+            
+            // Adjust if we're near the end
+            if (endPage - startPage + 1 < maxButtons && startPage > 1) {
+                startPage = Math.max(1, endPage - maxButtons + 1);
+            }
+            
+            for (let i = startPage; i <= endPage; i++) {
+                const pageBtn = document.createElement('button');
+                pageBtn.textContent = i;
+                pageBtn.className = i === globalState.currentPage ? 'active' : '';
+                pageBtn.addEventListener('click', () => {
+                    globalState.currentPage = i;
+                    updateDataPagination();
+                });
+                paginationContainer.appendChild(pageBtn);
+            }
+            
+            // "Next" and "Last" buttons
+            const nextBtn = document.createElement('button');
+            nextBtn.textContent = '»';
+            nextBtn.disabled = globalState.currentPage === totalPages;
+            nextBtn.addEventListener('click', () => {
+                globalState.currentPage++;
+                updateDataPagination();
+            });
+            paginationContainer.appendChild(nextBtn);
+            
+            const lastBtn = document.createElement('button');
+            lastBtn.textContent = '»»';
+            lastBtn.disabled = globalState.currentPage === totalPages;
+            lastBtn.addEventListener('click', () => {
+                globalState.currentPage = totalPages;
+                updateDataPagination();
+            });
+            paginationContainer.appendChild(lastBtn);
+            
+            // Page info
+            const pageInfo = document.createElement('span');
+            pageInfo.textContent = ` Page ${globalState.currentPage} of ${totalPages} `;
+            pageInfo.style.margin = '0 10px';
+            paginationContainer.appendChild(pageInfo);
+        }
+
+        /**
+         * Export data preview as CSV
+         */
+        function exportDataPreview() {
+            if (globalState.rawData.length === 0) {
+                utils.showError("No data to export.");
+                return;
+            }
+            
+            let csvContent = '\uFEFF'; // UTF-8 BOM for Excel
+            
+            // Headers
+            csvContent += globalState.columnNames.join(';') + '\n';
+            
+            // Type row
+            csvContent += globalState.columnNames.map(name => globalState.columnTypes[name]).join(';') + '\n';
+            
+            // Data rows
+            globalState.rawData.forEach(row => {
+                let rowData = globalState.columnNames.map(columnName => {
+                    let cellValue = '';
+                    const value = row[columnName];
+                    const columnType = globalState.columnTypes[columnName];
+                    
+                    if (value !== undefined && value !== null) {
+                        if (columnType === 'f' && !isNaN(value)) {
+                            cellValue = value.toString().replace('.', ','); // Use comma for decimal separator
+                        } else {
+                            cellValue = String(value);
+                        }
+                        
+                        // Escape semicolons in data
+                        if (cellValue.includes(';')) {
+                            cellValue = `"${cellValue}"`;
+                        }
+                    }
+                    
+                    return cellValue;
+                }).join(';');
+                
+                csvContent += rowData + '\n';
+            });
+            
+            // Create download
+            const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+            const link = document.createElement('a');
+            const url = URL.createObjectURL(blob);
+            
+            link.setAttribute('href', url);
+            link.setAttribute('download', `data_export_${new Date().toISOString().slice(0,10)}.csv`);
+            link.style.visibility = 'hidden';
+            
+            document.body.appendChild(link);
+            link.click();
+            document.body.removeChild(link);
+            
+            URL.revokeObjectURL(url);
+            utils.showSuccess('Data successfully exported!');
+        }
+
+        /**
+         * Initialize group definition interface
+         */
+        function initializeGroupDefinition() {
+            const container = document.getElementById('parameter-groups');
+            container.innerHTML = '';
+            
+            globalState.groupDefinitions = [];
+            globalState.currentGroups = {};
+            globalState.processedData = {};
+            
+            // Add first group
+            addNewGroup();
+        }
+
+        /**
+         * Add a new parameter group
+         */
+        function addNewGroup() {
+            const container = document.getElementById('parameter-groups');
+            const groupIndex = container.children.length;
+            
+            const groupDiv = document.createElement('div');
+            groupDiv.className = 'parameter-group';
+            groupDiv.dataset.groupIndex = groupIndex;
+            
+            // Group header
+            const header = document.createElement('div');
+            header.className = 'parameter-group-title';
+            
+            const title = document.createElement('h3');
+            title.textContent = `Subgroup ${groupIndex + 1}`;
+            
+            const removeBtn = document.createElement('button');
+            removeBtn.className = 'btn btn-danger btn-small';
+            removeBtn.textContent = 'Remove';
+            removeBtn.style.display = groupIndex === 0 ? 'none' : 'inline-block';
+            removeBtn.addEventListener('click', () => {
+                container.removeChild(groupDiv);
+                updateGroupNumbers();
+            });
+            
+            header.appendChild(title);
+            header.appendChild(removeBtn);
+            groupDiv.appendChild(header);
+            
+            // Parameter container
+            const paramContainer = document.createElement('div');
+            paramContainer.className = 'parameter-controls';
+            groupDiv.appendChild(paramContainer);
+            
+            // Add parameter button
+            const addParamBtn = document.createElement('button');
+            addParamBtn.className = 'btn btn-accent btn-small';
+            addParamBtn.textContent = 'Add Parameter';
+            addParamBtn.addEventListener('click', () => {
+                addParameterControl(paramContainer);
+            });
+            groupDiv.appendChild(addParamBtn);
+            
+            // Add first parameter
+            addParameterControl(paramContainer);
+            
+            container.appendChild(groupDiv);
+        }
+
+        /**
+         * Add a parameter control to a group
+         * 
+         * @param {HTMLElement} container - Container for the parameter control
+         */
+        function addParameterControl(container) {
+            const controlDiv = document.createElement('div');
+            controlDiv.className = 'parameter-control';
+            
+            // Parameter select
+            const paramLabel = document.createElement('label');
+            paramLabel.textContent = 'Parameter:';
+            controlDiv.appendChild(paramLabel);
+            
+            const paramSelect = document.createElement('select');
+            paramSelect.className = 'param-select';
+            
+            // Default "no parameter" option
+            const defaultOption = document.createElement('option');
+            defaultOption.value = '';
+            defaultOption.textContent = 'Select parameter...';
+            paramSelect.appendChild(defaultOption);
+            
+            // Add available parameters
+            globalState.columnNames.forEach(name => {
+                const option = document.createElement('option');
+                option.value = name;
+                option.textContent = name;
+                paramSelect.appendChild(option);
+            });
+            
+            controlDiv.appendChild(paramSelect);
+            
+            // Condition container
+            const conditionContainer = document.createElement('div');
+            conditionContainer.className = 'condition-controls';
+            controlDiv.appendChild(conditionContainer);
+            
+            // Distribution info container
+            const groupDistribution = document.createElement('div');
+            groupDistribution.className = 'group-distribution';
+            groupDistribution.style.display = 'none';
+            controlDiv.appendChild(groupDistribution);
+            
+            // Info container
+            const infoDiv = document.createElement('div');
+            infoDiv.className = 'parameter-info';
+            controlDiv.appendChild(infoDiv);
+            
+            // Event listener for parameter change
+            paramSelect.addEventListener('change', () => {
+                const selectedParam = paramSelect.value;
+                updateConditionControls(conditionContainer, infoDiv, groupDistribution, selectedParam);
+            });
+            
+            // Remove button
+            const removeBtn = document.createElement('button');
+            removeBtn.className = 'btn btn-danger btn-small';
+            removeBtn.textContent = 'Remove Parameter';
+            removeBtn.style.marginTop = '10px';
+            removeBtn.addEventListener('click', () => {
+                container.removeChild(controlDiv);
+            });
+            controlDiv.appendChild(removeBtn);
+            
+            container.appendChild(controlDiv);
+        }
+
+        /**
+         * Update condition controls based on selected parameter
+         * 
+         * @param {HTMLElement} container - Container for condition controls
+         * @param {HTMLElement} infoDiv - Container for parameter info
+         * @param {HTMLElement} distributionDiv - Container for distribution info
+         * @param {string} paramName - Selected parameter name
+         */
+        function updateConditionControls(container, infoDiv, distributionDiv, paramName) {
+            container.innerHTML = '';
+            infoDiv.innerHTML = '';
+            distributionDiv.innerHTML = '';
+            distributionDiv.style.display = 'none';
+            
+            if (!paramName) return;
+            
+            const paramType = globalState.columnTypes[paramName];
+            
+            if (paramType === 'f') {
+                // Numeric parameter
+                const operatorSelect = document.createElement('select');
+                operatorSelect.className = 'condition-operator';
+                
+                ['<', '<=', '=', '>=', '>', '!='].forEach(op => {
+                    const option = document.createElement('option');
+                    option.value = op;
+                    option.textContent = op;
+                    operatorSelect.appendChild(option);
+                });
+                
+                const valueInput = document.createElement('input');
+                valueInput.type = 'number';
+                valueInput.className = 'condition-value';
+                valueInput.step = 'any';
+                valueInput.placeholder = 'Enter value';
+                
+                container.appendChild(operatorSelect);
+                container.appendChild(valueInput);
+                
+                // Calculate statistics and show info
+                const values = globalState.rawData
+                    .map(row => utils.parseNumericValue(row[paramName]))
+                    .filter(val => !isNaN(val));
+                
+                if (values.length > 0) {
+                    const stats = statistics.calculate(values);
+                    valueInput.value = stats.median.toFixed(2);
+                    
+                    infoDiv.innerHTML = `
+                        <strong>Statistics for ${paramName}:</strong><br>
+                        Min: ${stats.min.toFixed(2)} | Max: ${stats.max.toFixed(2)}<br>
+                        Median: ${stats.median.toFixed(2)} | Mean: ${stats.mean.toFixed(2)}
+                    `;
+                    
+                    // Setup threshold distribution update
+                    valueInput.addEventListener('input', () => {
+                        updateNumericDistribution(paramName, operatorSelect.value, utils.parseNumericValue(valueInput.value), distributionDiv);
+                    });
+                    
+                    operatorSelect.addEventListener('change', () => {
+                        updateNumericDistribution(paramName, operatorSelect.value, utils.parseNumericValue(valueInput.value), distributionDiv);
+                    });
+                    
+                    // Initial distribution update
+                    updateNumericDistribution(paramName, operatorSelect.value, stats.median, distributionDiv);
+                }
+            } else if (paramType === 'k') {
+                // Categorical parameter
+                const operatorSelect = document.createElement('select');
+                operatorSelect.className = 'condition-operator';
+                
+                const equalOption = document.createElement('option');
+                equalOption.value = '=';
+                equalOption.textContent = 'is';
+                operatorSelect.appendChild(equalOption);
+                
+                const notEqualOption = document.createElement('option');
+                notEqualOption.value = '!=';
+                notEqualOption.textContent = 'is not';
+                operatorSelect.appendChild(notEqualOption);
+                
+                const valueSelect = document.createElement('select');
+                valueSelect.className = 'condition-value';
+                
+                // Collect unique values
+                const uniqueValues = [...new Set(globalState.rawData
+                    .map(row => row[paramName])
+                    .filter(val => val !== null && val !== undefined && val !== ''))];
+                
+                uniqueValues.sort().forEach(value => {
+                    const option = document.createElement('option');
+                    option.value = value;
+                    option.textContent = value;
+                    valueSelect.appendChild(option);
+                });
+                
+                container.appendChild(operatorSelect);
+                container.appendChild(valueSelect);
+                
+                infoDiv.innerHTML = `
+                    <strong>Categories for ${paramName}:</strong><br>
+                    ${uniqueValues.length} unique values: ${uniqueValues.slice(0, 5).join(', ')}${uniqueValues.length > 5 ? '...' : ''}
+                `;
+                
+                // Setup category distribution update
+                valueSelect.addEventListener('change', () => {
+                    updateCategoryDistribution(paramName, operatorSelect.value, valueSelect.value, distributionDiv);
+                });
+                
+                operatorSelect.addEventListener('change', () => {
+                    updateCategoryDistribution(paramName, operatorSelect.value, valueSelect.value, distributionDiv);
+                });
+                
+                // Initial distribution update
+                if (uniqueValues.length > 0) {
+                    updateCategoryDistribution(paramName, operatorSelect.value, uniqueValues[0], distributionDiv);
+                }
+            } 
+        }
+
+        /**
+         * Update distribution info for numeric parameter
+         * 
+         * @param {string} paramName - Parameter name
+         * @param {string} operator - Comparison operator
+         * @param {number} threshold - Threshold value
+         * @param {HTMLElement} container - Container to update
+         */
+        function updateNumericDistribution(paramName, operator, threshold, container) {
+            if (isNaN(threshold)) {
+                container.style.display = 'none';
+                return;
+            }
+            
+            const values = globalState.rawData
+                .map(row => utils.parseNumericValue(row[paramName]))
+                .filter(val => !isNaN(val));
+            
+            if (values.length === 0) {
+                container.style.display = 'none';
+                return;
+            }
+            
+            // Count values matching the condition
+            let matchCount = 0;
+            
+            switch (operator) {
+                case '<': matchCount = values.filter(v => v < threshold).length; break;
+                case '<=': matchCount = values.filter(v => v <= threshold).length; break;
+                case '=': matchCount = values.filter(v => Math.abs(v - threshold) < 0.001).length; break;
+                case '>=': matchCount = values.filter(v => v >= threshold).length; break;
+                case '>': matchCount = values.filter(v => v > threshold).length; break;
+                case '!=': matchCount = values.filter(v => Math.abs(v - threshold) >= 0.001).length; break;
+            }
+            
+            const totalCount = values.length;
+            const matchPercent = (matchCount / totalCount * 100).toFixed(1);
+            const inversePercent = (100 - parseFloat(matchPercent)).toFixed(1);
+            
+            container.innerHTML = `
+                <div><strong>Distribution for ${paramName} ${operator} ${threshold}:</strong></div>
+                <div>Matching: ${matchCount} records (${matchPercent}%)</div>
+                <div class="distribution-bar">
+                    <div class="distribution-fill" style="width: ${matchPercent}%"></div>
+                </div>
+                <div>Non-matching: ${totalCount - matchCount} records (${inversePercent}%)</div>
+            `;
+            
+            container.style.display = 'block';
+        }
+
+        /**
+         * Update distribution info for categorical parameter
+         * 
+         * @param {string} paramName - Parameter name
+         * @param {string} operator - Comparison operator
+         * @param {string} category - Category value
+         * @param {HTMLElement} container - Container to update
+         */
+        function updateCategoryDistribution(paramName, operator, category, container) {
+            if (!category) {
+                container.style.display = 'none';
+                return;
+            }
+            
+            const values = globalState.rawData
+                .map(row => row[paramName])
+                .filter(val => val !== null && val !== undefined);
+            
+            if (values.length === 0) {
+                container.style.display = 'none';
+                return;
+            }
+            
+            // Count values matching the condition
+            let matchCount = 0;
+            
+            switch (operator) {
+                case '=': matchCount = values.filter(v => String(v) === String(category)).length; break;
+                case '!=': matchCount = values.filter(v => String(v) !== String(category)).length; break;
+            }
+            
+            const totalCount = values.length;
+            const matchPercent = (matchCount / totalCount * 100).toFixed(1);
+            const inversePercent = (100 - parseFloat(matchPercent)).toFixed(1);
+            
+            container.innerHTML = `
+                <div><strong>Distribution for ${paramName} ${operator} "${category}":</strong></div>
+                <div>Matching: ${matchCount} records (${matchPercent}%)</div>
+                <div class="distribution-bar">
+                    <div class="distribution-fill" style="width: ${matchPercent}%"></div>
+                </div>
+                <div>Non-matching: ${totalCount - matchCount} records (${inversePercent}%)</div>
+            `;
+            
+            container.style.display = 'block';
+        }
+
+        /**
+         * Update group numbers after removing a group
+         */
+        function updateGroupNumbers() {
+            const groups = document.querySelectorAll('.parameter-group');
+            groups.forEach((group, index) => {
+                group.dataset.groupIndex = index;
+                const title = group.querySelector('h3');
+                title.textContent = `Subgroup ${index + 1}`;
+                
+                const removeBtn = group.querySelector('.parameter-group-title .btn-danger');
+                removeBtn.style.display = index === 0 ? 'none' : 'inline-block';
+            });
+        }
+
+        /**
+         * Apply groups and analyze data
+         */
+        function applyGroupsAndAnalyze() {
+            if (globalState.isProcessing) {
+                utils.showError("An analysis is already in progress. Please wait.");
+                return;
+            }
+
+            utils.setLoading(true);
+            
+            setTimeout(() => {
+                try {
+                    // Collect group definitions
+                    collectGroupDefinitions();
+                    
+                    if (globalState.groupDefinitions.length === 0) {
+                        throw new Error("Please define at least one group with at least one parameter.");
+                    }
+                    
+                    // Filter data into groups
+                    filterDataIntoGroups();
+                    
+                    // Update analysis results
+                    updateAnalysisResults();
+                    
+                    // Show results
+                    document.getElementById('analysis-results').style.display = 'block';
+                    
+                    utils.showSuccess(`Analysis complete! ${Object.keys(globalState.currentGroups).length} groups created.`);
+                    
+                    // Scroll to results
+                    document.getElementById('analysis-results').scrollIntoView({ behavior: 'smooth' });
+                    
+                } catch (error) {
+                    utils.showError("Error in group analysis: " + error.message);
+                } finally {
+                    utils.setLoading(false);
+                }
+            }, 100);
+        }
+
+        /**
+         * Collect group definitions from the UI
+         */
+        function collectGroupDefinitions() {
+            globalState.groupDefinitions = [];
+            
+            const groups = document.querySelectorAll('.parameter-group');
+            
+            groups.forEach((groupElement, index) => {
+                const paramControls = groupElement.querySelectorAll('.parameter-control');
+                const conditions = [];
+                
+                paramControls.forEach(control => {
+                    const paramSelect = control.querySelector('.param-select');
+                    const operatorSelect = control.querySelector('.condition-operator');
+                    
+                    if (!paramSelect || !operatorSelect || !paramSelect.value) return;
+                    
+                    const paramName = paramSelect.value;
+                    const operator = operatorSelect.value;
+                    const paramType = globalState.columnTypes[paramName];
+                    
+                    let conditionValue;
+                    
+                    const valueElement = control.querySelector('.condition-value');
+                    if (valueElement) {
+                        if (paramType === 'f') {
+                            conditionValue = utils.parseNumericValue(valueElement.value);
+                        } else {
+                            conditionValue = valueElement.value;
+                        }
+                    }
+                    
+                    if (conditionValue !== undefined && conditionValue !== null) {
+                        conditions.push({
+                            parameter: paramName,
+                            operator: operator,
+                            value: conditionValue,
+                            type: paramType
+                        });
+                    }
+                });
+                
+                if (conditions.length > 0) {
+                    globalState.groupDefinitions.push({
+                        id: `group_${index}`,
+                        name: `Group ${index + 1}`,
+                        conditions: conditions
+                    });
+                }
+            });
+        }
+
+        /**
+         * Filter data into defined groups
+         */
+        function filterDataIntoGroups() {
+            globalState.processedData = {
+                ungrouped: []
+            };
+            
+            globalState.currentGroups = {};
+            
+            // Initialize groups
+            globalState.groupDefinitions.forEach(group => {
+                globalState.processedData[group.id] = [];
+                globalState.currentGroups[group.id] = {
+                    name: group.name,
+                    count: 0
+                };
+            });
+            
+            // Check each record
+            globalState.rawData.forEach(row => {
+                let assigned = false;
+                
+                // Check against each group definition
+                for (const group of globalState.groupDefinitions) {
+                    if (checkRowAgainstConditions(row, group.conditions)) {
+                        globalState.processedData[group.id].push(row);
+                        assigned = true;
+                        break; // First matching group wins
+                    }
+                }
+                
+                // If not assigned, put in ungrouped
+                if (!assigned) {
+                    globalState.processedData.ungrouped.push(row);
+                }
+            });
+            
+            // Update group counts
+            Object.keys(globalState.currentGroups).forEach(groupId => {
+                globalState.currentGroups[groupId].count = globalState.processedData[groupId].length;
+            });
+            
+            // Add ungrouped if any
+            if (globalState.processedData.ungrouped.length > 0) {
+                globalState.currentGroups.ungrouped = {
+                    name: 'Ungrouped',
+                    count: globalState.processedData.ungrouped.length
+                };
+            }
+        }
+
+        /**
+         * Check if a row matches all conditions in a group
+         * 
+         * @param {Object} row - Data row to check
+         * @param {Array} conditions - Array of condition objects
+         * @returns {boolean} - True if row matches all conditions
+         */
+        function checkRowAgainstConditions(row, conditions) {
+            return conditions.every(condition => {
+                const value = row[condition.parameter];
+                const { operator, value: conditionValue, type } = condition;
+                
+                if (type === 'f') {
+                    const numValue = utils.parseNumericValue(value);
+                    const numConditionValue = utils.parseNumericValue(conditionValue);
+                    
+                    if (isNaN(numValue) || isNaN(numConditionValue)) return false;
+                    
+                    switch (operator) {
+                        case '<': return numValue < numConditionValue;
+                        case '<=': return numValue <= numConditionValue;
+                        case '=': return Math.abs(numValue - numConditionValue) < 0.001; // Floating-point tolerance
+                        case '>=': return numValue >= numConditionValue;
+                        case '>': return numValue > numConditionValue;
+                        case '!=': return Math.abs(numValue - numConditionValue) >= 0.001;
+                        default: return false;
+                    }
+                } else if (type === 'k') {
+                    if (value === null || value === undefined) return false;
+                    
+                    switch (operator) {
+                        case '=': return String(value) === String(conditionValue);
+                        case '!=': return String(value) !== String(conditionValue);
+                        default: return false;
+                    }
+                }
+                
+                return false;
+            });
+        }
+
+        /**
+         * Update analysis results
+         */
+        function updateAnalysisResults() {
+            updateOverviewTab();
+            updateParameterDropdowns();
+            
+            // Automatically select first numeric parameter for detailed analysis
+            const numericParams = globalState.columnNames.filter(name => globalState.columnTypes[name] === 'f');
+            if (numericParams.length > 0) {
+                document.getElementById('detail-parameter-select').value = numericParams[0];
+                updateDetailAnalysis();
+            }
+        }
+
+        /**
+         * Update overview tab with summary statistics
+         */
+        function updateOverviewTab() {
+            // Group summary table
+            const summaryContainer = document.getElementById('group-summary-table');
+            let html = '<table style="width: 100%;"><thead><tr><th>Group</th><th>Count</th><th>Percent</th></tr></thead><tbody>';
+            
+            const totalPatients = globalState.rawData.length;
+            
+            Object.entries(globalState.currentGroups).forEach(([groupId, group], index) => {
+                const percentage = ((group.count / totalPatients) * 100).toFixed(1);
+                const colorIndex = groupId === 'ungrouped' ? 7 : index % groupColors.length;
+                
+                html += `
+                    <tr>
+                        <td>
+                            <span class="group-badge" style="background-color: ${groupColors[colorIndex].bg};">
+                                ${group.name}
+                            </span>
+                        </td>
+                        <td><strong>${group.count}</strong></td>
+                        <td>${percentage}%</td>
+                    </tr>
+                `;
+            });
+            
+            html += `
+                <tr style="border-top: 2px solid #333; font-weight: bold;">
+                    <td>Total</td>
+                    <td>${totalPatients}</td>
+                    <td>100%</td>
+                </tr>
+            `;
+            html += '</tbody></table>';
+            summaryContainer.innerHTML = html;
+            
+            // Group distribution chart
+            updateGroupDistributionChart();
+            
+            // Overview statistics table
+            updateOverviewStatsTable();
+        }
+
+        /**
+         * Update group distribution chart
+         */
+        function updateGroupDistributionChart() {
+            const ctx = document.getElementById('group-distribution-chart').getContext('2d');
+            
+            const labels = Object.values(globalState.currentGroups).map(group => group.name);
+            const data = Object.values(globalState.currentGroups).map(group => group.count);
+            
+            const backgroundColors = Object.keys(globalState.currentGroups).map((groupId, index) => {
+                const colorIndex = groupId === 'ungrouped' ? 7 : index % groupColors.length;
+                return groupColors[colorIndex].bg;
+            });
+            
+            const borderColors = Object.keys(globalState.currentGroups).map((groupId, index) => {
+                const colorIndex = groupId === 'ungrouped' ? 7 : index % groupColors.length;
+                return groupColors[colorIndex].border;
+            });
+            
+            utils.destroyChart('group-distribution-chart');
+            
+            globalState.charts['group-distribution-chart'] = new Chart(ctx, {
+                type: 'doughnut',
+                data: {
+                    labels: labels,
+                    datasets: [{
+                        data: data,
+                        backgroundColor: backgroundColors,
+                        borderColor: borderColors,
+                        borderWidth: 2
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: {
+                        title: {
+                            display: true,
+                            text: 'Distribution of Records',
+                            font: { size: 16 }
+                        },
+                        legend: {
+                            position: 'bottom'
+                        },
+                        tooltip: {
+                            callbacks: {
+                                label: function(context) {
+                                    const label = context.label || '';
+                                    const value = context.parsed;
+                                    const total = context.dataset.data.reduce((a, b) => a + b, 0);
+                                    const percentage = ((value / total) * 100).toFixed(1);
+                                    return `${label}: ${value} (${percentage}%)`;
+                                }
+                            }
+                        }
+                    }
+                }
+            });
+        }
+
+        /**
+         * Update overview statistics table
+         */
+        function updateOverviewStatsTable() {
+            const table = document.getElementById('overview-stats-table');
+            let html = '<thead><tr><th>Parameter</th><th>Group</th><th>N</th><th>Mean</th><th>Median</th><th>Std Dev</th><th>Min</th><th>Max</th><th>Q1</th><th>Q3</th></tr></thead><tbody>';
+            
+            // Only numeric parameters
+            const numericParams = globalState.columnNames.filter(name => globalState.columnTypes[name] === 'f');
+            
+            numericParams.forEach(paramName => {
+                Object.entries(globalState.currentGroups).forEach(([groupId, group], index) => {
+                    const groupData = globalState.processedData[groupId]
+                        .map(row => utils.parseNumericValue(row[paramName]))
+                        .filter(val => !isNaN(val));
+                    
+                    const stats = statistics.calculate(groupData);
+                    const colorIndex = groupId === 'ungrouped' ? 7 : index % groupColors.length;
+                    
+                    html += `
+                        <tr>
+                            <td><strong>${paramName}</strong></td>
+                            <td>
+                                <span class="group-badge" style="background-color: ${groupColors[colorIndex].bg};">
+                                    ${group.name}
+                                </span>
+                            </td>
+                            <td>${stats.count}</td>
+                            <td>${stats.mean !== null ? utils.formatNumber(stats.mean, 2) : '-'}</td>
+                            <td>${stats.median !== null ? utils.formatNumber(stats.median, 2) : '-'}</td>
+                            <td>${stats.stdDev !== null ? utils.formatNumber(stats.stdDev, 2) : '-'}</td>
+                            <td>${stats.min !== null ? utils.formatNumber(stats.min, 2) : '-'}</td>
+                            <td>${stats.max !== null ? utils.formatNumber(stats.max, 2) : '-'}</td>
+                            <td>${stats.q1 !== null ? utils.formatNumber(stats.q1, 2) : '-'}</td>
+                            <td>${stats.q3 !== null ? utils.formatNumber(stats.q3, 2) : '-'}</td>
+                        </tr>
+                    `;
+                });
+            });
+            
+            html += '</tbody>';
+            table.innerHTML = html;
+        }
+
+        /**
+         * Update parameter dropdowns across the application
+         */
+        function updateParameterDropdowns() {
+            // Detailed analysis
+            const detailSelect = document.getElementById('detail-parameter-select');
+            detailSelect.innerHTML = '<option value="">Select parameter</option>';
+            
+            // Significance test
+            const sigSelect = document.getElementById('sig-parameter-select');
+            sigSelect.innerHTML = '<option value="">Select parameter</option>';
+            
+            // Visualization
+            const vizXSelect = document.getElementById('viz-parameter-x');
+            const vizYSelect = document.getElementById('viz-parameter-y');
+            vizXSelect.innerHTML = '<option value="">Select parameter</option>';
+            vizYSelect.innerHTML = '<option value="">Select parameter</option>';
+            
+            // Add all parameters
+            globalState.columnNames.forEach(name => {
+                const type = globalState.columnTypes[name];
+                
+                // Add parameter to all dropdowns
+                const vizXOption = new Option(name, name);
+                vizXSelect.add(vizXOption);
+                
+                const sigOption = new Option(name, name);
+                sigSelect.add(sigOption);
+                
+                // Detailed analysis and Y-axis: numeric parameters only
+                if (type === 'f') {
+                    const detailOption = new Option(name, name);
+                    detailSelect.add(detailOption);
+                    
+                    const vizYOption = new Option(name, name);
+                    vizYSelect.add(vizYOption);
+                }
+            });
+            
+            // Update significance test groups
+            updateSignificanceGroupSelection();
+        }
+
+        /**
+         * Update detailed analysis based on selected parameter
+         */
+        function updateDetailAnalysis() {
+            const paramName = document.getElementById('detail-parameter-select').value;
+            
+            if (!paramName || globalState.columnTypes[paramName] !== 'f') {
+                // Show empty content
+                document.getElementById('detail-analysis-content').innerHTML = 
+                    '<p style="text-align: center; color: #666; margin: 40px 0;">Please select a numeric parameter.</p>';
+                return;
+            }
+            
+            // Collect data for each group
+            const groupData = {};
+            Object.keys(globalState.currentGroups).forEach(groupId => {
+                groupData[groupId] = globalState.processedData[groupId]
+                    .map(row => utils.parseNumericValue(row[paramName]))
+                    .filter(val => !isNaN(val));
+            });
+            
+            // Mean chart
+            updateDetailMeanChart(paramName, groupData);
+            
+            // Distribution chart
+            updateDetailDistributionChart(paramName, groupData);
+            
+            // Detailed statistics table
+            updateDetailStatsTable(paramName, groupData);
+        }
+
+        /**
+         * Update mean value chart with error bars
+         * 
+         * @param {string} paramName - Parameter name
+         * @param {Object} groupData - Data for each group
+         */
+        function updateDetailMeanChart(paramName, groupData) {
+            const ctx = document.getElementById('detail-mean-chart').getContext('2d');
+            
+            const labels = Object.values(globalState.currentGroups).map(group => group.name);
+            const means = Object.entries(groupData).map(([groupId, data]) => {
+                return data.length > 0 ? data.reduce((sum, val) => sum + val, 0) / data.length : 0;
+            });
+            
+            const stdDevs = Object.entries(groupData).map(([groupId, data]) => {
+                if (data.length <= 1) return 0;
+                const mean = data.reduce((sum, val) => sum + val, 0) / data.length;
+                const variance = data.reduce((sum, val) => sum + Math.pow(val - mean, 2), 0) / (data.length - 1);
+                return Math.sqrt(variance);
+            });
+            
+            const backgroundColors = Object.keys(globalState.currentGroups).map((groupId, index) => {
+                const colorIndex = groupId === 'ungrouped' ? 7 : index % groupColors.length;
+                return groupColors[colorIndex].bg;
+            });
+            
+            const borderColors = Object.keys(globalState.currentGroups).map((groupId, index) => {
+                const colorIndex = groupId === 'ungrouped' ? 7 : index % groupColors.length;
+                return groupColors[colorIndex].border;
+            });
+            
+            // Calculate Y-axis range, always including 0
+            const allValues = Object.values(groupData).flat();
+            const yRange = utils.calculateYAxisRange(allValues, true);
+            
+            utils.destroyChart('detail-mean-chart');
+            
+            globalState.charts['detail-mean-chart'] = new Chart(ctx, {
+                type: 'bar',
+                data: {
+                    labels: labels,
+                    datasets: [{
+                        label: 'Mean',
+                        data: means,
+                        backgroundColor: backgroundColors,
+                        borderColor: borderColors,
+                        borderWidth: 2
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    scales: {
+                        y: {
+                            min: yRange.min,
+                            max: yRange.max,
+                            title: {
+                                display: true,
+                                text: paramName
+                            }
+                        }
+                    },
+                    plugins: {
+                        title: {
+                            display: true,
+                            text: `Mean Values: ${paramName}`,
+                            font: { size: 14 }
+                        },
+                        legend: {
+                            display: false
+                        },
+                        tooltip: {
+                            callbacks: {
+                                label: function(context) {
+                                    const index = context.dataIndex;
+                                    const mean = means[index];
+                                    const stdDev = stdDevs[index];
+                                    return [
+                                        `Mean: ${utils.formatNumber(mean, 2)}`,
+                                        `Std Dev: ${utils.formatNumber(stdDev, 2)}`,
+                                        `N: ${Object.values(groupData)[index].length}`
+                                    ];
+                                }
+                            }
+                        }
+                    }
+                },
+                plugins: [{
+                    id: 'errorBars',
+                    afterDraw: function(chart) {
+                        const ctx = chart.ctx;
+                        chart.data.datasets.forEach((dataset, datasetIndex) => {
+                            const meta = chart.getDatasetMeta(datasetIndex);
+                            
+                            meta.data.forEach((element, index) => {
+                                const stdDev = stdDevs[index];
+                                const mean = means[index];
+                                
+                                if (stdDev > 0) {
+                                    const centerX = element.x;
+                                    const scale = chart.scales.y;
+                                    const topY = scale.getPixelForValue(mean + stdDev);
+                                    const bottomY = scale.getPixelForValue(mean - stdDev);
+                                    const barWidth = 10;
+                                    
+                                    ctx.save();
+                                    ctx.strokeStyle = borderColors[index];
+                                    ctx.lineWidth = 2;
+                                    ctx.beginPath();
+                                    
+                                    // Vertical line
+                                    ctx.moveTo(centerX, topY);
+                                    ctx.lineTo(centerX, bottomY);
+                                    
+                                    // Top cap
+                                    ctx.moveTo(centerX - barWidth/2, topY);
+                                    ctx.lineTo(centerX + barWidth/2, topY);
+                                    
+                                    // Bottom cap
+                                    ctx.moveTo(centerX - barWidth/2, bottomY);
+                                    ctx.lineTo(centerX + barWidth/2, bottomY);
+                                    
+                                    ctx.stroke();
+                                    ctx.restore();
+                                }
+                            });
+                        });
+                    }
+                }]
+            });
+        }
+
+        /**
+         * Update distribution comparison chart
+         * 
+         * @param {string} paramName - Parameter name
+         * @param {Object} groupData - Data for each group
+         */
+        function updateDetailDistributionChart(paramName, groupData) {
+            const ctx = document.getElementById('detail-distribution-chart').getContext('2d');
+            
+            // Create histogram-like representation for each group
+            const labels = Object.values(globalState.currentGroups).map(group => group.name);
+            
+            // Quartiles as stacked bars
+            const q1Data = [], medianData = [], q3Data = [], minData = [], maxData = [];
+            
+            Object.entries(groupData).forEach(([groupId, data]) => {
+                const stats = statistics.calculate(data);
+                minData.push(stats.min || 0);
+                q1Data.push(stats.q1 || 0);
+                medianData.push(stats.median || 0);
+                q3Data.push(stats.q3 || 0); 
+                maxData.push(stats.max || 0); 
+            });
+            
+            const backgroundColors = Object.keys(globalState.currentGroups).map((groupId, index) => {
+                const colorIndex = groupId === 'ungrouped' ? 7 : index % groupColors.length;
+                return groupColors[colorIndex].bg;
+            });
+            
+            // Calculate Y-axis range, always including 0
+            const allValues = [...minData, ...maxData];
+            const yRange = utils.calculateYAxisRange(allValues, true);
+            
+            utils.destroyChart('detail-distribution-chart');
+            
+            globalState.charts['detail-distribution-chart'] = new Chart(ctx, {
+                type: 'bar',
+                data: {
+                    labels: labels,
+                    datasets: [
+                        {
+                            label: 'Minimum',
+                            data: minData,
+                            backgroundColor: backgroundColors.map(color => color.replace('0.7', '0.3')),
+                            borderColor: backgroundColors.map(color => color.replace('0.7', '1')),
+                            borderWidth: 1
+                        },
+                        {
+                            label: 'Q1',
+                            data: q1Data,
+                            backgroundColor: backgroundColors.map(color => color.replace('0.7', '0.5')),
+                            borderColor: backgroundColors.map(color => color.replace('0.7', '1')),
+                            borderWidth: 1
+                        },
+                        {
+                            label: 'Median',
+                            data: medianData,
+                            backgroundColor: backgroundColors,
+                            borderColor: backgroundColors.map(color => color.replace('0.7', '1')),
+                            borderWidth: 2
+                        },
+                        {
+                            label: 'Q3',
+                            data: q3Data,
+                            backgroundColor: backgroundColors.map(color => color.replace('0.7', '0.5')),
+                            borderColor: backgroundColors.map(color => color.replace('0.7', '1')),
+                            borderWidth: 1
+                        },
+                        {
+                            label: 'Maximum',
+                            data: maxData,
+                            backgroundColor: backgroundColors.map(color => color.replace('0.7', '0.3')),
+                            borderColor: backgroundColors.map(color => color.replace('0.7', '1')),
+                            borderWidth: 1
+                        }
+                    ]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    scales: {
+                        y: {
+                            min: yRange.min,
+                            max: yRange.max,
+                            title: {
+                                display: true,
+                                text: paramName
+                            }
+                        }
+                    },
+                    plugins: {
+                        title: {
+                            display: true,
+                            text: `Distribution: ${paramName}`,
+                            font: { size: 14 }
+                        },
+                        legend: {
+                            display: true,
+                            position: 'top'
+                        }
+                    }
+                }
+            });
+        }
+
+        /**
+         * Update detailed statistics table
+         * 
+         * @param {string} paramName - Parameter name
+         * @param {Object} groupData - Data for each group
+         */
+        function updateDetailStatsTable(paramName, groupData) {
+            const table = document.getElementById('detail-stats-table');
+            let html = '<thead><tr><th>Group</th><th>N</th><th>Mean</th><th>Median</th><th>Std Dev</th><th>Min</th><th>Max</th><th>Q1</th><th>Q3</th><th>IQR</th></tr></thead><tbody>';
+            
+            Object.entries(groupData).forEach(([groupId, data], index) => {
+                const stats = statistics.calculate(data);
+                const group = globalState.currentGroups[groupId];
+                const colorIndex = groupId === 'ungrouped' ? 7 : index % groupColors.length;
+                
+                html += `
+                    <tr>
+                        <td>
+                            <span class="group-badge" style="background-color: ${groupColors[colorIndex].bg};">
+                                ${group.name}
+                            </span>
+                        </td>
+                        <td>${stats.count}</td>
+                        <td>${stats.mean !== null ? utils.formatNumber(stats.mean, 3) : '-'}</td>
+                        <td>${stats.median !== null ? utils.formatNumber(stats.median, 3) : '-'}</td>
+                        <td>${stats.stdDev !== null ? utils.formatNumber(stats.stdDev, 3) : '-'}</td>
+                        <td>${stats.min !== null ? utils.formatNumber(stats.min, 3) : '-'}</td>
+                        <td>${stats.max !== null ? utils.formatNumber(stats.max, 3) : '-'}</td>
+                        <td>${stats.q1 !== null ? utils.formatNumber(stats.q1, 3) : '-'}</td>
+                        <td>${stats.q3 !== null ? utils.formatNumber(stats.q3, 3) : '-'}</td>
+                        <td>${stats.iqr !== null ? utils.formatNumber(stats.iqr, 3) : '-'}</td>
+                    </tr>
+                `;
+            });
+            
+            html += '</tbody>';
+            table.innerHTML = html;
+        }
+
+        /**
+         * Update significance test group selection
+         */
+        function updateSignificanceGroupSelection() {
+            const container = document.getElementById('sig-group-selection');
+            container.innerHTML = '';
+            
+            Object.entries(globalState.currentGroups).forEach(([groupId, group], index) => {
+                const colorIndex = groupId === 'ungrouped' ? 7 : index % groupColors.length;
+                
+                const checkboxDiv = document.createElement('div');
+                checkboxDiv.className = 'checkbox-container';
+                
+                const checkbox = document.createElement('input');
+                checkbox.type = 'checkbox';
+                checkbox.id = `sig-group-${groupId}`;
+                checkbox.value = groupId;
+                checkbox.checked = true;
+                
+                const label = document.createElement('label');
+                label.htmlFor = `sig-group-${groupId}`;
+                label.innerHTML = `
+                    <span class="group-badge" style="background-color: ${groupColors[colorIndex].bg};">
+                        ${group.name}
+                    </span> (n=${group.count})
+                `;
+                
+                checkboxDiv.appendChild(checkbox);
+                checkboxDiv.appendChild(label);
+                container.appendChild(checkboxDiv);
+            });
+        }
+
+        /**
+         * Clear significance test results
+         */
+        function clearSignificanceResults() {
+            document.getElementById('significance-results').innerHTML = '';
+        }
+
+        /**
+         * Automatically selects the appropriate test based on parameter and group selection
+         * 
+         * @param {string} paramName - The parameter to test
+         * @param {Array<string>} selectedGroups - Array of selected group IDs
+         * @returns {string} - The test type to use (ttest, anova, chi-square)
+         */
+        function selectAppropriateTest(paramName, selectedGroups) {
+            const paramType = globalState.columnTypes[paramName];
+            
+            if (paramType === 'f') {
+                // Numeric parameter
+                if (selectedGroups.length === 2) {
+                    return 'ttest';
+                } else if (selectedGroups.length > 2) {
+                    return 'anova';
+                }
+            } else if (paramType === 'k') {
+                // Categorical parameter
+                return 'chi-square';
+            }
+            
+            return 'auto'; // Default, though this shouldn't happen
+        }
+
+        /**
+         * Run statistical significance test
+         */
+        function runSignificanceTest() {
+            const paramName = document.getElementById('sig-parameter-select').value;
+            if (!paramName) {
+                utils.showError("Please select a parameter for significance testing.");
+                return;
+            }
+            
+            let testType = document.getElementById('sig-test-type').value;
+            
+            // Get alpha level
+            let alpha = 0.05;
+            const alphaSelect = document.getElementById('sig-alpha');
+            if (alphaSelect.value === 'custom') {
+                alpha = parseFloat(document.getElementById('sig-custom-alpha').value);
+                if (isNaN(alpha) || alpha <= 0 || alpha >= 1) {
+                    utils.showError("Custom alpha must be between 0 and 1.");
+                    return;
+                }
+            } else {
+                alpha = parseFloat(alphaSelect.value);
+            }
+            
+            // Get test direction
+            const direction = document.getElementById('sig-direction').value;
+            
+            // Get selected groups
+            const selectedGroups = [];
+            document.querySelectorAll('#sig-group-selection input:checked').forEach(checkbox => {
+                selectedGroups.push(checkbox.value);
+            });
+            
+            if (selectedGroups.length < 1) {
+                utils.showError("Please select at least one group for comparison.");
+                return;
+            }
+            
+            // Auto-select appropriate test if needed
+            if (testType === 'auto') {
+                testType = selectAppropriateTest(paramName, selectedGroups);
+            }
+            
+            // Run the appropriate test
+            let result;
+            const testOptions = { alpha, direction };
+            
+            if (testType === 'ttest') {
+                if (selectedGroups.length !== 2) {
+                    utils.showError("T-test requires exactly 2 groups.");
+                    return;
+                }
+                
+                if (globalState.columnTypes[paramName] !== 'f') {
+                    utils.showError("T-test requires a numeric parameter.");
+                    return;
+                }
+                
+                const group1Data = globalState.processedData[selectedGroups[0]]
+                    .map(row => utils.parseNumericValue(row[paramName]))
+                    .filter(val => !isNaN(val));
+                
+                const group2Data = globalState.processedData[selectedGroups[1]]
+                    .map(row => utils.parseNumericValue(row[paramName]))
+                    .filter(val => !isNaN(val));
+                
+                result = statistics.tTest(group1Data, group2Data, testOptions);
+                
+            } else if (testType === 'anova') {
+                if (selectedGroups.length < 2) {
+                    utils.showError("ANOVA requires at least 2 groups.");
+                    return;
+                }
+                
+                if (globalState.columnTypes[paramName] !== 'f') {
+                    utils.showError("ANOVA requires a numeric parameter.");
+                    return;
+                }
+                
+                const groupDataArrays = selectedGroups.map(groupId => {
+                    return globalState.processedData[groupId]
+                        .map(row => utils.parseNumericValue(row[paramName]))
+                        .filter(val => !isNaN(val));
+                });
+                
+                result = statistics.anova(groupDataArrays, testOptions);
+                
+            } else if (testType === 'chi-square') {
+                if (globalState.columnTypes[paramName] !== 'k') {
+                    utils.showError("Chi-square test is designed for categorical parameters.");
+                    return;
+                }
+                
+                // Create a subset with only the selected groups
+                const selectedGroupData = {};
+                selectedGroups.forEach(groupId => {
+                    selectedGroupData[groupId] = globalState.processedData[groupId];
+                });
+                
+                result = statistics.chiSquareTest(paramName, selectedGroupData, testOptions);
+            }
+            
+            if (!result) {
+                utils.showError("Test could not be performed. Check your data.");
+                return;
+            }
+            
+            if (result.error) {
+                utils.showError(result.error);
+                return;
+            }
+            
+            // Display results
+            displaySignificanceResults(result, paramName, selectedGroups.map(id => globalState.currentGroups[id].name));
+        }
+
+        /**
+         * Display significance test results
+         * 
+         * @param {Object} result - Test result object
+         * @param {string} paramName - Parameter name
+         * @param {Array<string>} groupNames - Group names
+         */
+        function displaySignificanceResults(result, paramName, groupNames) {
+            const container = document.getElementById('significance-results');
+            
+            const resultDiv = document.createElement('div');
+            resultDiv.className = `significance-result ${result.significant ? 'significant' : 'not-significant'}`;
+            
+            let html = `<h4>🧮 ${result.test} for "${paramName}"</h4>`;
+            html += `<p><strong>Compared Groups:</strong> ${groupNames.join(', ')}</p>`;
+            
+            if (result.test === 't-Test') {
+                html += `
+                    <div style="margin: 15px 0;">
+                        <p><strong>Test Statistic:</strong> t = ${utils.formatNumber(result.statistic, 4)}</p>
+                        <p><strong>Degrees of Freedom:</strong> df = ${result.df}</p>
+                        <p><strong>p-value:</strong> ${utils.formatNumber(result.pValue, 6)} (${result.direction} test, α = ${result.alpha})</p>
+                        <p><strong>Effect Size (Cohen's d):</strong> ${utils.formatNumber(result.effectSize, 3)}</p>
+                        <p><strong>Mean Difference:</strong> ${utils.formatNumber(result.meanDifference, 3)}</p>
+                        <p><strong>${(1-result.alpha)*100}% Confidence Interval:</strong> [${utils.formatNumber(result.confidenceInterval[0], 3)}, ${utils.formatNumber(result.confidenceInterval[1], 3)}]</p>
+                    </div>
+                    <div style="margin: 15px 0;">
+                        <p><strong>Group 1:</strong> n=${result.group1Stats.count}, Mean=${utils.formatNumber(result.group1Stats.mean, 2)}, SD=${utils.formatNumber(result.group1Stats.stdDev, 2)}</p>
+                        <p><strong>Group 2:</strong> n=${result.group2Stats.count}, Mean=${utils.formatNumber(result.group2Stats.mean, 2)}, SD=${utils.formatNumber(result.group2Stats.stdDev, 2)}</p>
+                    </div>
+                `;
+            } else if (result.test === 'ANOVA') {
+                html += `
+                    <div style="margin: 15px 0;">
+                        <p><strong>F-value:</strong> F(${result.dfBetween}, ${result.dfWithin}) = ${utils.formatNumber(result.statistic, 4)}</p>
+                        <p><strong>p-value:</strong> ${utils.formatNumber(result.pValue, 6)} (α = ${result.alpha})</p>
+                        <p><strong>Effect Size (η²):</strong> ${utils.formatNumber(result.etaSquared, 3)}</p>
+                    </div>
+                    <div style="background-color: rgba(0,0,0,0.05); padding: 10px; border-radius: 5px; margin: 10px 0;">
+                        <p><strong>Sum of Squares:</strong></p>
+                        <p>Between Groups: ${utils.formatNumber(result.ssb, 2)}</p>
+                        <p>Within Groups: ${utils.formatNumber(result.ssw, 2)}</p>
+                        <p>Mean Squares: MSB=${utils.formatNumber(result.msb, 2)}, MSW=${utils.formatNumber(result.msw, 2)}</p>
+                    </div>
+                `;
+            } else if (result.test === 'Chi-Square') {
+                html += `
+                    <div style="margin: 15px 0;">
+                        <p><strong>Chi-Square (χ²):</strong> ${utils.formatNumber(result.statistic, 4)}</p>
+                        <p><strong>Degrees of Freedom:</strong> df = ${result.df}</p>
+                        <p><strong>p-value:</strong> ${utils.formatNumber(result.pValue, 6)} (α = ${result.alpha})</p>
+                        <p><strong>Effect Size (Cramer's V):</strong> ${utils.formatNumber(result.cramersV, 3)}</p>
+                    </div>
+                `;
+                
+                // Display contingency table
+                if (result.observed && result.categories && result.groups) {
+                    html += `
+                        <div style="margin: 15px 0;">
+                            <p><strong>Contingency Table (Observed Frequencies):</strong></p>
+                            <div style="overflow-x: auto; margin-top: 10px;">
+                                <table style="width: auto;">
+                                    <thead>
+                                        <tr>
+                                            <th>${paramName}</th>
+                                            ${result.groups.map(group => `<th>${group}</th>`).join('')}
+                                        </tr>
+                                    </thead>
+                                    <tbody>
+                    `;
+                    
+                    result.categories.forEach((category, i) => {
+                        html += `<tr><td>${category}</td>`;
+                        result.observed[i].forEach(count => {
+                            html += `<td>${count}</td>`;
+                        });
+                        html += `</tr>`;
+                    });
+                    
+                    html += `
+                                    </tbody>
+                                </table>
+                            </div>
+                        </div>
+                    `;
+                }
+                
+                // Show warning if present
+                if (result.warning) {
+                    html += `<p style="color: #e74c3c;"><strong>Warning:</strong> ${result.warning}</p>`;
+                }
+            }
+            
+            html += `
+                <div style="margin-top: 20px; padding: 15px; border-radius: 5px; ${result.significant ? 'background-color: rgba(46, 204, 113, 0.1);' : 'background-color: rgba(231, 76, 60, 0.1);'}">
+                    <p><strong>Interpretation:</strong></p>
+                    <p>${result.significant ? 
+                        `🟢 <strong>Significant Difference</strong> (p < ${result.alpha})<br>The null hypothesis is rejected. There is statistical evidence of a difference between the groups.` :
+                        `🔴 <strong>No Significant Difference</strong> (p ≥ ${result.alpha})<br>The null hypothesis is maintained. There is insufficient statistical evidence of a difference between the groups.`
+                    }</p>
+                </div>
+            `;
+            
+            resultDiv.innerHTML += html;
+            
+            // Insert at the beginning of the results container
+            if (container.firstChild) {
+                container.insertBefore(resultDiv, container.firstChild);
+            } else {
+                container.appendChild(resultDiv);
+            }
+        }
+
+        /**
+         * Generate custom visualization
+         */
+        function generateCustomVisualization() {
+            const paramX = document.getElementById('viz-parameter-x').value;
+            const paramY = document.getElementById('viz-parameter-y').value;
+            const chartType = document.getElementById('viz-chart-type').value;
+            
+            if (!paramX) {
+                utils.showError("Please select a parameter for the X-axis.");
+                return;
+            }
+            
+            if (!paramY && chartType !== 'bar') {
+                utils.showError("Please select a parameter for the Y-axis.");
+                return;
+            }
+            
+            const ctx = document.getElementById('custom-visualization-chart').getContext('2d');
+            utils.destroyChart('custom-visualization-chart');
+            
+            if (chartType === 'scatter') {
+                createScatterPlot(ctx, paramX, paramY);
+            } else if (chartType === 'bar' || chartType === 'line') {
+                createBarOrLinePlot(ctx, paramX, paramY, chartType);
+            }
+        }
+
+        /**
+         * Create scatter plot
+         * 
+         * @param {CanvasRenderingContext2D} ctx - Canvas rendering context
+         * @param {string} paramX - X-axis parameter
+         * @param {string} paramY - Y-axis parameter
+         */
+        function createScatterPlot(ctx, paramX, paramY) {
+            const datasets = [];
+            
+            Object.entries(globalState.currentGroups).forEach(([groupId, group], index) => {
+                const colorIndex = groupId === 'ungrouped' ? 7 : index % groupColors.length;
+                
+                const points = globalState.processedData[groupId].map(row => {
+                    const x = globalState.columnTypes[paramX] === 'f' ? 
+                             utils.parseNumericValue(row[paramX]) : row[paramX];
+                    const y = globalState.columnTypes[paramY] === 'f' ? 
+                             utils.parseNumericValue(row[paramY]) : row[paramY];
+                    
+                    return { x, y };
+                }).filter(point => !isNaN(point.x) && !isNaN(point.y));
+                
+                if (points.length > 0) {
+                    datasets.push({
+                        label: group.name,
+                        data: points,
+                        backgroundColor: groupColors[colorIndex].bg,
+                        borderColor: groupColors[colorIndex].border,
+                        pointRadius: 5,
+                        pointHoverRadius: 7
+                    });
+                }
+            });
+            
+            // Y-axis range - always include zero
+            const allYValues = datasets.flatMap(ds => ds.data.map(point => point.y));
+            const yRange = utils.calculateYAxisRange(allYValues);
+            
+            globalState.charts['custom-visualization-chart'] = new Chart(ctx, {
+                type: 'scatter',
+                data: { datasets },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    scales: {
+                        x: {
+                            title: {
+                                display: true,
+                                text: paramX
+                            }
+                        },
+                        y: {
+                            min: yRange.min,
+                            max: yRange.max,
+                            title: {
+                                display: true,
+                                text: paramY
+                            }
+                        }
+                    },
+                    plugins: {
+                        title: {
+                            display: true,
+                            text: `${paramY} vs ${paramX}`,
+                            font: { size: 16 }
+                        },
+                        legend: {
+                            position: 'top'
+                        }
+                    }
+                }
+            });
+        }
+
+        /**
+         * Create bar or line plot
+         * 
+         * @param {CanvasRenderingContext2D} ctx - Canvas rendering context
+         * @param {string} paramX - X-axis parameter
+         * @param {string} paramY - Y-axis parameter
+         * @param {string} chartType - Chart type (bar or line)
+         */
+        function createBarOrLinePlot(ctx, paramX, paramY, chartType) {
+            // For categorical X-axis, aggregate data
+            if (globalState.columnTypes[paramX] === 'k') {
+                const categories = [...new Set(globalState.rawData.map(row => row[paramX]).filter(val => val))];
+                
+                const datasets = [];
+                
+                Object.entries(globalState.currentGroups).forEach(([groupId, group], index) => {
+                    const colorIndex = groupId === 'ungrouped' ? 7 : index % groupColors.length;
+                    
+                    const categoryMeans = categories.map(category => {
+                        const categoryValues = globalState.processedData[groupId]
+                            .filter(row => row[paramX] === category)
+                            .map(row => utils.parseNumericValue(row[paramY]))
+                            .filter(val => !isNaN(val));
+                        
+                        return categoryValues.length > 0 ? 
+                               categoryValues.reduce((sum, val) => sum + val, 0) / categoryValues.length : 0;
+                    });
+                    
+                    datasets.push({
+                        label: group.name,
+                        data: categoryMeans,
+                        backgroundColor: chartType === 'bar' ? groupColors[colorIndex].bg : 'transparent',
+                        borderColor: groupColors[colorIndex].border,
+                        borderWidth: 2,
+                        fill: false
+                    });
+                });
+                
+                // Y-axis range - always include zero
+                const allYValues = datasets.flatMap(ds => ds.data);
+                const yRange = utils.calculateYAxisRange(allYValues, true);
+                
+                globalState.charts['custom-visualization-chart'] = new Chart(ctx, {
+                    type: chartType,
+                    data: {
+                        labels: categories,
+                        datasets: datasets
+                    },
+                    options: {
+                        responsive: true,
+                        maintainAspectRatio: false,
+                        scales: {
+                            x: {
+                                title: {
+                                    display: true,
+                                    text: paramX
+                                }
+                            },
+                            y: {
+                                min: yRange.min,
+                                max: yRange.max,
+                                title: {
+                                    display: true,
+                                    text: paramY
+                                }
+                            }
+                        },
+                        plugins: {
+                            title: {
+                                display: true,
+                                text: `${paramY} by ${paramX}`,
+                                font: { size: 16 }
+                            },
+                            legend: {
+                                position: 'top'
+                            }
+                        }
+                    }
+                });
+            } else {
+                utils.showError("Bar and line plots require a categorical parameter for the X-axis.");
+            }
+        }
+
+        /**
+         * Export chart as image
+         * 
+         * @param {string} chartId - Chart element ID
+         */
+        function exportChartAsImage(chartId) {
+            const canvas = document.getElementById(chartId);
+            if (!canvas) {
+                utils.showError(`Chart with ID "${chartId}" not found.`);
+                return;
+            }
+            
+            // Create a container for the chart and metadata
+            const container = document.createElement('div');
+            container.style.backgroundColor = 'white';
+            container.style.padding = '20px';
+            container.style.width = canvas.width + 'px';
+            
+            const title = document.createElement('h3');
+            title.textContent = chartId.replace(/-/g, ' ').replace(/chart/g, 'Chart');
+            title.style.textAlign = 'center';
+            title.style.fontFamily = 'Arial, sans-serif';
+            title.style.marginBottom = '10px';
+            container.appendChild(title);
+            
+            // Clone the canvas
+            const tempCanvas = document.createElement('canvas');
+            tempCanvas.width = canvas.width;
+            tempCanvas.height = canvas.height;
+            const tempCtx = tempCanvas.getContext('2d');
+            tempCtx.drawImage(canvas, 0, 0);
+            container.appendChild(tempCanvas);
+            
+            const dateText = document.createElement('div');
+            dateText.textContent = `Generated: ${new Date().toLocaleDateString()}`;
+            dateText.style.textAlign = 'right';
+            dateText.style.fontFamily = 'Arial, sans-serif';
+            dateText.style.fontSize = '12px';
+            dateText.style.marginTop = '10px';
+            dateText.style.color = '#666';
+            container.appendChild(dateText);
+            
+            // Append to document temporarily
+            document.body.appendChild(container);
+            
+            // Use html2canvas to capture the container
+            html2canvas(container).then(resultCanvas => {
+                const image = resultCanvas.toDataURL('image/png', 1.0);
+                
+                const link = document.createElement('a');
+                link.href = image;
+                link.download = `${chartId.replace(/-/g, '_')}_${new Date().toISOString().slice(0,10)}.png`;
+                
+                document.body.appendChild(link);
+                link.click();
+                
+                // Clean up
+                document.body.removeChild(link);
+                document.body.removeChild(container);
+                
+                utils.showSuccess('Chart successfully exported!');
+            });
+        }
+
+        /**
+         * Export analysis results as CSV
+         */
+        function exportAnalysisResults() {
+            const includeRawData = document.getElementById('export-raw-data').checked;
+            const includeStatistics = document.getElementById('export-statistics').checked;
+            const includeDefinitions = document.getElementById('export-group-definitions').checked;
+            
+            let csvContent = '\uFEFF'; // UTF-8 BOM for Excel
+            
+            // Group definitions
+            if (includeDefinitions) {
+                csvContent += 'GROUP DEFINITIONS\n';
+                csvContent += 'Group;Conditions\n';
+                
+                globalState.groupDefinitions.forEach(group => {
+                    const conditions = group.conditions.map(condition => {
+                        let conditionText = `${condition.parameter} ${condition.operator} `;
+                        conditionText += condition.value;
+                        return conditionText;
+                    }).join(' AND ');
+                    
+                    csvContent += `${group.name};"${conditions}"\n`;
+                });
+                
+                csvContent += '\n';
+            }
+            
+            // Statistical metrics
+            if (includeStatistics) {
+                csvContent += 'STATISTICAL METRICS\n';
+                
+                const numericParams = globalState.columnNames.filter(name => globalState.columnTypes[name] === 'f');
+                
+                numericParams.forEach(paramName => {
+                    csvContent += `\nParameter: ${paramName}\n`;
+                    csvContent += 'Group;Count;Mean;Median;Std Dev;Min;Max;Q1;Q3;IQR\n';
+                    
+                    Object.entries(globalState.currentGroups).forEach(([groupId, group]) => {
+                        const groupData = globalState.processedData[groupId]
+                            .map(row => utils.parseNumericValue(row[paramName]))
+                            .filter(val => !isNaN(val));
+                        
+                        const stats = statistics.calculate(groupData);
+                        
+                        csvContent += `${group.name};${stats.count};${stats.mean?.toFixed(4) || ''};${stats.median?.toFixed(4) || ''};${stats.stdDev?.toFixed(4) || ''};${stats.min?.toFixed(4) || ''};${stats.max?.toFixed(4) || ''};${stats.q1?.toFixed(4) || ''};${stats.q3?.toFixed(4) || ''};${stats.iqr?.toFixed(4) || ''}\n`;
+                    });
+                });
+                
+                csvContent += '\n';
+            }
+            
+            // Raw data with grouping
+            if (includeRawData) {
+                csvContent += 'RAW DATA WITH GROUPING\n';
+                csvContent += 'Group;' + globalState.columnNames.join(';') + '\n';
+                
+                Object.entries(globalState.currentGroups).forEach(([groupId, group]) => {
+                    globalState.processedData[groupId].forEach(row => {
+                        let rowData = group.name + ';';
+                        
+                        globalState.columnNames.forEach(columnName => {
+                            let cellValue = '';
+                            const value = row[columnName];
+                            
+                            if (value !== undefined && value !== null) {
+                                if (globalState.columnTypes[columnName] === 'f' && !isNaN(value)) {
+                                    cellValue = value.toString().replace('.', ','); // Use comma for decimal separator
+                                } else {
+                                    cellValue = String(value);
+                                }
+                                
+                                // Escape semicolons in data
+                                if (cellValue.includes(';')) {
+                                    cellValue = `"${cellValue}"`;
+                                }
+                            }
+                            
+                            rowData += cellValue + ';';
+                        });
+                        
+                        csvContent += rowData.slice(0, -1) + '\n';
+                    });
+                });
+            }
+            
+            // Create download
+            const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+            const link = document.createElement('a');
+            const url = URL.createObjectURL(blob);
+            
+            link.setAttribute('href', url);
+            link.setAttribute('download', `analysis_results_${new Date().toISOString().slice(0,10)}.csv`);
+            link.style.visibility = 'hidden';
+            
+            document.body.appendChild(link);
+            link.click();
+            document.body.removeChild(link);
+            
+            URL.revokeObjectURL(url);
+            utils.showSuccess('Analysis results successfully exported!');
+        }
+
+        /**
+         * Export table as CSV
+         * 
+         * @param {string} tableId - Table element ID
+         * @param {string} filename - Base filename without extension
+         */
+        function exportTableAsCSV(tableId, filename) {
+            utils.exportTableToCSV(tableId, filename);
+        }
+
+        /**
+         * Export group definitions
+         */
+        function exportGroupDefinitions() {
+            collectGroupDefinitions();
+            
+            if (globalState.groupDefinitions.length === 0) {
+                utils.showError("No group definitions to export.");
+                return;
+            }
+            
+            // Create text representation
+            let textContent = "# Statistical Research Analyzer - Group Definitions\n";
+            textContent += `# Created: ${new Date().toISOString().slice(0,10)} ${new Date().toTimeString().slice(0,8)}\n\n`;
+            
+            globalState.groupDefinitions.forEach(group => {
+                textContent += utils.groupDefinitionToText(group);
+            });
+            
+            textContent += "[SETTINGS]\n";
+            textContent += `ExportDate: ${new Date().toISOString()}\n`;
+            textContent += `TotalRecords: ${globalState.rawData.length}\n`;
+            textContent += `Parameters: ${globalState.columnNames.length}\n\n`;
+            
+            // Create download
+            const blob = new Blob([textContent], { type: 'text/plain;charset=utf-8;' });
+            const link = document.createElement('a');
+            const url = URL.createObjectURL(blob);
+            
+            link.setAttribute('href', url);
+            link.setAttribute('download', `group_definitions_${new Date().toISOString().slice(0,10)}.txt`);
+            link.style.visibility = 'hidden';
+            
+            document.body.appendChild(link);
+            link.click();
+            document.body.removeChild(link);
+            
+            URL.revokeObjectURL(url);
+            utils.showSuccess('Group definitions successfully exported!');
+        }
+
+        /**
+         * Import group definitions
+         */
+        function importGroupDefinitions() {
+            // Create file input
+            const input = document.createElement('input');
+            input.type = 'file';
+            input.accept = '.txt';
+            
+            input.addEventListener('change', function(event) {
+                const file = event.target.files[0];
+                if (!file) return;
+                
+                const reader = new FileReader();
+                reader.onload = function(e) {
+                    try {
+                        parseGroupDefinitionFile(e.target.result);
+                    } catch (error) {
+                        utils.showError("Error parsing group definition file: " + error.message);
+                    }
+                };
+                
+                reader.readAsText(file);
+            });
+            
+            input.click();
+        }
+
+        /**
+         * Parse group definition file
+         * 
+         * @param {string} content - File content
+         */
+        function parseGroupDefinitionFile(content) {
+            const lines = content.split('\n');
+            let currentGroup = null;
+            const importedGroups = [];
+            
+            lines.forEach(line => {
+                line = line.trim();
+                
+                // Skip comments and empty lines
+                if (line.startsWith('#') || line === '') return;
+                
+                // New group
+                if (line.startsWith('[') && line.endsWith(']')) {
+                    if (currentGroup && currentGroup.conditions.length > 0) {
+                        importedGroups.push(currentGroup);
+                    }
+                    
+                    const groupName = line.substring(1, line.length - 1);
+                    if (groupName !== 'SETTINGS') {
+                        currentGroup = {
+                            name: groupName,
+                            conditions: []
+                        };
+                    } else {
+                        currentGroup = null; // Settings section
+                    }
+                    return;
+                }
+                
+                // Group attributes
+                if (currentGroup && line.includes(':')) {
+                    const [key, value] = line.split(':', 2).map(s => s.trim());
+                    
+                    if (key.startsWith('Condition_')) {
+                        // Parse condition
+                        const parts = value.split(' ');
+                        if (parts.length >= 3) {
+                            const parameter = parts[0];
+                            const operator = parts[1];
+                            const conditionValue = parts.slice(2).join(' ');
+                            
+                            // Skip if parameter doesn't exist
+                            if (!globalState.columnNames.includes(parameter)) {
+                                utils.showError(`Parameter '${parameter}' not found in current data.`);
+                                return;
+                            }
+                            
+                            const paramType = globalState.columnTypes[parameter];
+                            let parsedValue;
+                            
+                            if (paramType === 'f') {
+                                parsedValue = utils.parseNumericValue(conditionValue);
+                            } else {
+                                parsedValue = conditionValue;
+                            }
+                            
+                            currentGroup.conditions.push({
+                                parameter: parameter,
+                                operator: operator,
+                                value: parsedValue,
+                                type: paramType
+                            });
+                        }
+                    }
+                }
+            });
+            
+            // Add the last group if any
+            if (currentGroup && currentGroup.conditions.length > 0) {
+                importedGroups.push(currentGroup);
+            }
+            
+            if (importedGroups.length === 0) {
+                utils.showError("No valid group definitions found in the file.");
+                return;
+            }
+            
+            // Apply imported groups to the UI
+            applyImportedGroups(importedGroups);
+            utils.showSuccess(`Successfully imported ${importedGroups.length} group definition(s).`);
+        }
+
+        /**
+         * Apply imported groups to the UI
+         * 
+         * @param {Array} importedGroups - Array of imported group objects
+         */
+        function applyImportedGroups(importedGroups) {
+            // Reset current groups
+            resetGroups();
+            
+            const container = document.getElementById('parameter-groups');
+            container.innerHTML = '';
+            
+            // Create group UI elements
+            importedGroups.forEach((group, index) => {
+                const groupDiv = document.createElement('div');
+                groupDiv.className = 'parameter-group';
+                groupDiv.dataset.groupIndex = index;
+                
+                // Group header
+                const header = document.createElement('div');
+                header.className = 'parameter-group-title';
+                
+                const title = document.createElement('h3');
+                title.textContent = group.name;
+                
+                const removeBtn = document.createElement('button');
+                removeBtn.className = 'btn btn-danger btn-small';
+                removeBtn.textContent = 'Remove';
+                removeBtn.style.display = index === 0 ? 'none' : 'inline-block';
+                removeBtn.addEventListener('click', () => {
+                    container.removeChild(groupDiv);
+                    updateGroupNumbers();
+                });
+                
+                header.appendChild(title);
+                header.appendChild(removeBtn);
+                groupDiv.appendChild(header);
+                
+                // Parameter container
+                const paramContainer = document.createElement('div');
+                paramContainer.className = 'parameter-controls';
+                groupDiv.appendChild(paramContainer);
+                
+                // Add conditions
+                group.conditions.forEach(condition => {
+                    addParameterControlWithValues(paramContainer, condition);
+                });
+                
+                // Add parameter button
+                const addParamBtn = document.createElement('button');
+                addParamBtn.className = 'btn btn-accent btn-small';
+                addParamBtn.textContent = 'Add Parameter';
+                addParamBtn.addEventListener('click', () => {
+                    addParameterControl(paramContainer);
+                });
+                groupDiv.appendChild(addParamBtn);
+                
+                container.appendChild(groupDiv);
+            });
+            
+            // Add button for new group if none exists
+            if (importedGroups.length === 0) {
+                addNewGroup();
+            }
+        }
+
+        /**
+         * Add parameter control with pre-defined values
+         * 
+         * @param {HTMLElement} container - Container for the parameter control
+         * @param {Object} condition - Condition object with parameter, operator, value
+         */
+        function addParameterControlWithValues(container, condition) {
+            const controlDiv = document.createElement('div');
+            controlDiv.className = 'parameter-control';
+            
+            // Parameter select
+            const paramLabel = document.createElement('label');
+            paramLabel.textContent = 'Parameter:';
+            controlDiv.appendChild(paramLabel);
+            
+            const paramSelect = document.createElement('select');
+            paramSelect.className = 'param-select';
+            
+            // Default "no parameter" option
+            const defaultOption = document.createElement('option');
+            defaultOption.value = '';
+            defaultOption.textContent = 'Select parameter...';
+            paramSelect.appendChild(defaultOption);
+            
+            // Add available parameters
+            globalState.columnNames.forEach(name => {
+                const option = document.createElement('option');
+                option.value = name;
+                option.textContent = name;
+                if (name === condition.parameter) {
+                    option.selected = true;
+                }
+                paramSelect.appendChild(option);
+            });
+            
+            controlDiv.appendChild(paramSelect);
+            
+            // Condition container
+            const conditionContainer = document.createElement('div');
+            conditionContainer.className = 'condition-controls';
+            controlDiv.appendChild(conditionContainer);
+            
+            // Distribution info container
+            const groupDistribution = document.createElement('div');
+            groupDistribution.className = 'group-distribution';
+            groupDistribution.style.display = 'none';
+            controlDiv.appendChild(groupDistribution);
+            
+            // Info container
+            const infoDiv = document.createElement('div');
+            infoDiv.className = 'parameter-info';
+            controlDiv.appendChild(infoDiv);
+            
+            // Set up condition controls
+            updateConditionControls(conditionContainer, infoDiv, groupDistribution, condition.parameter);
+            
+            // Set operator and value after controls are created
+            setTimeout(() => {
+                const operatorSelect = conditionContainer.querySelector('.condition-operator');
+                if (operatorSelect) {
+                    operatorSelect.value = condition.operator;
+                    
+                    const valueInput = conditionContainer.querySelector('.condition-value');
+                    if (valueInput) {
+                        if (condition.type === 'f') {
+                            valueInput.value = condition.value;
+                        } else {
+                            valueInput.value = condition.value;
+                        }
+                    }
+                }
+            }, 10);
+            
+            // Remove button
+            const removeBtn = document.createElement('button');
+            removeBtn.className = 'btn btn-danger btn-small';
+            removeBtn.textContent = 'Remove Parameter';
+            removeBtn.style.marginTop = '10px';
+            removeBtn.addEventListener('click', () => {
+                container.removeChild(controlDiv);
+            });
+            controlDiv.appendChild(removeBtn);
+            
+            container.appendChild(controlDiv);
+        }
+
+        /**
+         * Reset groups
+         */
+        function resetGroups() {
+            if (confirm('Are you sure you want to reset all groups?')) {
+                utils.destroyAllCharts();
+                initializeGroupDefinition();
+                document.getElementById('analysis-results').style.display = 'none';
+                utils.showSuccess('Groups have been reset.');
+            }
+        }
+    </script>
+</body>
+</html>
