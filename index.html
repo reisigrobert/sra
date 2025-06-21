@@ -600,6 +600,15 @@
             opacity: 1;
         }
         
+        /* Regression controls */
+        .regression-controls {
+            margin-bottom: 15px;
+            padding: 10px;
+            background-color: #f8f9fa;
+            border-radius: 5px;
+            border: 1px solid var(--border-color);
+        }
+        
         /* Responsive adjustments */
         @media (max-width: 768px) {
             .parameter-control {
@@ -878,6 +887,15 @@
                         </div>
                     </div>
                     
+                    <!-- Regression Controls -->
+                    <div class="regression-controls" id="regression-controls" style="display: none;">
+                        <div class="checkbox-container">
+                            <input type="checkbox" id="show-regression" checked>
+                            <label for="show-regression">Show regression line</label>
+                        </div>
+                        <div id="regression-info" style="margin-top: 10px; font-size: 0.9em; color: var(--text-light);"></div>
+                    </div>
+                    
                     <button id="generate-visualization" class="btn btn-primary">Generate Chart</button>
                     
                     <div class="chart-container">
@@ -935,8 +953,9 @@
                     <li>Multiple visualization options</li>
                     <li>Statistical significance testing</li>
                     <li>Data and chart export functionality</li>
+                    <li>Regression analysis for scatter plots</li>
                 </ul>
-                <p>Version 1.0</p>
+                <p>Version 1.1</p>
             </div>
         </div>
     </div>
@@ -947,7 +966,7 @@
          * 
          * A comprehensive tool for statistical analysis and visualization of research data.
          * This application allows importing CSV data, defining subgroups, performing statistical
-         * tests, and visualizing results with various chart types.
+         * tests, and visualizing results with various chart types including regression analysis.
          * 
          * Features:
          * - CSV import with automatic data type detection
@@ -955,6 +974,7 @@
          * - Comprehensive statistical analysis (mean, median, std dev, quartiles, etc.)
          * - Multiple significance tests (t-test, ANOVA, chi-square)
          * - Various visualization options (bar charts, scatter plots, line charts)
+         * - Linear regression analysis for scatter plots
          * - Export functionality for data, charts, and complete reports
          */
 
@@ -1043,13 +1063,11 @@
             /**
              * Calculate appropriate Y-axis range for charts
              * Always includes zero for proper scientific visualization
-             * Maintains backward compatibility with padding parameter
              * 
              * @param {Array<number>} values - Array of numeric values
-             * @param {boolean|number} forceIncludeZeroOrPadding - Whether to include 0 or legacy padding value
              * @returns {Object} - Object with min and max properties
              */
-            calculateYAxisRange(values, forceIncludeZeroOrPadding = true) {
+            calculateYAxisRange(values) {
                 // Handle empty or invalid arrays
                 const validValues = values.filter(v => !isNaN(v) && isFinite(v));
                 if (validValues.length === 0) {
@@ -1059,36 +1077,29 @@
                 let min = Math.min(...validValues);
                 let max = Math.max(...validValues);
                 
-                // Handle legacy calls with numeric padding parameter
-                let forceIncludeZero = true;
-                if (typeof forceIncludeZeroOrPadding === 'number') {
-                    forceIncludeZero = false; // Legacy mode, don't force zero
-                } else {
-                    forceIncludeZero = forceIncludeZeroOrPadding;
-                }
-                
-                // Always include 0 for proper scientific visualization (unless legacy mode)
-                if (forceIncludeZero) {
-                    if (min > 0) min = 0;
-                    if (max < 0) max = 0;
-                }
+                // Always include 0 for proper scientific visualization
+                if (min > 0) min = 0;
+                if (max < 0) max = 0;
                 
                 // Handle case where all values are the same
                 if (min === max) {
-                    return {
-                        min: min < 0 ? min * 1.1 : 0,
-                        max: max > 0 ? max * 1.1 : (max === 0 ? 10 : 0)
-                    };
+                    if (min === 0) {
+                        return { min: 0, max: 1 };
+                    } else if (min > 0) {
+                        return { min: 0, max: min * 1.2 };
+                    } else {
+                        return { min: min * 1.2, max: 0 };
+                    }
                 }
                 
-                // Add small padding only if it doesn't hide important reference points
+                // Add small padding only to the non-zero end
                 const range = max - min;
-                const padding = range * 0.05; // Reduced padding
+                const padding = range * 0.05;
                 
-                return {
-                    min: min - (min < 0 ? padding : 0),
-                    max: max + (max > 0 ? padding : 0)
-                };
+                if (min < 0) min = min - padding;
+                if (max > 0) max = max + padding;
+                
+                return { min, max };
             },
 
             /**
@@ -1248,7 +1259,10 @@
                 let text = `[${group.name}]\n`;
                 
                 group.conditions.forEach((condition, index) => {
-                    let conditionText = `Condition_${index + 1}: ${condition.parameter} `;
+                    let conditionText = `Condition_${index + 1}: `;
+                    
+                    // Quote parameter names to handle spaces and special characters
+                    conditionText += `"${condition.parameter}" `;
                     
                     switch (condition.operator) {
                         case '<': conditionText += '< '; break;
@@ -1271,6 +1285,17 @@
                 
                 text += '\n';
                 return text;
+            },
+
+            /**
+             * Calculate relative epsilon for floating-point comparison
+             * 
+             * @param {number} a - First number
+             * @param {number} b - Second number
+             * @returns {number} - Appropriate epsilon for comparison
+             */
+            calculateEpsilon(a, b) {
+                return Number.EPSILON * Math.max(Math.abs(a), Math.abs(b), 1);
             }
         };
 
@@ -1376,6 +1401,74 @@
                 } else {
                     return sortedArray[base];
                 }
+            },
+
+            /**
+             * Calculate linear regression for a set of x,y points
+             * 
+             * @param {Array<{x: number, y: number}>} points - Array of coordinate points
+             * @returns {Object|null} - Regression results or null if insufficient data
+             */
+            linearRegression(points) {
+                const validPoints = points.filter(p => !isNaN(p.x) && !isNaN(p.y) && isFinite(p.x) && isFinite(p.y));
+                
+                if (validPoints.length < 2) {
+                    return null;
+                }
+
+                const n = validPoints.length;
+                const sumX = validPoints.reduce((sum, p) => sum + p.x, 0);
+                const sumY = validPoints.reduce((sum, p) => sum + p.y, 0);
+                const sumXY = validPoints.reduce((sum, p) => sum + (p.x * p.y), 0);
+                const sumXX = validPoints.reduce((sum, p) => sum + (p.x * p.x), 0);
+                const sumYY = validPoints.reduce((sum, p) => sum + (p.y * p.y), 0);
+
+                const meanX = sumX / n;
+                const meanY = sumY / n;
+
+                // Calculate slope and intercept
+                const numerator = sumXY - (sumX * sumY / n);
+                const denominator = sumXX - (sumX * sumX / n);
+
+                if (Math.abs(denominator) < Number.EPSILON) {
+                    // Vertical line case
+                    return null;
+                }
+
+                const slope = numerator / denominator;
+                const intercept = meanY - slope * meanX;
+
+                // Calculate correlation coefficient (r)
+                const numeratorR = n * sumXY - sumX * sumY;
+                const denominatorR = Math.sqrt((n * sumXX - sumX * sumX) * (n * sumYY - sumY * sumY));
+                
+                let r = 0;
+                if (Math.abs(denominatorR) > Number.EPSILON) {
+                    r = numeratorR / denominatorR;
+                }
+
+                const r2 = r * r;
+
+                // Calculate standard error of estimate
+                let standardError = 0;
+                if (n > 2) {
+                    const residualSumSquares = validPoints.reduce((sum, p) => {
+                        const predicted = slope * p.x + intercept;
+                        return sum + Math.pow(p.y - predicted, 2);
+                    }, 0);
+                    standardError = Math.sqrt(residualSumSquares / (n - 2));
+                }
+
+                return {
+                    slope: slope,
+                    intercept: intercept,
+                    r: r,
+                    r2: r2,
+                    n: n,
+                    standardError: standardError,
+                    equation: `y = ${slope.toFixed(4)}x + ${intercept.toFixed(4)}`,
+                    points: validPoints
+                };
             },
 
             /**
@@ -1687,6 +1780,11 @@
             document.getElementById('clear-significance-results').addEventListener('click', clearSignificanceResults);
             document.getElementById('generate-visualization').addEventListener('click', generateCustomVisualization);
             
+            // Visualization controls
+            document.getElementById('viz-chart-type').addEventListener('change', updateVisualizationControls);
+            document.getElementById('viz-parameter-x').addEventListener('change', updateVisualizationControls);
+            document.getElementById('viz-parameter-y').addEventListener('change', updateVisualizationControls);
+            
             // Export functionality
             document.getElementById('export-csv-data').addEventListener('click', exportAnalysisResults);
         }
@@ -1797,6 +1895,26 @@
                     customAlphaInput.style.display = 'none';
                 }
             });
+        }
+
+        /**
+         * Update visualization controls based on chart type and selected parameters
+         */
+        function updateVisualizationControls() {
+            const chartType = document.getElementById('viz-chart-type').value;
+            const regressionControls = document.getElementById('regression-controls');
+            const paramX = document.getElementById('viz-parameter-x').value;
+            const paramY = document.getElementById('viz-parameter-y').value;
+            
+            // Only show regression controls for scatter plots with numeric parameters
+            if (chartType === 'scatter' && 
+                paramX && paramY &&
+                globalState.columnTypes[paramX] === 'f' && 
+                globalState.columnTypes[paramY] === 'f') {
+                regressionControls.style.display = 'block';
+            } else {
+                regressionControls.style.display = 'none';
+            }
         }
 
         /**
@@ -2443,10 +2561,10 @@
             switch (operator) {
                 case '<': matchCount = values.filter(v => v < threshold).length; break;
                 case '<=': matchCount = values.filter(v => v <= threshold).length; break;
-                case '=': matchCount = values.filter(v => Math.abs(v - threshold) < 0.001).length; break;
+                case '=': matchCount = values.filter(v => Math.abs(v - threshold) < utils.calculateEpsilon(v, threshold)).length; break;
                 case '>=': matchCount = values.filter(v => v >= threshold).length; break;
                 case '>': matchCount = values.filter(v => v > threshold).length; break;
-                case '!=': matchCount = values.filter(v => Math.abs(v - threshold) >= 0.001).length; break;
+                case '!=': matchCount = values.filter(v => Math.abs(v - threshold) >= utils.calculateEpsilon(v, threshold)).length; break;
             }
             
             const totalCount = values.length;
@@ -2692,13 +2810,15 @@
                     
                     if (isNaN(numValue) || isNaN(numConditionValue)) return false;
                     
+                    const epsilon = utils.calculateEpsilon(numValue, numConditionValue);
+                    
                     switch (operator) {
                         case '<': return numValue < numConditionValue;
                         case '<=': return numValue <= numConditionValue;
-                        case '=': return Math.abs(numValue - numConditionValue) < 0.001; // Floating-point tolerance
+                        case '=': return Math.abs(numValue - numConditionValue) < epsilon;
                         case '>=': return numValue >= numConditionValue;
                         case '>': return numValue > numConditionValue;
-                        case '!=': return Math.abs(numValue - numConditionValue) >= 0.001;
+                        case '!=': return Math.abs(numValue - numConditionValue) >= epsilon;
                         default: return false;
                     }
                 } else if (type === 'k') {
@@ -2985,7 +3105,7 @@
             
             // Calculate Y-axis range, always including 0
             const allValues = Object.values(groupData).flat();
-            const yRange = utils.calculateYAxisRange(allValues, true);
+            const yRange = utils.calculateYAxisRange(allValues);
             
             utils.destroyChart('detail-mean-chart');
             
@@ -3115,7 +3235,7 @@
             
             // Calculate Y-axis range, always including 0
             const allValues = [...minData, ...maxData];
-            const yRange = utils.calculateYAxisRange(allValues, true);
+            const yRange = utils.calculateYAxisRange(allValues);
             
             utils.destroyChart('detail-distribution-chart');
             
@@ -3513,7 +3633,7 @@
                 </div>
             `;
             
-            resultDiv.innerHTML += html;
+            resultDiv.innerHTML = html;
             
             // Insert at the beginning of the results container
             if (container.firstChild) {
@@ -3552,7 +3672,7 @@
         }
 
         /**
-         * Create scatter plot
+         * Create scatter plot with optional regression lines
          * 
          * @param {CanvasRenderingContext2D} ctx - Canvas rendering context
          * @param {string} paramX - X-axis parameter
@@ -3560,34 +3680,100 @@
          */
         function createScatterPlot(ctx, paramX, paramY) {
             const datasets = [];
+            const showRegression = document.getElementById('show-regression').checked;
+            let regressionInfo = '';
+            
+            // Check if both parameters are numeric for scatter plot
+            const xIsNumeric = globalState.columnTypes[paramX] === 'f';
+            const yIsNumeric = globalState.columnTypes[paramY] === 'f';
+            
+            if (!xIsNumeric || !yIsNumeric) {
+                utils.showError("Scatter plot requires both X and Y axes to be numeric parameters.");
+                return;
+            }
             
             Object.entries(globalState.currentGroups).forEach(([groupId, group], index) => {
                 const colorIndex = groupId === 'ungrouped' ? 7 : index % groupColors.length;
                 
                 const points = globalState.processedData[groupId].map(row => {
-                    const x = globalState.columnTypes[paramX] === 'f' ? 
-                             utils.parseNumericValue(row[paramX]) : row[paramX];
-                    const y = globalState.columnTypes[paramY] === 'f' ? 
-                             utils.parseNumericValue(row[paramY]) : row[paramY];
-                    
+                    const x = utils.parseNumericValue(row[paramX]);
+                    const y = utils.parseNumericValue(row[paramY]);
                     return { x, y };
-                }).filter(point => !isNaN(point.x) && !isNaN(point.y));
+                }).filter(point => !isNaN(point.x) && !isNaN(point.y) && isFinite(point.x) && isFinite(point.y));
                 
                 if (points.length > 0) {
+                    // Add scatter points
                     datasets.push({
                         label: group.name,
                         data: points,
                         backgroundColor: groupColors[colorIndex].bg,
                         borderColor: groupColors[colorIndex].border,
                         pointRadius: 5,
-                        pointHoverRadius: 7
+                        pointHoverRadius: 7,
+                        showLine: false
                     });
+                    
+                    // Add regression line if requested
+                    if (showRegression && points.length >= 2) {
+                        const regression = statistics.linearRegression(points);
+                        
+                        if (regression) {
+                            // Calculate line points
+                            const xValues = points.map(p => p.x);
+                            const minX = Math.min(...xValues);
+                            const maxX = Math.max(...xValues);
+                            
+                            const linePoints = [
+                                { x: minX, y: regression.slope * minX + regression.intercept },
+                                { x: maxX, y: regression.slope * maxX + regression.intercept }
+                            ];
+                            
+                            // Add regression line dataset
+                            datasets.push({
+                                label: `${group.name} (R²=${regression.r2.toFixed(3)})`,
+                                data: linePoints,
+                                backgroundColor: 'transparent',
+                                borderColor: groupColors[colorIndex].border,
+                                borderWidth: 2,
+                                borderDash: [5, 5],
+                                pointRadius: 0,
+                                showLine: true,
+                                fill: false
+                            });
+                            
+                            // Add to regression info
+                            regressionInfo += `
+                                <div style="margin-bottom: 10px; color: ${groupColors[colorIndex].border};">
+                                    <strong>${group.name}:</strong> ${regression.equation}<br>
+                                    R² = ${utils.formatNumber(regression.r2, 4)}, n = ${regression.n}
+                                </div>
+                            `;
+                        }
+                    }
                 }
             });
             
+            if (datasets.length === 0) {
+                utils.showError("No valid data points to display.");
+                return;
+            }
+            
+            // Update regression info display
+            document.getElementById('regression-info').innerHTML = regressionInfo;
+            
             // Y-axis range - always include zero
-            const allYValues = datasets.flatMap(ds => ds.data.map(point => point.y));
+            const allYValues = datasets
+                .filter(ds => !ds.label.includes('R²='))
+                .flatMap(ds => ds.data.map(point => point.y));
             const yRange = utils.calculateYAxisRange(allYValues);
+            
+            // X-axis range
+            const allXValues = datasets
+                .filter(ds => !ds.label.includes('R²='))
+                .flatMap(ds => ds.data.map(point => point.x));
+            const xMin = Math.min(...allXValues);
+            const xMax = Math.max(...allXValues);
+            const xPadding = (xMax - xMin) * 0.05;
             
             globalState.charts['custom-visualization-chart'] = new Chart(ctx, {
                 type: 'scatter',
@@ -3597,6 +3783,8 @@
                     maintainAspectRatio: false,
                     scales: {
                         x: {
+                            min: xMin - xPadding,
+                            max: xMax + xPadding,
                             title: {
                                 display: true,
                                 text: paramX
@@ -3618,7 +3806,13 @@
                             font: { size: 16 }
                         },
                         legend: {
-                            position: 'top'
+                            position: 'top',
+                            labels: {
+                                filter: function(item) {
+                                    // Hide regression line labels
+                                    return !item.text.includes('R²=');
+                                }
+                            }
                         }
                     }
                 }
@@ -3665,7 +3859,7 @@
                 
                 // Y-axis range - always include zero
                 const allYValues = datasets.flatMap(ds => ds.data);
-                const yRange = utils.calculateYAxisRange(allYValues, true);
+                const yRange = utils.calculateYAxisRange(allYValues);
                 
                 globalState.charts['custom-visualization-chart'] = new Chart(ctx, {
                     type: chartType,
@@ -3790,7 +3984,7 @@
                 
                 globalState.groupDefinitions.forEach(group => {
                     const conditions = group.conditions.map(condition => {
-                        let conditionText = `${condition.parameter} ${condition.operator} `;
+                        let conditionText = `"${condition.parameter}" ${condition.operator} `;
                         conditionText += condition.value;
                         return conditionText;
                     }).join(' AND ');
@@ -3956,7 +4150,7 @@
         }
 
         /**
-         * Parse group definition file
+         * Parse group definition file with improved handling of quoted parameter names
          * 
          * @param {string} content - File content
          */
@@ -3991,38 +4185,57 @@
                 
                 // Group attributes
                 if (currentGroup && line.includes(':')) {
-                    const [key, value] = line.split(':', 2).map(s => s.trim());
+                    const colonIndex = line.indexOf(':');
+                    const key = line.substring(0, colonIndex).trim();
+                    const value = line.substring(colonIndex + 1).trim();
                     
                     if (key.startsWith('Condition_')) {
-                        // Parse condition
-                        const parts = value.split(' ');
-                        if (parts.length >= 3) {
-                            const parameter = parts[0];
-                            const operator = parts[1];
-                            const conditionValue = parts.slice(2).join(' ');
-                            
-                            // Skip if parameter doesn't exist
-                            if (!globalState.columnNames.includes(parameter)) {
-                                utils.showError(`Parameter '${parameter}' not found in current data.`);
+                        // Parse condition with improved regex for quoted parameter names
+                        const quotedMatch = value.match(/^"([^"]+)"\s*([<>=!]+)\s*(.+)$/);
+                        const unquotedMatch = value.match(/^(\S+)\s*([<>=!]+)\s*(.+)$/);
+                        
+                        let parameter, operator, conditionValue;
+                        
+                        if (quotedMatch) {
+                            // Quoted parameter name (handles spaces and special characters)
+                            parameter = quotedMatch[1];
+                            operator = quotedMatch[2];
+                            conditionValue = quotedMatch[3];
+                        } else if (unquotedMatch) {
+                            // Unquoted parameter name (backward compatibility)
+                            parameter = unquotedMatch[1];
+                            operator = unquotedMatch[2];
+                            conditionValue = unquotedMatch[3];
+                        } else {
+                            console.warn(`Could not parse condition: ${value}`);
+                            return;
+                        }
+                        
+                        // Skip if parameter doesn't exist
+                        if (!globalState.columnNames.includes(parameter)) {
+                            utils.showError(`Parameter '${parameter}' not found in current data.`);
+                            return;
+                        }
+                        
+                        const paramType = globalState.columnTypes[parameter];
+                        let parsedValue;
+                        
+                        if (paramType === 'f') {
+                            parsedValue = utils.parseNumericValue(conditionValue);
+                            if (isNaN(parsedValue)) {
+                                console.warn(`Invalid numeric value for parameter '${parameter}': ${conditionValue}`);
                                 return;
                             }
-                            
-                            const paramType = globalState.columnTypes[parameter];
-                            let parsedValue;
-                            
-                            if (paramType === 'f') {
-                                parsedValue = utils.parseNumericValue(conditionValue);
-                            } else {
-                                parsedValue = conditionValue;
-                            }
-                            
-                            currentGroup.conditions.push({
-                                parameter: parameter,
-                                operator: operator,
-                                value: parsedValue,
-                                type: paramType
-                            });
+                        } else {
+                            parsedValue = conditionValue.trim();
                         }
+                        
+                        currentGroup.conditions.push({
+                            parameter: parameter,
+                            operator: operator,
+                            value: parsedValue,
+                            type: paramType
+                        });
                     }
                 }
             });
@@ -4048,8 +4261,10 @@
          * @param {Array} importedGroups - Array of imported group objects
          */
         function applyImportedGroups(importedGroups) {
-            // Reset current groups
-            resetGroups();
+            // Reset current groups without confirmation
+            utils.destroyAllCharts();
+            initializeGroupDefinition();
+            document.getElementById('analysis-results').style.display = 'none';
             
             const container = document.getElementById('parameter-groups');
             container.innerHTML = '';
@@ -4164,22 +4379,25 @@
             // Set up condition controls
             updateConditionControls(conditionContainer, infoDiv, groupDistribution, condition.parameter);
             
-            // Set operator and value after controls are created
-            setTimeout(() => {
+            // Set operator and value after controls are created (without race condition)
+            requestAnimationFrame(() => {
                 const operatorSelect = conditionContainer.querySelector('.condition-operator');
                 if (operatorSelect) {
                     operatorSelect.value = condition.operator;
                     
                     const valueInput = conditionContainer.querySelector('.condition-value');
                     if (valueInput) {
+                        valueInput.value = condition.value;
+                        
+                        // Trigger distribution update
                         if (condition.type === 'f') {
-                            valueInput.value = condition.value;
+                            updateNumericDistribution(condition.parameter, condition.operator, condition.value, groupDistribution);
                         } else {
-                            valueInput.value = condition.value;
+                            updateCategoryDistribution(condition.parameter, condition.operator, condition.value, groupDistribution);
                         }
                     }
                 }
-            }, 10);
+            });
             
             // Remove button
             const removeBtn = document.createElement('button');
