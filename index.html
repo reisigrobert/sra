@@ -224,6 +224,29 @@
             border-bottom: 1px solid var(--border-color);
         }
         
+        /* Editable group name styling */
+        .group-name-input {
+            font-size: 1.17em;
+            font-weight: bold;
+            border: 1px solid transparent;
+            background: transparent;
+            padding: 4px 8px;
+            border-radius: 4px;
+            color: var(--dark-color);
+            transition: all var(--transition-speed);
+            min-width: 150px;
+        }
+        
+        .group-name-input:hover {
+            background-color: rgba(0,0,0,0.05);
+        }
+        
+        .group-name-input:focus {
+            outline: none;
+            border-color: var(--primary-color);
+            background-color: white;
+        }
+        
         .parameter-controls {
             display: flex;
             flex-wrap: wrap;
@@ -609,6 +632,34 @@
             border: 1px solid var(--border-color);
         }
         
+        /* Regression type selector */
+        .regression-type-container {
+            margin-bottom: 10px;
+        }
+        
+        .regression-type-container label {
+            font-weight: bold;
+            margin-right: 10px;
+        }
+        
+        /* Regression significance info */
+        .regression-significance {
+            margin-top: 10px;
+            padding: 10px;
+            border-radius: 5px;
+            font-size: 0.9em;
+        }
+        
+        .regression-significance.significant {
+            background-color: rgba(46, 204, 113, 0.1);
+            border: 1px solid rgba(46, 204, 113, 0.3);
+        }
+        
+        .regression-significance.not-significant {
+            background-color: rgba(231, 76, 60, 0.1);
+            border: 1px solid rgba(231, 76, 60, 0.3);
+        }
+        
         /* Responsive adjustments */
         @media (max-width: 768px) {
             .parameter-control {
@@ -889,9 +940,34 @@
                     
                     <!-- Regression Controls -->
                     <div class="regression-controls" id="regression-controls" style="display: none;">
+                        <div class="regression-type-container">
+                            <label for="regression-type">Regression Type:</label>
+                            <select id="regression-type">
+                                <option value="linear">Linear</option>
+                                <option value="polynomial2">Polynomial (2nd order)</option>
+                                <option value="polynomial3">Polynomial (3rd order)</option>
+                                <option value="logarithmic">Logarithmic</option>
+                                <option value="exponential">Exponential</option>
+                            </select>
+                            <span class="tooltip">ⓘ
+                                <span class="tooltip-text">
+                                    Linear: y = ax + b<br>
+                                    Polynomial: y = ax² + bx + c<br>
+                                    Logarithmic: y = a·ln(x) + b<br>
+                                    Exponential: y = a·e^(bx)
+                                </span>
+                            </span>
+                        </div>
                         <div class="checkbox-container">
                             <input type="checkbox" id="show-regression" checked>
                             <label for="show-regression">Show regression line</label>
+                        </div>
+                        <div class="regression-type-container" style="margin-top: 10px;">
+                            <label for="regression-alpha">Significance Level:</label>
+                            <select id="regression-alpha">
+                                <option value="0.05">0.05 (95% confidence)</option>
+                                <option value="0.01">0.01 (99% confidence)</option>
+                            </select>
                         </div>
                         <div id="regression-info" style="margin-top: 10px; font-size: 0.9em; color: var(--text-light);"></div>
                     </div>
@@ -948,14 +1024,14 @@
                 <h4>Features:</h4>
                 <ul style="margin-left: 20px; margin-bottom: 15px;">
                     <li>CSV data import and parsing</li>
-                    <li>Flexible subgroup definition</li>
+                    <li>Flexible subgroup definition with custom naming</li>
                     <li>Comprehensive statistical analysis</li>
                     <li>Multiple visualization options</li>
                     <li>Statistical significance testing</li>
                     <li>Data and chart export functionality</li>
-                    <li>Regression analysis for scatter plots</li>
+                    <li>Multiple regression analysis types with significance testing</li>
                 </ul>
-                <p>Version 1.1</p>
+                <p>Version 1.0</p>
             </div>
         </div>
     </div>
@@ -966,15 +1042,16 @@
          * 
          * A comprehensive tool for statistical analysis and visualization of research data.
          * This application allows importing CSV data, defining subgroups, performing statistical
-         * tests, and visualizing results with various chart types including regression analysis.
+         * tests, and visualizing results with various chart types including multiple regression analyses.
          * 
          * Features:
          * - CSV import with automatic data type detection
-         * - Flexible subgroup definition with real-time distribution metrics
+         * - Flexible subgroup definition with custom naming
          * - Comprehensive statistical analysis (mean, median, std dev, quartiles, etc.)
          * - Multiple significance tests (t-test, ANOVA, chi-square)
          * - Various visualization options (bar charts, scatter plots, line charts)
-         * - Linear regression analysis for scatter plots
+         * - Multiple regression analysis types (linear, polynomial, logarithmic, exponential)
+         * - Regression significance testing
          * - Export functionality for data, charts, and complete reports
          */
 
@@ -1022,6 +1099,51 @@
             { bg: 'rgba(230, 126, 34, 0.7)', border: 'rgba(230, 126, 34, 1)', name: 'Dark Orange' },
             { bg: 'rgba(149, 165, 166, 0.7)', border: 'rgba(149, 165, 166, 1)', name: 'Gray' }
         ];
+
+        /**
+         * Regression Types Configuration
+         * 
+         * Defines available regression types with their properties and methods
+         */
+        const regressionTypes = {
+            linear: {
+                name: 'Linear',
+                equation: 'y = ax + b',
+                minPoints: 2,
+                transform: null,
+                inverseTransform: null
+            },
+            polynomial2: {
+                name: 'Polynomial (2nd order)',
+                equation: 'y = ax² + bx + c',
+                minPoints: 3,
+                transform: null,
+                inverseTransform: null
+            },
+            polynomial3: {
+                name: 'Polynomial (3rd order)',
+                equation: 'y = ax³ + bx² + cx + d',
+                minPoints: 4,
+                transform: null,
+                inverseTransform: null
+            },
+            logarithmic: {
+                name: 'Logarithmic',
+                equation: 'y = a·ln(x) + b',
+                minPoints: 2,
+                transform: (x) => Math.log(x),
+                inverseTransform: (x) => Math.exp(x),
+                validate: (points) => points.every(p => p.x > 0)
+            },
+            exponential: {
+                name: 'Exponential',
+                equation: 'y = a·e^(bx)',
+                minPoints: 2,
+                transform: (y) => Math.log(y),
+                inverseTransform: (y) => Math.exp(y),
+                validate: (points) => points.every(p => p.y > 0)
+            }
+        };
 
         /**
          * Utility Functions
@@ -1467,8 +1589,320 @@
                     n: n,
                     standardError: standardError,
                     equation: `y = ${slope.toFixed(4)}x + ${intercept.toFixed(4)}`,
-                    points: validPoints
+                    points: validPoints,
+                    predict: (x) => slope * x + intercept
                 };
+            },
+
+            /**
+             * Calculate polynomial regression
+             * 
+             * @param {Array<{x: number, y: number}>} points - Array of coordinate points
+             * @param {number} order - Polynomial order (2 or 3)
+             * @returns {Object|null} - Regression results or null if insufficient data
+             */
+            polynomialRegression(points, order) {
+                const validPoints = points.filter(p => !isNaN(p.x) && !isNaN(p.y) && isFinite(p.x) && isFinite(p.y));
+                
+                if (validPoints.length < order + 1) {
+                    return null;
+                }
+
+                // Create matrices for least squares
+                const n = validPoints.length;
+                const matrix = [];
+                const vector = [];
+
+                for (let i = 0; i <= order; i++) {
+                    matrix[i] = [];
+                    vector[i] = 0;
+                    
+                    for (let j = 0; j <= order; j++) {
+                        matrix[i][j] = 0;
+                        validPoints.forEach(p => {
+                            matrix[i][j] += Math.pow(p.x, i + j);
+                        });
+                    }
+                    
+                    validPoints.forEach(p => {
+                        vector[i] += p.y * Math.pow(p.x, i);
+                    });
+                }
+
+                // Solve using Gaussian elimination
+                const coefficients = this.gaussianElimination(matrix, vector);
+                
+                if (!coefficients) {
+                    return null;
+                }
+
+                // Calculate R²
+                const meanY = validPoints.reduce((sum, p) => sum + p.y, 0) / n;
+                let ssTotal = 0;
+                let ssResidual = 0;
+
+                validPoints.forEach(p => {
+                    let predicted = 0;
+                    for (let i = 0; i <= order; i++) {
+                        predicted += coefficients[i] * Math.pow(p.x, i);
+                    }
+                    
+                    ssTotal += Math.pow(p.y - meanY, 2);
+                    ssResidual += Math.pow(p.y - predicted, 2);
+                });
+
+                const r2 = 1 - (ssResidual / ssTotal);
+
+                // Generate equation string - corrected order
+                let equation = 'y = ';
+                const terms = [];
+                
+                for (let i = order; i >= 0; i--) {
+                    const coef = coefficients[i];
+                    let term = '';
+                    
+                    if (Math.abs(coef) < 0.0001) continue; // Skip very small coefficients
+                    
+                    if (terms.length > 0) {
+                        term += coef >= 0 ? ' + ' : ' - ';
+                        term += Math.abs(coef).toFixed(4);
+                    } else {
+                        term += coef.toFixed(4);
+                    }
+                    
+                    if (i > 1) {
+                        term += `x^${i}`;
+                    } else if (i === 1) {
+                        term += 'x';
+                    }
+                    
+                    terms.push(term);
+                }
+                
+                equation += terms.join('');
+
+                return {
+                    coefficients: coefficients,
+                    r2: r2,
+                    n: n,
+                    order: order,
+                    equation: equation,
+                    points: validPoints,
+                    predict: (x) => {
+                        let y = 0;
+                        for (let i = 0; i <= order; i++) {
+                            y += coefficients[i] * Math.pow(x, i);
+                        }
+                        return y;
+                    }
+                };
+            },
+
+            /**
+             * Gaussian elimination for solving linear equations
+             * 
+             * @param {Array<Array<number>>} matrix - Coefficient matrix
+             * @param {Array<number>} vector - Result vector
+             * @returns {Array<number>|null} - Solution vector or null if no solution
+             */
+            gaussianElimination(matrix, vector) {
+                const n = matrix.length;
+                const augmented = matrix.map((row, i) => [...row, vector[i]]);
+
+                // Forward elimination
+                for (let i = 0; i < n; i++) {
+                    // Find pivot
+                    let maxRow = i;
+                    for (let k = i + 1; k < n; k++) {
+                        if (Math.abs(augmented[k][i]) > Math.abs(augmented[maxRow][i])) {
+                            maxRow = k;
+                        }
+                    }
+
+                    // Swap rows
+                    [augmented[i], augmented[maxRow]] = [augmented[maxRow], augmented[i]];
+
+                    // Check for zero pivot
+                    if (Math.abs(augmented[i][i]) < Number.EPSILON) {
+                        return null;
+                    }
+
+                    // Make all rows below this one 0 in current column
+                    for (let k = i + 1; k < n; k++) {
+                        const factor = augmented[k][i] / augmented[i][i];
+                        for (let j = i; j <= n; j++) {
+                            augmented[k][j] -= factor * augmented[i][j];
+                        }
+                    }
+                }
+
+                // Back substitution
+                const solution = new Array(n);
+                for (let i = n - 1; i >= 0; i--) {
+                    solution[i] = augmented[i][n];
+                    for (let j = i + 1; j < n; j++) {
+                        solution[i] -= augmented[i][j] * solution[j];
+                    }
+                    solution[i] /= augmented[i][i];
+                }
+
+                return solution;
+            },
+
+            /**
+             * Calculate logarithmic regression
+             * 
+             * @param {Array<{x: number, y: number}>} points - Array of coordinate points
+             * @returns {Object|null} - Regression results or null if insufficient data
+             */
+            logarithmicRegression(points) {
+                // Filter valid points and ensure x > 0 for logarithm
+                const validPoints = points.filter(p => 
+                    !isNaN(p.x) && !isNaN(p.y) && isFinite(p.x) && isFinite(p.y) && p.x > 0
+                );
+                
+                if (validPoints.length < 2) {
+                    return null;
+                }
+
+                // Transform x values to ln(x)
+                const transformedPoints = validPoints.map(p => ({
+                    x: Math.log(p.x),
+                    y: p.y
+                }));
+
+                // Perform linear regression on transformed data
+                const linear = this.linearRegression(transformedPoints);
+                
+                if (!linear) {
+                    return null;
+                }
+
+                const a = linear.slope;
+                const b = linear.intercept;
+
+                return {
+                    a: a,
+                    b: b,
+                    r2: linear.r2,
+                    n: linear.n,
+                    equation: `y = ${a.toFixed(4)}·ln(x) + ${b.toFixed(4)}`,
+                    points: validPoints,
+                    predict: (x) => a * Math.log(x) + b
+                };
+            },
+
+            /**
+             * Calculate exponential regression
+             * 
+             * @param {Array<{x: number, y: number}>} points - Array of coordinate points
+             * @returns {Object|null} - Regression results or null if insufficient data
+             */
+            exponentialRegression(points) {
+                // Filter valid points and ensure y > 0 for logarithm
+                const validPoints = points.filter(p => 
+                    !isNaN(p.x) && !isNaN(p.y) && isFinite(p.x) && isFinite(p.y) && p.y > 0
+                );
+                
+                if (validPoints.length < 2) {
+                    return null;
+                }
+
+                // Transform y values to ln(y)
+                const transformedPoints = validPoints.map(p => ({
+                    x: p.x,
+                    y: Math.log(p.y)
+                }));
+
+                // Perform linear regression on transformed data
+                const linear = this.linearRegression(transformedPoints);
+                
+                if (!linear) {
+                    return null;
+                }
+
+                const b = linear.slope;
+                const lnA = linear.intercept;
+                const a = Math.exp(lnA);
+
+                // Calculate R² on original scale
+                const meanY = validPoints.reduce((sum, p) => sum + p.y, 0) / validPoints.length;
+                let ssTotal = 0;
+                let ssResidual = 0;
+
+                validPoints.forEach(p => {
+                    const predicted = a * Math.exp(b * p.x);
+                    ssTotal += Math.pow(p.y - meanY, 2);
+                    ssResidual += Math.pow(p.y - predicted, 2);
+                });
+
+                const r2 = 1 - (ssResidual / ssTotal);
+
+                return {
+                    a: a,
+                    b: b,
+                    r2: r2,
+                    n: linear.n,
+                    equation: `y = ${a.toFixed(4)}·e^(${b.toFixed(4)}x)`,
+                    points: validPoints,
+                    predict: (x) => a * Math.exp(b * x)
+                };
+            },
+
+            /**
+             * Test regression significance
+             * 
+             * @param {Object} regression - Regression results object
+             * @param {string} type - Type of regression
+             * @param {number} alpha - Significance level
+             * @returns {Object} - Significance test results
+             */
+            testRegressionSignificance(regression, type, alpha = 0.05) {
+                if (!regression || !regression.n || regression.n < 3) {
+                    return {
+                        significant: false,
+                        error: 'Insufficient data for significance testing'
+                    };
+                }
+
+                let result = {
+                    significant: false,
+                    alpha: alpha,
+                    n: regression.n
+                };
+
+                if (type === 'linear' || type === 'logarithmic' || type === 'exponential') {
+                    // For simple regression, test if slope is significantly different from 0
+                    const df = regression.n - 2;
+                    
+                    // Use R² to calculate F-statistic
+                    const fStat = (regression.r2 / (1 - regression.r2)) * df;
+                    const pValue = 1 - jStat.centralF.cdf(fStat, 1, df);
+                    
+                    result.fStatistic = fStat;
+                    result.pValue = pValue;
+                    result.significant = pValue < alpha;
+                    result.df1 = 1;
+                    result.df2 = df;
+                    
+                } else if (type === 'polynomial2' || type === 'polynomial3') {
+                    // For polynomial regression, use F-test
+                    const k = regression.order; // number of predictors
+                    const df1 = k;
+                    const df2 = regression.n - k - 1;
+                    
+                    // Calculate F-statistic from R²
+                    const fStat = (regression.r2 / df1) / ((1 - regression.r2) / df2);
+                    const pValue = 1 - jStat.centralF.cdf(fStat, df1, df2);
+                    
+                    result.fStatistic = fStat;
+                    result.pValue = pValue;
+                    result.significant = pValue < alpha;
+                    result.df1 = df1;
+                    result.df2 = df2;
+                }
+
+                return result;
             },
 
             /**
@@ -1785,6 +2219,10 @@
             document.getElementById('viz-parameter-x').addEventListener('change', updateVisualizationControls);
             document.getElementById('viz-parameter-y').addEventListener('change', updateVisualizationControls);
             
+            // Regression controls
+            document.getElementById('regression-type').addEventListener('change', updateRegressionInfo);
+            document.getElementById('show-regression').addEventListener('change', updateRegressionInfo);
+            
             // Export functionality
             document.getElementById('export-csv-data').addEventListener('click', exportAnalysisResults);
         }
@@ -1915,6 +2353,14 @@
             } else {
                 regressionControls.style.display = 'none';
             }
+        }
+
+        /**
+         * Update regression info display
+         */
+        function updateRegressionInfo() {
+            // This will be called when regression type changes
+            // The actual update happens when the chart is generated
         }
 
         /**
@@ -2308,8 +2754,12 @@
             const header = document.createElement('div');
             header.className = 'parameter-group-title';
             
-            const title = document.createElement('h3');
-            title.textContent = `Subgroup ${groupIndex + 1}`;
+            // Editable group name input
+            const nameInput = document.createElement('input');
+            nameInput.type = 'text';
+            nameInput.className = 'group-name-input';
+            nameInput.value = `Subgroup ${groupIndex + 1}`;
+            nameInput.placeholder = 'Enter group name';
             
             const removeBtn = document.createElement('button');
             removeBtn.className = 'btn btn-danger btn-small';
@@ -2320,7 +2770,7 @@
                 updateGroupNumbers();
             });
             
-            header.appendChild(title);
+            header.appendChild(nameInput);
             header.appendChild(removeBtn);
             groupDiv.appendChild(header);
             
@@ -2637,8 +3087,11 @@
             const groups = document.querySelectorAll('.parameter-group');
             groups.forEach((group, index) => {
                 group.dataset.groupIndex = index;
-                const title = group.querySelector('h3');
-                title.textContent = `Subgroup ${index + 1}`;
+                const nameInput = group.querySelector('.group-name-input');
+                // Only update if it still has the default name pattern
+                if (nameInput.value.match(/^Subgroup \d+$/)) {
+                    nameInput.value = `Subgroup ${index + 1}`;
+                }
                 
                 const removeBtn = group.querySelector('.parameter-group-title .btn-danger');
                 removeBtn.style.display = index === 0 ? 'none' : 'inline-block';
@@ -2696,6 +3149,9 @@
             const groups = document.querySelectorAll('.parameter-group');
             
             groups.forEach((groupElement, index) => {
+                const nameInput = groupElement.querySelector('.group-name-input');
+                const groupName = nameInput.value.trim() || `Group ${index + 1}`;
+                
                 const paramControls = groupElement.querySelectorAll('.parameter-control');
                 const conditions = [];
                 
@@ -2733,7 +3189,7 @@
                 if (conditions.length > 0) {
                     globalState.groupDefinitions.push({
                         id: `group_${index}`,
-                        name: `Group ${index + 1}`,
+                        name: groupName,
                         conditions: conditions
                     });
                 }
@@ -3681,6 +4137,8 @@
         function createScatterPlot(ctx, paramX, paramY) {
             const datasets = [];
             const showRegression = document.getElementById('show-regression').checked;
+            const regressionType = document.getElementById('regression-type').value;
+            const alpha = parseFloat(document.getElementById('regression-alpha').value);
             let regressionInfo = '';
             
             // Check if both parameters are numeric for scatter plot
@@ -3692,6 +4150,7 @@
                 return;
             }
             
+            // Process each group
             Object.entries(globalState.currentGroups).forEach(([groupId, group], index) => {
                 const colorIndex = groupId === 'ungrouped' ? 7 : index % groupColors.length;
                 
@@ -3714,23 +4173,64 @@
                     });
                     
                     // Add regression line if requested
-                    if (showRegression && points.length >= 2) {
-                        const regression = statistics.linearRegression(points);
+                    if (showRegression && points.length >= regressionTypes[regressionType].minPoints) {
+                        let regression = null;
                         
-                        if (regression) {
+                        // Check if regression type is valid for the data
+                        if (regressionTypes[regressionType].validate) {
+                            if (!regressionTypes[regressionType].validate(points)) {
+                                regressionInfo += `
+                                    <div style="margin-bottom: 10px; color: ${groupColors[colorIndex].border};">
+                                        <strong>${group.name}:</strong> Invalid data for ${regressionTypes[regressionType].name} regression
+                                    </div>
+                                `;
+                                return;
+                            }
+                        }
+                        
+                        // Calculate regression based on type
+                        switch (regressionType) {
+                            case 'linear':
+                                regression = statistics.linearRegression(points);
+                                break;
+                            case 'polynomial2':
+                                regression = statistics.polynomialRegression(points, 2);
+                                break;
+                            case 'polynomial3':
+                                regression = statistics.polynomialRegression(points, 3);
+                                break;
+                            case 'logarithmic':
+                                regression = statistics.logarithmicRegression(points);
+                                break;
+                            case 'exponential':
+                                regression = statistics.exponentialRegression(points);
+                                break;
+                        }
+                        
+                        if (regression && regression.predict) {
+                            // Test regression significance
+                            const sigTest = statistics.testRegressionSignificance(regression, regressionType, alpha);
+                            
                             // Calculate line points
                             const xValues = points.map(p => p.x);
                             const minX = Math.min(...xValues);
                             const maxX = Math.max(...xValues);
                             
-                            const linePoints = [
-                                { x: minX, y: regression.slope * minX + regression.intercept },
-                                { x: maxX, y: regression.slope * maxX + regression.intercept }
-                            ];
+                            // Generate smooth curve for non-linear regressions
+                            const numPoints = regressionType === 'linear' ? 2 : 100;
+                            const linePoints = [];
+                            
+                            for (let i = 0; i < numPoints; i++) {
+                                const x = minX + (maxX - minX) * i / (numPoints - 1);
+                                const y = regression.predict(x);
+                                if (isFinite(y)) {
+                                    linePoints.push({ x, y });
+                                }
+                            }
                             
                             // Add regression line dataset
                             datasets.push({
-                                label: `${group.name} (R²=${regression.r2.toFixed(3)})`,
+                                label: `${group.name} Regression`,
                                 data: linePoints,
                                 backgroundColor: 'transparent',
                                 borderColor: groupColors[colorIndex].border,
@@ -3741,13 +4241,31 @@
                                 fill: false
                             });
                             
-                            // Add to regression info
+                            // Add to regression info with significance
+                            const sigClass = sigTest.significant ? 'significant' : 'not-significant';
                             regressionInfo += `
-                                <div style="margin-bottom: 10px; color: ${groupColors[colorIndex].border};">
-                                    <strong>${group.name}:</strong> ${regression.equation}<br>
-                                    R² = ${utils.formatNumber(regression.r2, 4)}, n = ${regression.n}
-                                </div>
+                                <div class="regression-significance ${sigClass}" style="margin-bottom: 10px;">
+                                    <div style="color: ${groupColors[colorIndex].border};">
+                                        <strong>${group.name}:</strong> ${regression.equation}<br>
+                                        R² = ${utils.formatNumber(regression.r2, 4)}, n = ${regression.n}
+                                    </div>
                             `;
+                            
+                            if (sigTest.error) {
+                                regressionInfo += `<div style="font-size: 0.85em; margin-top: 5px;">${sigTest.error}</div>`;
+                            } else {
+                                regressionInfo += `
+                                    <div style="font-size: 0.85em; margin-top: 5px;">
+                                        ${sigTest.fStatistic ? `F(${sigTest.df1},${sigTest.df2}) = ${utils.formatNumber(sigTest.fStatistic, 3)}, ` : ''}
+                                        p = ${utils.formatNumber(sigTest.pValue, 4)}
+                                        ${sigTest.significant ? 
+                                            `<span style="color: var(--secondary-color); font-weight: bold;"> ✓ Significant</span>` : 
+                                            `<span style="color: var(--danger-color);"> Not significant</span>`}
+                                    </div>
+                                `;
+                            }
+                            
+                            regressionInfo += `</div>`;
                         }
                     }
                 }
@@ -3763,13 +4281,13 @@
             
             // Y-axis range - always include zero
             const allYValues = datasets
-                .filter(ds => !ds.label.includes('R²='))
+                .filter(ds => !ds.label.includes('Regression'))
                 .flatMap(ds => ds.data.map(point => point.y));
             const yRange = utils.calculateYAxisRange(allYValues);
             
             // X-axis range
             const allXValues = datasets
-                .filter(ds => !ds.label.includes('R²='))
+                .filter(ds => !ds.label.includes('Regression'))
                 .flatMap(ds => ds.data.map(point => point.x));
             const xMin = Math.min(...allXValues);
             const xMax = Math.max(...allXValues);
@@ -3809,8 +4327,8 @@
                             position: 'top',
                             labels: {
                                 filter: function(item) {
-                                    // Hide regression line labels
-                                    return !item.text.includes('R²=');
+                                    // Hide regression labels from legend
+                                    return !item.text.includes('Regression');
                                 }
                             }
                         }
@@ -4279,8 +4797,12 @@
                 const header = document.createElement('div');
                 header.className = 'parameter-group-title';
                 
-                const title = document.createElement('h3');
-                title.textContent = group.name;
+                // Editable group name input with imported name
+                const nameInput = document.createElement('input');
+                nameInput.type = 'text';
+                nameInput.className = 'group-name-input';
+                nameInput.value = group.name;
+                nameInput.placeholder = 'Enter group name';
                 
                 const removeBtn = document.createElement('button');
                 removeBtn.className = 'btn btn-danger btn-small';
@@ -4291,7 +4813,7 @@
                     updateGroupNumbers();
                 });
                 
-                header.appendChild(title);
+                header.appendChild(nameInput);
                 header.appendChild(removeBtn);
                 groupDiv.appendChild(header);
                 
