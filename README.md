@@ -1,6 +1,6 @@
 # 📊 Statistical Research Analyzer (SRA)
 
-> **A privacy-first, browser-based statistical tool focused on subgroup analysis**
+> **A privacy-first, browser-based statistical tool for comprehensive subgroup analysis**
 
 ---
 
@@ -8,10 +8,11 @@
 
 SRA is designed for anyone who needs to explore and compare data subgroups—**entirely offline and with maximum data privacy**:
 
-- 🏥 **Medical researchers** analyzing patient or study data without uploading it anywhere
-- 🏢 **Corporate analysts** handling confidential business information
-- 🎓 **Academic researchers** exploring survey or experimental results
-- 🔒 **Anyone** who needs to quickly create and compare data subgroups with sensitive information
+- 🏥 **Medical researchers** analyzing patient cohorts or clinical trial data
+- 🏢 **Corporate analysts** handling confidential business metrics
+- 🎓 **Academic researchers** exploring survey results or experimental data
+- 🧪 **Data scientists** performing diagnostic test evaluations
+- 🔒 **Anyone** working with sensitive data requiring complex subgroup comparisons
 
 ---
 
@@ -19,13 +20,13 @@ SRA is designed for anyone who needs to explore and compare data subgroups—**e
 
 SRA allows you to:
 
-- **Import your own CSV data** (with explicit variable types)
-- **Define custom subgroups** based on multiple parameters
-- **Name your subgroups** for clarity in comparisons
-- **Compare basic statistics across your groups**
-- **Run basic statistical tests** (t-test, ANOVA, chi-square)
-- **Visualize your results** and export charts/tables
-- **Export your analysis** for further processing
+- **Import CSV data** with automatic scale type detection (nominal, ordinal, interval, ratio)
+- **Define complex subgroups** using individual conditions
+- **Perform comprehensive statistical analysis** across multiple scale types
+- **Run appropriate statistical tests** with automatic test selection and prerequisite checking
+- **Create visualizations** with regression analysis
+- **Conduct diagnostic test analysis** with fourfold tables and comprehensive metrics
+- **Export everything** - data, results, charts, and group definitions
 
 All processing happens locally in your browser—**no data ever leaves your computer**.
 
@@ -33,9 +34,9 @@ All processing happens locally in your browser—**no data ever leaves your comp
 
 ## ❗ Important Notice
 
-- **SRA is intended for exploratory analysis, not for publication or clinical/critical decisions.**
-- Always verify your findings using professional statistical software (R, SPSS, etc.).
-- This tool is designed for rapid subgroup exploration and hypothesis generation.
+- **SRA is intended for exploratory analysis and hypothesis generation.**
+- Always verify critical findings using professional statistical software (R, SPSS, SAS, etc.).
+- The tool includes warnings for test assumption violations but cannot replace expert statistical judgment.
 
 ---
 
@@ -46,21 +47,25 @@ All processing happens locally in your browser—**no data ever leaves your comp
 Create a CSV file in this format:
 
 ```csv
-Age;Gender;Group;Score
-f;k;k;f
-25;Male;A;85.2
-30;Female;B;92.1
-35;Male;A;78.5
+Age;Gender;Treatment;Score;Severity
+r;k;k;r;o
+45;Male;A;85.2;3
+52;Female;B;92.1;4
+38;Male;A;78.5;2
 ```
 - **Row 1:** Variable names
-- **Row 2:** Data types (`f` = numeric, `k` = categorical) — must be specified manually
-- **Row 3+:** Data
-- **Delimiter:** Semicolon (`;`)
-- **Decimal separator:** Comma or point (both accepted)
+- **Row 2:** Scale types:
+  - `k` = Nominal (categories without order)
+  - `o` = Ordinal (ordered categories, e.g., 1-5 ratings)
+  - `i` = Interval (equal intervals, no true zero)
+  - `r` = Ratio (equal intervals with true zero)
+- **Row 3+:** Your data
+- **Delimiter:** Semicolon (`;`) or comma (`,`) - automatically detected
+- **Decimal separator:** Period (`.`) or comma (`,`) - automatically detected
 
 ### 2. Required libraries
 
-You need these open-source JS libraries (place in `lib/`):
+You need these open-source JS libraries (place in `lib/` folder):
 
 | Library       | Purpose              | Download                                              |
 |---------------|---------------------|-------------------------------------------------------|
@@ -84,60 +89,94 @@ your-folder/
 
 #### **Option A: Online**
 
-- Just open [https://reisigrobert.github.io/sra](https://reisigrobert.github.io/sra) in your browser
+- Open [https://reisigrobert.github.io/sra](https://reisigrobert.github.io/sra) in your browser
 
 #### **Option B: Offline**
 
 - Download the repository
-- Make sure you have the `lib/` folder with all required libraries (see above)
-- Open `index.html` in any modern browser
+- Ensure the `lib/` folder contains all required libraries
+- Open `index.html` in any modern browser (Chrome, Firefox, Safari, Edge)
 
 ---
 
 ## 📖 How to use SRA
 
-1. **Open the app** in your browser (`index.html` or online link)
-2. **Upload your CSV file**
-3. **Define subgroups** using the visual builder (add conditions, assign names)
-4. **Click "Apply Groups & Analyze"**
-5. **Explore results** in the tabs:
-    - **Overview:** See group sizes and summary statistics
-    - **Detailed Analysis:** Compare a single variable across all groups
-    - **Significance Tests:** t-test, ANOVA, chi-square (where applicable)
-    - **Visualization:** Create and export charts
-    - **Export:** Download analysis results and definitions
+### Basic Workflow
 
----
+1. **Import Data**
+   - Drag & drop or select your CSV file
+   - Review the data preview and validation warnings
 
-## 🛠 Features
+2. **Define Parameter Constellations** (optional)
+   - Create reusable combinations of conditions
+   - Name them for easy reference across multiple groups
 
-- **CSV import/export** (with manual type specification)
-- **Subgroup creation** with custom naming
-- **Basic statistics:** mean, median, std.dev, quartiles, min, max
-- **Significance testing:** t-test (2 groups), ANOVA (>2 groups), chi-square (categorical)
-- **Regression analysis:** linear, polynomial (2nd/3rd), logarithmic, exponential
-- **Interactive charts:** bar, scatter, distribution plots
-- **Export:** CSV, PNG (charts), group definitions
+3. **Create Subgroups**
+   - Add individual conditions and/or constellations
+   - Use NOT operators for exclusion criteria
+   - Name groups descriptively and assign colors
+   - Enable "Exclude records in previous groups" for mutually exclusive groups
 
----
+4. **Analyze Results**
+   - **Overview:** Group distributions and summary statistics
+   - **Detailed Analysis:** Deep dive into specific parameters
+   - **Significance Tests:** Automatic test selection with prerequisite checking
+   - **Visualization:** Interactive charts with regression analysis
+   - **Fourfold Tables:** Diagnostic test evaluation
+   - **Export:** Comprehensive reports and raw data
 
-## ⚠️ Limitations
+### Advanced Features
 
-- Exploratory use only: Not intended for final publication or critical decisions
-- No advanced modeling, no multiple testing correction, etc.
+#### Parameter Constellations
+- Define once, use multiple times
+- Support for NOT operations
+- Combine with individual conditions in groups
+
+#### Statistical Tests
+- **Parametric:** t-test, Welch's t-test, ANOVA
+- **Non-parametric:** Mann-Whitney U, Kruskal-Wallis
+- **Categorical:** Chi-square, Fisher's exact
+- **Correlation:** Pearson, Spearman
+- Prerequisite checking (normality, variance homogeneity)
+
+#### Regression Analysis
+- Linear, polynomial (2nd/3rd order), logarithmic, exponential
+- Significance testing for regression models
+- Visual regression lines on scatter plots
+
+#### Diagnostic Test Analysis
+- Sensitivity, specificity, PPV, NPV
+- Likelihood ratios and diagnostic odds ratio
+- Youden's index, MCC, F1 score
+- Comprehensive validation warnings
 
 ---
 
 ## ❓ Troubleshooting
 
-- **CSV import fails?**  
-  - Check for correct delimiter (`;`) and that you specify data types on the second row
+### Import Issues
+- **Wrong delimiter?** SRA auto-detects, but check for consistency
+- **Scale types incorrect?** Ensure row 2 has valid codes (k, o, i, r)
+- **Special characters?** Use UTF-8 encoding
 
-- **Statistical test not available?**  
-  - Ensure you have enough groups and the right data type for the selected test
+### Statistical Tests
+- **Test unavailable?** Check scale type requirements
+- **Prerequisites failed?** Enable "Force execution" with caution
+- **No results?** Ensure groups have sufficient data
 
-- **Charts not visible?**  
-  - Double-check that your browser supports JavaScript and all libraries are present
+### Performance
+- **Large datasets slow?** Use pagination controls
+- **Charts not rendering?** Check browser console for errors
+- **Export failing?** Try smaller datasets or different formats
+
+---
+
+## 🔐 Privacy & Security
+
+- **100% client-side:** No server communication
+- **No tracking:** No analytics or telemetry
+- **No dependencies:** Works offline after initial load
+- **Open source:** Inspect the code yourself
 
 ---
 
@@ -147,5 +186,5 @@ your-folder/
 
 ---
 
-**SRA: For anyone needing local, private, and immediate subgroup analysis.**  
+**SRA: Professional-grade statistical analysis, right in your browser.**  
 **[Try it online now](https://reisigrobert.github.io/sra)**
