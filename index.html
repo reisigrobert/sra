@@ -1471,7 +1471,8 @@
                                 <canvas id="group-distribution-chart"></canvas>
                             </div>
                             <div class="text-center">
-                                <button class="btn btn-small btn-accent" onclick="exportChartAsImage('group-distribution-chart')">Export Chart</button>
+                                <button class="btn btn-small btn-accent"
+                                    onclick="exportChartAsImage('group-distribution-chart')">Export Chart</button>
                             </div>
                         </div>
                     </div>
@@ -1481,7 +1482,8 @@
                         <table id="overview-stats-table"></table>
                     </div>
                     <div class="text-center">
-                        <button class="btn btn-small btn-accent" onclick="exportTableAsCSV('overview-stats-table', 'overview-statistics')">Export Statistics
+                        <button class="btn btn-small btn-accent"
+                            onclick="exportTableAsCSV('overview-stats-table', 'overview-statistics')">Export Statistics
                         </button>
                     </div>
 
@@ -1515,7 +1517,8 @@
                                     <canvas id="detail-mean-chart"></canvas>
                                 </div>
                                 <div class="text-center">
-                                    <button class="btn btn-small btn-accent" onclick="exportChartAsImage('detail-mean-chart')">Export Chart</button>
+                                    <button class="btn btn-small btn-accent"
+                                        onclick="exportChartAsImage('detail-mean-chart')">Export Chart</button>
                                 </div>
                             </div>
                             <div class="flex-item">
@@ -1524,7 +1527,8 @@
                                     <canvas id="detail-distribution-chart"></canvas>
                                 </div>
                                 <div class="text-center">
-                                    <button class="btn btn-small btn-accent" onclick="exportChartAsImage('detail-distribution-chart')">Export Chart</button>
+                                    <button class="btn btn-small btn-accent"
+                                        onclick="exportChartAsImage('detail-distribution-chart')">Export Chart</button>
                                 </div>
                             </div>
                         </div>
@@ -1534,7 +1538,9 @@
                             <table id="detail-stats-table"></table>
                         </div>
                         <div class="text-center">
-                            <button class="btn btn-small btn-accent" onclick="exportTableAsCSV('detail-stats-table', 'detailed-statistics')">Export Statistics
+                            <button class="btn btn-small btn-accent"
+                                onclick="exportTableAsCSV('detail-stats-table', 'detailed-statistics')">Export
+                                Statistics
                             </button>
                         </div>
                     </div>
@@ -1613,7 +1619,9 @@
                                 <option value="0.1">0.10 (10%)</option>
                                 <option value="custom">Custom</option>
                             </select>
-                            <input type="number" id="sig-custom-alpha" style="width: 100%; margin-top: 5px; display: none;" min="0.001" max="0.5" step="0.001" value="0.05" placeholder="Enter custom alpha (0.001-0.5)">
+                            <input type="number" id="sig-custom-alpha"
+                                style="width: 100%; margin-top: 5px; display: none;" min="0.001" max="0.5" step="0.001"
+                                value="0.05" placeholder="Enter custom alpha (0.001-0.5)">
                         </div>
                         <div class="flex-item">
                             <label for="sig-direction">Test Direction:</label>
@@ -1621,7 +1629,7 @@
                                 <option value="two-sided">Two-sided (≠)</option>
                                 <option value="left">Left-sided (
                                     <)< /option>
-                                        <option value="right">Right-sided (>)</option>
+                                <option value="right">Right-sided (>)</option>
                             </select>
                             <div style="margin-top: 5px;">
                                 <span class="tooltip">ⓘ
@@ -1657,7 +1665,8 @@
 
                     <div class="export-section">
                         <h5>Export Test Results</h5>
-                        <button class="btn btn-accent btn-small" onclick="exportSignificanceTests()">Export All Test Results
+                        <button class="btn btn-accent btn-small" onclick="exportSignificanceTests()">Export All Test
+                            Results
                         </button>
                     </div>
                 </div>
@@ -1727,7 +1736,8 @@
                     </div>
 
                     <div class="text-center">
-                        <button class="btn btn-accent" onclick="exportChartAsImage('custom-visualization-chart')">Export Chart
+                        <button class="btn btn-accent" onclick="exportChartAsImage('custom-visualization-chart')">Export
+                            Chart
                         </button>
                     </div>
                 </div>
@@ -1766,7 +1776,8 @@
 
                     <div class="export-section" id="fourfold-export" style="display: none;">
                         <h5>Export Fourfold Table</h5>
-                        <button class="btn btn-accent btn-small" onclick="exportFourfoldTable()">Export Fourfold Analysis
+                        <button class="btn btn-accent btn-small" onclick="exportFourfoldTable()">Export Fourfold
+                            Analysis
                         </button>
                     </div>
                 </div>
@@ -1817,7 +1828,8 @@
                                     <label for="export-report-fourfold">Fourfold tables</label>
                                 </div>
                             </div>
-                            <button id="export-comprehensive-report" class="btn btn-secondary">Export Comprehensive Report
+                            <button id="export-comprehensive-report" class="btn btn-secondary">Export Comprehensive
+                                Report
                             </button>
                         </div>
                     </div>
@@ -1831,7 +1843,9 @@
                 <button id="close-about">×</button>
                 <h2>About Statistical Research Analyzer</h2>
                 <p style="margin: 15px 0;">
-                    This application is designed for statistical analysis of research data, allowing for subgroup definition, statistical testing, and visualization of results. All processing is done locally in your browser - no data is sent to any server.
+                    This application is designed for statistical analysis of research data, allowing for subgroup
+                    definition, statistical testing, and visualization of results. All processing is done locally in
+                    your browser - no data is sent to any server.
                 </p>
                 <h4>Features:</h4>
                 <ul style="margin-left: 20px; margin-bottom: 15px;">
@@ -1841,7 +1855,8 @@
                     <li>Multiple visualization options</li>
                     <li>Multiple regression analysis types with significance testing</li>
                 </ul>
-                <p><strong>Privacy:</strong> All data processing happens locally in your browser. No data is transmitted to any server.</p>
+                <p><strong>Privacy:</strong> All data processing happens locally in your browser. No data is transmitted
+                    to any server.</p>
                 <p>Version 1.0</p>
             </div>
         </div>
@@ -7435,25 +7450,32 @@
             const resultDiv = document.createElement('div');
             resultDiv.className = `significance-result ${result.significant ? 'significant' : 'not-significant'}`;
 
+            // Initialize html variable here!
+            let html = `
+        <h4>${result.test} Results</h4>
+        <p><strong>Parameter:</strong> ${paramName}</p>
+    `;
+
             // Add multiple comparison warning if applicable
             if (globalState.significanceResults.length > 1) {
                 html += `
-        <div class="warning-box" style="margin: 10px 0;">
-            <strong>⚠️ Multiple Testing Warning:</strong> 
-            You have performed ${globalState.significanceResults.length} statistical tests. 
-            Consider adjusting your significance level (currently α=${result.alpha}) to account for multiple comparisons 
-            (e.g., Bonferroni correction: α/${globalState.significanceResults.length} = ${(result.alpha / globalState.significanceResults.length).toFixed(4)}).
-        </div>
-    `;
+            <div class="warning-box" style="margin: 10px 0;">
+                <strong>⚠️ Multiple Testing Warning:</strong> 
+                You have performed ${globalState.significanceResults.length} statistical tests. 
+                Consider adjusting your significance level (currently α=${result.alpha}) to account for multiple comparisons 
+                (e.g., Bonferroni correction: α/${globalState.significanceResults.length} = ${(result.alpha / globalState.significanceResults.length).toFixed(4)}).
+            </div>
+        `;
             }
+
             html += `<p><strong>Compared Groups:</strong> ${groupNames.join(', ')}</p>`;
 
             // Display violations if test was forced
             if (violations.length > 0) {
                 html += `
-                    <div class="test-violation-warning">
-                        <h5>⚠️ Test Requirement Violations</h5>
-                        <p>The following test requirements were not met:</p>
+            <div class="test-violation-warning">
+                <h5>⚠️ Test Requirement Violations</h5>
+                <p>The following test requirements were not met:</p>
                         <ul>
                             ${violations.map(v => `<li>${v}</li>`).join('')}
                         </ul>
