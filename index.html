@@ -1532,6 +1532,32 @@
                                 </div>
                             </div>
                         </div>
+                        <div style="margin-top: 30px;">
+                            <h4>Data Distribution Analysis</h4>
+
+                            <!-- Add group selection controls -->
+                            <div
+                                style="margin-bottom: 15px; padding: 15px; background-color: var(--background-medium); border-radius: 8px; border: 1px solid var(--border-color);">
+                                <div style="margin-bottom: 10px;">
+                                    <strong>Select Groups to Display:</strong>
+                                    <button id="histogram-select-all" class="btn btn-small btn-primary"
+                                        style="margin-left: 10px;">Select All</button>
+                                    <button id="histogram-select-none" class="btn btn-small btn-accent">Select
+                                        None</button>
+                                </div>
+                                <div id="histogram-group-selection" style="display: flex; flex-wrap: wrap; gap: 10px;">
+                                    <!-- Group checkboxes will be inserted here -->
+                                </div>
+                            </div>
+
+                            <div class="chart-container">
+                                <canvas id="detail-histogram-chart"></canvas>
+                            </div>
+                            <div class="text-center">
+                                <button class="btn btn-small btn-accent"
+                                    onclick="exportChartAsImage('detail-histogram-chart')">Export Chart</button>
+                            </div>
+                        </div>
 
                         <h4>Detailed Statistics</h4>
                         <div class="stats-table-container">
@@ -1912,7 +1938,17 @@
             { bg: 'rgba(212, 162, 90, 0.7)', border: 'rgba(212, 162, 90, 1)', name: 'Orange' },
             { bg: 'rgba(200, 84, 80, 0.7)', border: 'rgba(200, 84, 80, 1)', name: 'Red' },
             { bg: 'rgba(160, 160, 160, 0.7)', border: 'rgba(160, 160, 160, 1)', name: 'Light Gray' },
-            { bg: 'rgba(100, 100, 100, 0.7)', border: 'rgba(100, 100, 100, 1)', name: 'Dark Gray' }
+            { bg: 'rgba(100, 100, 100, 0.7)', border: 'rgba(100, 100, 100, 1)', name: 'Dark Gray' },
+            { bg: 'rgba(156, 117, 181, 0.7)', border: 'rgba(156, 117, 181, 1)', name: 'Purple' },
+            { bg: 'rgba(255, 193, 7, 0.7)', border: 'rgba(255, 193, 7, 1)', name: 'Amber' },
+            { bg: 'rgba(0, 188, 212, 0.7)', border: 'rgba(0, 188, 212, 1)', name: 'Cyan' },
+            { bg: 'rgba(233, 30, 99, 0.7)', border: 'rgba(233, 30, 99, 1)', name: 'Pink' },
+            { bg: 'rgba(139, 195, 74, 0.7)', border: 'rgba(139, 195, 74, 1)', name: 'Light Green' },
+            { bg: 'rgba(255, 152, 0, 0.7)', border: 'rgba(255, 152, 0, 1)', name: 'Deep Orange' },
+            { bg: 'rgba(96, 125, 139, 0.7)', border: 'rgba(96, 125, 139, 1)', name: 'Blue Gray' },
+            { bg: 'rgba(121, 85, 72, 0.7)', border: 'rgba(121, 85, 72, 1)', name: 'Brown' },
+            { bg: 'rgba(0, 150, 136, 0.7)', border: 'rgba(0, 150, 136, 1)', name: 'Teal' },
+            { bg: 'rgba(103, 58, 183, 0.7)', border: 'rgba(103, 58, 183, 1)', name: 'Deep Purple' }
         ];
 
         /**
@@ -2352,9 +2388,11 @@
             groupDefinitionToText(group) {
                 let text = `[${group.name}]\n`;
 
-                // Export custom color if set
+                // Export color (both custom and preset)
                 if (group.customColor) {
                     text += `Color: ${group.customColor}\n`;
+                } else if (group.colorIndex !== undefined) {
+                    text += `ColorIndex: ${group.colorIndex}\n`;
                 }
 
                 // Export inclusion state
@@ -6305,6 +6343,7 @@
         function updateAnalysisResults() {
             updateOverviewTab();
             updateParameterDropdowns();
+            updateSignificanceGroupSelection();
 
             // Automatically select first numeric parameter for detailed analysis
             const numericParams = globalState.columnNames.filter(name =>
@@ -6520,6 +6559,40 @@
         }
 
         /**
+         * Update significance test group selection
+         */
+        function updateSignificanceGroupSelection() {
+            const container = document.getElementById('sig-group-selection');
+            container.innerHTML = '';
+
+            Object.entries(globalState.currentGroups).forEach(([groupId, group], index) => {
+                const color = group.customColor || groupColors[group.colorIndex];
+                const bgColor = typeof color === 'string' ? color : color.bg;
+
+                const checkboxDiv = document.createElement('div');
+                checkboxDiv.className = 'checkbox-container';
+
+                const checkbox = document.createElement('input');
+                checkbox.type = 'checkbox';
+                checkbox.id = `sig-group-${groupId}`;
+                checkbox.value = groupId;
+                checkbox.checked = true;
+
+                const label = document.createElement('label');
+                label.htmlFor = `sig-group-${groupId}`;
+                label.innerHTML = `
+            <span class="group-badge" style="background-color: ${bgColor};">
+                ${group.name}
+            </span> (n=${group.count})
+        `;
+
+                checkboxDiv.appendChild(checkbox);
+                checkboxDiv.appendChild(label);
+                container.appendChild(checkboxDiv);
+            });
+        }
+
+        /**
          * Update parameter dropdowns across the application
          */
         function updateParameterDropdowns() {
@@ -6562,7 +6635,7 @@
             });
 
             // Update significance test groups
-            updateSignificanceGroupSelection();
+            //updateSignificanceGroupSelection();
         }
 
         /**
@@ -6594,6 +6667,12 @@
 
             // Detailed statistics table
             updateDetailStatsTable(paramName, groupData);
+
+            // Initialize histogram group selection
+            initializeHistogramGroupSelection(paramName, groupData);
+
+            // Create histogram with all groups selected initially
+            updateDetailHistogram(paramName, groupData);
         }
 
         /**
@@ -6951,37 +7030,313 @@
         }
 
         /**
-         * Update significance test group selection
+         * Initialize group selection checkboxes for histogram
          */
-        function updateSignificanceGroupSelection() {
-            const container = document.getElementById('sig-group-selection');
+        function initializeHistogramGroupSelection(paramName, groupData) {
+            const container = document.getElementById('histogram-group-selection');
             container.innerHTML = '';
 
-            Object.entries(globalState.currentGroups).forEach(([groupId, group], index) => {
+            // Create checkboxes for each group
+            Object.entries(globalState.currentGroups).forEach(([groupId, group]) => {
                 const color = group.customColor || groupColors[group.colorIndex];
                 const bgColor = typeof color === 'string' ? color : color.bg;
 
                 const checkboxDiv = document.createElement('div');
                 checkboxDiv.className = 'checkbox-container';
+                checkboxDiv.style.marginBottom = '0';
 
                 const checkbox = document.createElement('input');
                 checkbox.type = 'checkbox';
-                checkbox.id = `sig-group-${groupId}`;
+                checkbox.id = `histogram-group-${groupId}`;
                 checkbox.value = groupId;
-                checkbox.checked = true;
+                checkbox.checked = true; // All selected by default
+
+                // Add change listener
+                checkbox.addEventListener('change', () => {
+                    updateDetailHistogram(paramName, groupData);
+                });
 
                 const label = document.createElement('label');
-                label.htmlFor = `sig-group-${groupId}`;
+                label.htmlFor = `histogram-group-${groupId}`;
                 label.innerHTML = `
-                    <span class="group-badge" style="background-color: ${bgColor};">
-                        ${group.name}
-                    </span> (n=${group.count})
-                `;
+            <span class="group-badge" style="background-color: ${bgColor};">
+                ${group.name}
+            </span> (n=${groupData[groupId].length})
+        `;
 
                 checkboxDiv.appendChild(checkbox);
                 checkboxDiv.appendChild(label);
                 container.appendChild(checkboxDiv);
             });
+
+            // Set up select all/none buttons
+            document.getElementById('histogram-select-all').addEventListener('click', () => {
+                document.querySelectorAll('#histogram-group-selection input[type="checkbox"]').forEach(cb => {
+                    cb.checked = true;
+                });
+                updateDetailHistogram(paramName, groupData);
+            });
+
+            document.getElementById('histogram-select-none').addEventListener('click', () => {
+                document.querySelectorAll('#histogram-group-selection input[type="checkbox"]').forEach(cb => {
+                    cb.checked = false;
+                });
+                updateDetailHistogram(paramName, groupData);
+            });
+        }
+
+        /**
+         * Update histogram chart for distribution analysis
+         */
+        function updateDetailHistogram(paramName, groupData) {
+            const ctx = document.getElementById('detail-histogram-chart').getContext('2d');
+            const paramType = globalState.columnTypes[paramName];
+
+            // Destroy existing chart
+            utils.destroyChart('detail-histogram-chart');
+
+            // Get selected groups
+            const selectedGroups = [];
+            document.querySelectorAll('#histogram-group-selection input:checked').forEach(checkbox => {
+                selectedGroups.push(checkbox.value);
+            });
+
+            if (selectedGroups.length === 0) {
+                // Show message when no groups selected
+                ctx.font = '16px Arial';
+                ctx.fillStyle = '#666';
+                ctx.textAlign = 'center';
+                ctx.fillText('Please select at least one group to display', ctx.canvas.width / 2, ctx.canvas.height / 2);
+                return;
+            }
+
+            // Collect data from selected groups
+            const allData = [];
+            const groupDataMap = {};
+
+            selectedGroups.forEach(groupId => {
+                const data = groupData[groupId] || [];
+                groupDataMap[groupId] = data;
+                allData.push(...data);
+            });
+
+            if (allData.length === 0) {
+                return;
+            }
+
+            // Sort data
+            allData.sort((a, b) => a - b);
+
+            // Calculate number of bins using Sturges' rule
+            const numBins = Math.max(5, Math.ceil(Math.log2(allData.length) + 1));
+            const min = allData[0];
+            const max = allData[allData.length - 1];
+            const binWidth = (max - min) / numBins;
+
+            // Create bins
+            const bins = [];
+            const binLabels = [];
+
+            for (let i = 0; i < numBins; i++) {
+                const binStart = min + i * binWidth;
+                const binEnd = binStart + binWidth;
+                bins.push({
+                    start: binStart,
+                    end: binEnd,
+                    midpoint: (binStart + binEnd) / 2
+                });
+
+                // Format bin labels
+                if (paramType === 'o') {
+                    binLabels.push(`${Math.round(binStart)}-${Math.round(binEnd)}`);
+                } else {
+                    binLabels.push(`${binStart.toFixed(1)}-${binEnd.toFixed(1)}`);
+                }
+            }
+
+            // Create datasets
+            const datasets = [];
+
+            // Add histogram for each selected group
+            selectedGroups.forEach(groupId => {
+                const group = globalState.currentGroups[groupId];
+                const color = group.customColor || groupColors[group.colorIndex];
+                const bgColor = typeof color === 'string' ? color : color.bg;
+                const borderColor = typeof color === 'string' ? color.replace('B3', '') : color.border;
+
+                // Count data points in each bin for this group
+                const binCounts = new Array(numBins).fill(0);
+                groupDataMap[groupId].forEach(value => {
+                    const binIndex = Math.min(Math.floor((value - min) / binWidth), numBins - 1);
+                    if (binIndex >= 0 && binIndex < numBins) {
+                        binCounts[binIndex]++;
+                    }
+                });
+
+                datasets.push({
+                    label: group.name,
+                    data: binCounts,
+                    backgroundColor: bgColor.replace('0.7', '0.5'),
+                    borderColor: borderColor,
+                    borderWidth: 1,
+                    type: 'bar'
+                });
+            });
+
+            // Add overall distribution line if multiple groups selected
+            if (selectedGroups.length > 1) {
+                const overallBinCounts = new Array(numBins).fill(0);
+                allData.forEach(value => {
+                    const binIndex = Math.min(Math.floor((value - min) / binWidth), numBins - 1);
+                    if (binIndex >= 0 && binIndex < numBins) {
+                        overallBinCounts[binIndex]++;
+                    }
+                });
+
+                datasets.push({
+                    label: 'Combined Distribution',
+                    data: overallBinCounts,
+                    borderColor: 'rgba(255, 255, 255, 0.8)',
+                    backgroundColor: 'transparent',
+                    borderWidth: 2,
+                    borderDash: [10, 5],
+                    type: 'line',
+                    fill: false,
+                    tension: 0.1,
+                    pointRadius: 3
+                });
+            }
+
+            // Calculate and add normal distribution curve for overall data
+            const mean = allData.reduce((sum, val) => sum + val, 0) / allData.length;
+            const variance = allData.reduce((sum, val) => sum + Math.pow(val - mean, 2), 0) / (allData.length - 1);
+            const stdDev = Math.sqrt(variance);
+
+            // Generate normal distribution curve
+            const curveData = bins.map(bin => {
+                const z = (bin.midpoint - mean) / stdDev;
+                const y = (1 / (stdDev * Math.sqrt(2 * Math.PI))) * Math.exp(-0.5 * z * z);
+                return y * allData.length * binWidth;
+            });
+
+            datasets.push({
+                label: 'Normal Distribution',
+                data: curveData,
+                borderColor: 'rgba(255, 99, 132, 1)',
+                backgroundColor: 'transparent',
+                borderWidth: 2,
+                borderDash: [5, 5],
+                type: 'line',
+                fill: false,
+                tension: 0.4,
+                pointRadius: 0
+            });
+
+            // Create the chart
+            globalState.charts['detail-histogram-chart'] = new Chart(ctx, {
+                type: 'bar',
+                data: {
+                    labels: binLabels,
+                    datasets: datasets
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    scales: {
+                        x: {
+                            title: {
+                                display: true,
+                                text: paramName + ' (Bins)',
+                                color: '#e0e0e0'
+                            },
+                            ticks: {
+                                color: '#e0e0e0',
+                                maxRotation: 45,
+                                minRotation: 0
+                            },
+                            grid: {
+                                color: '#444'
+                            }
+                        },
+                        y: {
+                            beginAtZero: true,
+                            title: {
+                                display: true,
+                                text: 'Frequency',
+                                color: '#e0e0e0'
+                            },
+                            ticks: {
+                                color: '#e0e0e0'
+                            },
+                            grid: {
+                                color: '#444'
+                            }
+                        }
+                    },
+                    plugins: {
+                        title: {
+                            display: true,
+                            text: `Distribution of ${paramName} (n=${allData.length})`,
+                            font: { size: 14 },
+                            color: '#e0e0e0'
+                        },
+                        legend: {
+                            display: true,
+                            position: 'top',
+                            labels: {
+                                color: '#e0e0e0',
+                                usePointStyle: true,
+                                padding: 15
+                            }
+                        },
+                        tooltip: {
+                            mode: 'index',
+                            intersect: false,
+                            callbacks: {
+                                label: function (context) {
+                                    const label = context.dataset.label || '';
+                                    if (context.dataset.type === 'bar') {
+                                        const count = context.parsed.y;
+                                        const total = context.dataset.data.reduce((sum, val) => sum + val, 0);
+                                        const percentage = total > 0 ? ((count / total) * 100).toFixed(1) : '0';
+                                        return `${label}: ${count} (${percentage}%)`;
+                                    } else if (label === 'Normal Distribution') {
+                                        return `Expected: ${context.parsed.y.toFixed(1)}`;
+                                    } else {
+                                        return `${label}: ${context.parsed.y}`;
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+            });
+
+            // Add normality test results for selected groups
+            let subtitleText = '';
+            if (selectedGroups.length === 1) {
+                // Single group - show Shapiro-Wilk test
+                const data = groupDataMap[selectedGroups[0]];
+                const shapiroResult = statistics.shapiroWilkTest(data);
+                if (!shapiroResult.error) {
+                    subtitleText = shapiroResult.normal ?
+                        `Shapiro-Wilk: W=${shapiroResult.W.toFixed(4)}, p=${shapiroResult.pValue.toFixed(4)} (Normal)` :
+                        `Shapiro-Wilk: W=${shapiroResult.W.toFixed(4)}, p=${shapiroResult.pValue.toFixed(4)} (Not Normal)`;
+                }
+            } else {
+                // Multiple groups - show overall statistics
+                subtitleText = `Combined: μ=${mean.toFixed(2)}, σ=${stdDev.toFixed(2)}`;
+            }
+
+            if (subtitleText) {
+                globalState.charts['detail-histogram-chart'].options.plugins.subtitle = {
+                    display: true,
+                    text: subtitleText,
+                    color: '#e0e0e0',
+                    font: { size: 12 }
+                };
+                globalState.charts['detail-histogram-chart'].update();
+            }
         }
 
         /**
@@ -8792,6 +9147,8 @@
                         currentItem.includeInAnalysis = value.toLowerCase() === 'true';
                     } else if (key === 'Color') {
                         currentItem.customColor = value;
+                    } else if (key === 'ColorIndex') {
+                        currentItem.colorIndex = parseInt(value);
                     }
                 }
             });
@@ -8948,19 +9305,11 @@
                 customOption.textContent = 'Custom';
                 colorSelect.appendChild(customOption);
 
-                // Set color based on imported data
-                if (group.customColor) {
-                    colorSelect.value = 'custom';
-                } else {
-                    colorSelect.value = index % groupColors.length;
-                }
-
                 colorControl.appendChild(colorSelect);
 
                 // Color preview
                 const colorPreview = document.createElement('div');
                 colorPreview.className = 'color-preview';
-                colorPreview.style.backgroundColor = group.customColor || groupColors[index % groupColors.length].bg;
                 colorControl.appendChild(colorPreview);
 
                 // Custom color input
@@ -8968,13 +9317,22 @@
                 customColorInput.type = 'text';
                 customColorInput.className = 'custom-color-input';
                 customColorInput.placeholder = '#RRGGBB';
+                customColorInput.style.display = 'none';
+                colorControl.appendChild(customColorInput);
+
+                // Set color based on imported data (AFTER creating all elements)
                 if (group.customColor) {
+                    colorSelect.value = 'custom';
                     customColorInput.value = group.customColor.replace('B3', '');
                     customColorInput.style.display = 'block';
+                    colorPreview.style.backgroundColor = group.customColor;
+                } else if (group.colorIndex !== undefined && group.colorIndex < groupColors.length) {
+                    colorSelect.value = group.colorIndex;
+                    colorPreview.style.backgroundColor = groupColors[group.colorIndex].bg;
                 } else {
-                    customColorInput.style.display = 'none';
+                    colorSelect.value = index % groupColors.length;
+                    colorPreview.style.backgroundColor = groupColors[index % groupColors.length].bg;
                 }
-                colorControl.appendChild(customColorInput);
 
                 // Color change handler
                 colorSelect.addEventListener('change', () => {
