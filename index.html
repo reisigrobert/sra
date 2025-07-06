@@ -5863,6 +5863,9 @@
                 container.appendChild(operatorSelect);
                 container.appendChild(valueInput);
 
+                operatorSelect.addEventListener('change', updateConstellationState);
+valueInput.addEventListener('change', updateConstellationState);
+
                 // Calculate statistics and show info
                 const values = globalState.rawData
                     .map(row => utils.parseNumericValue(row[paramName]))
@@ -5937,6 +5940,9 @@
 
                 container.appendChild(operatorSelect);
                 container.appendChild(valueSelect);
+
+                operatorSelect.addEventListener('change', updateConstellationState);
+valueSelect.addEventListener('change', updateConstellationState);
 
                 infoDiv.innerHTML = `
                     <strong>Categories for ${paramName} (${scaleInfo.name}):</strong><br>
@@ -6092,6 +6098,9 @@
 
             setTimeout(() => {
                 try {
+                    // FORCE UPDATE CONSTELLATION STATE
+        updateConstellationState();
+                    
                     // Collect group definitions
                     collectGroupDefinitions();
 
