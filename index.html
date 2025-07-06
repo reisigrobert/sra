@@ -2121,21 +2121,21 @@
                 const epsilon = this.calculateEpsilon(a, b);
 
                 switch (operator) {
-                    case '=':
-                        return Math.abs(a - b) < epsilon;
-                    case '!=':
-                        return Math.abs(a - b) >= epsilon;
-                    case '<':
-                        return a < b - epsilon;
-                    case '<=':
-                        return a <= b + epsilon;
-                    case '>':
-                        return a > b + epsilon;
-                    case '>=':
-                        return a >= b - epsilon;
-                    default:
-                        return false;
-                }
+    case '=':
+        return Math.abs(a - b) < epsilon;
+    case '!=':
+        return Math.abs(a - b) >= epsilon;
+    case '<':
+        return a < (b - epsilon);
+    case '<=':
+        return a <= (b + epsilon);
+    case '>':
+        return a > (b + epsilon);
+    case '>=':
+        return a >= (b - epsilon);
+    default:
+        return false;
+}
             },
 
             /**
@@ -6199,19 +6199,35 @@
                 });
 
                 if (conditions.length > 0 || constellations.length > 0) {
-                    globalState.groupDefinitions.push({
-                        id: `group_${index}`,
-                        name: groupName,
-                        conditions: conditions,
-                        constellations: constellations,
-                        notInPrevious: notInPrevious,
-                        includeInAnalysis: includeInAnalysis,
-                        customColor: customColor,
-                        colorIndex: colorSelect.value !== 'custom' ? parseInt(colorSelect.value) : index % groupColors.length
-                    });
-                }
+            globalState.groupDefinitions.push({
+                id: `group_${index}`,
+                name: groupName,
+                conditions: conditions,
+                constellations: constellations,
+                notInPrevious: notInPrevious,
+                includeInAnalysis: includeInAnalysis,
+                customColor: customColor,
+                colorIndex: colorSelect.value !== 'custom' ? parseInt(colorSelect.value) : index % groupColors.length
             });
         }
+    });
+
+    // ADD THIS VALIDATION CODE HERE:
+    // Validate group definitions
+    globalState.groupDefinitions.forEach(group => {
+        if (group.conditions.length === 0 && group.constellations.length === 0) {
+            console.warn(`Group "${group.name}" has no conditions or constellations`);
+        }
+        
+        // Check if referenced constellations exist
+        group.constellations.forEach(constRef => {
+            const exists = globalState.parameterConstellations.find(c => c.name === constRef.name);
+            if (!exists) {
+                console.error(`Group "${group.name}" references non-existent constellation "${constRef.name}"`);
+            }
+        });
+    });
+}
 
         /**
          * Filter data into defined groups
@@ -6220,8 +6236,8 @@
             globalState.processedData = {};
             globalState.currentGroups = {};
 
-            // Track which records have been assigned to groups
-            const recordAssignments = new Array(globalState.rawData.length).fill(null).map(() => []);
+            // Initialize record assignments tracking
+    globalState.recordAssignments = new Array(globalState.rawData.length).fill(null).map(() => []);
 
             // Initialize groups (only those included in analysis)
             globalState.groupDefinitions.forEach(group => {
@@ -6241,17 +6257,17 @@
                 if (!group.includeInAnalysis) return;
 
                 globalState.rawData.forEach((row, rowIndex) => {
-                    // Check if record should be excluded based on previous group membership
-                    if (group.notInPrevious && recordAssignments[rowIndex].length > 0) {
-                        return;
-                    }
+    // Check if record should be excluded based on previous group membership
+    if (group.notInPrevious && globalState.recordAssignments[rowIndex].length > 0) {
+        return;
+    }
 
-                    // Check if row matches group criteria
-                    if (checkRowAgainstGroupDefinition(row, group)) {
-                        globalState.processedData[group.id].push(row);
-                        recordAssignments[rowIndex].push(group.id);
-                    }
-                });
+    // Check if row matches group criteria
+    if (checkRowAgainstGroupDefinition(row, group)) {
+        globalState.processedData[group.id].push(row);
+        globalState.recordAssignments[rowIndex].push(group.id);
+    }
+});
             });
 
             // Update group counts
@@ -6259,8 +6275,6 @@
                 globalState.currentGroups[groupId].count = globalState.processedData[groupId].length;
             });
 
-            // Store record assignments for export
-            globalState.recordAssignments = recordAssignments;
         }
 
         /**
@@ -6273,15 +6287,17 @@
 
             // Process constellations
             group.constellations.forEach(constellationRef => {
-                const constellation = globalState.parameterConstellations.find(c => c.name === constellationRef.name);
-                if (constellation) {
-                    if (constellationRef.negated) {
-                        negatedConstellations.push(constellation);
-                    } else {
-                        allConditions = allConditions.concat(constellation.conditions);
-                    }
-                }
-            });
+    const constellation = globalState.parameterConstellations.find(c => c.name === constellationRef.name);
+    if (constellation && constellation.conditions && constellation.conditions.length > 0) {
+        if (constellationRef.negated) {
+            negatedConstellations.push(constellation);
+        } else {
+            allConditions = allConditions.concat(constellation.conditions);
+        }
+    } else {
+        console.warn(`Constellation "${constellationRef.name}" not found or has no conditions`);
+    }
+});
 
             // If no conditions and no negated constellations, don't match
             if (allConditions.length === 0 && negatedConstellations.length === 0) return false;
@@ -6324,13 +6340,13 @@
 
                     return utils.compareNumbers(numValue, numConditionValue, operator);
                 } else if (type === 'k') {
-                    if (value === null || value === undefined) return false;
+    if (value === null || value === undefined || value === '') return false;
 
-                    switch (operator) {
-                        case '=': return String(value) === String(conditionValue);
-                        case '!=': return String(value) !== String(conditionValue);
-                        default: return false;
-                    }
+    switch (operator) {
+        case '=': return String(value).trim() === String(conditionValue).trim();
+        case '!=': return String(value).trim() !== String(conditionValue).trim();
+        default: return false;
+    }
                 }
 
                 return false;
