@@ -6280,7 +6280,7 @@
         /**
          * Check if a row matches a group definition
          */
-        Copyfunction checkRowAgainstGroupDefinition(row, group) {
+        function checkRowAgainstGroupDefinition(row, group) {
     // The row must meet ALL individual conditions.
     if (!checkRowAgainstConditions(row, group.conditions)) {
         // Note: If group.conditions is empty, this now correctly returns false.
