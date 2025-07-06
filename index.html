@@ -6281,43 +6281,35 @@
          * Check if a row matches a group definition
          */
         function checkRowAgainstGroupDefinition(row, group) {
-            // Collect all conditions from individual conditions and constellations
-            let allConditions = [...group.conditions];
-            let negatedConstellations = [];
-
-            // Process constellations
-            group.constellations.forEach(constellationRef => {
-    const constellation = globalState.parameterConstellations.find(c => c.name === constellationRef.name);
-    if (constellation && constellation.conditions && constellation.conditions.length > 0) {
-        if (constellationRef.negated) {
-            negatedConstellations.push(constellation);
-        } else {
-            allConditions = allConditions.concat(constellation.conditions);
-        }
-    } else {
-        console.warn(`Constellation "${constellationRef.name}" not found or has no conditions`);
-    }
-});
-
-            // If no conditions and no negated constellations, don't match
-            if (allConditions.length === 0 && negatedConstellations.length === 0) return false;
-
-            // Check positive conditions (must all match)
-            let positiveMatch = true;
-            if (allConditions.length > 0) {
-                positiveMatch = checkRowAgainstConditions(row, allConditions);
-            }
-
-            // Check negated constellations (must not match any)
-            let negatedMatch = true;
-            negatedConstellations.forEach(constellation => {
-                if (checkRowAgainstConditions(row, constellation.conditions)) {
-                    negatedMatch = false;
-                }
-            });
-
-            return positiveMatch && negatedMatch;
-        }
+    // 1. Check individual conditions
+    const individualMatch = group.conditions.length === 0 ? true : 
+        checkRowAgainstConditions(row, group.conditions);
+    
+    // 2. Check positive constellations
+    const positiveConstellations = group.constellations
+        .filter(c => !c.negated)
+        .map(c => globalState.parameterConstellations.find(con => con.name === c.name))
+        .filter(c => c);
+    
+    const positiveConstellationMatch = positiveConstellations.length === 0 ? true :
+        positiveConstellations.every(constellation => 
+            checkRowAgainstConditions(row, constellation.conditions)
+        );
+    
+    // 3. Check negated constellations
+    const negatedConstellations = group.constellations
+        .filter(c => c.negated)
+        .map(c => globalState.parameterConstellations.find(con => con.name === c.name))
+        .filter(c => c);
+    
+    const negatedConstellationMatch = negatedConstellations.length === 0 ? true :
+        negatedConstellations.every(constellation => 
+            !checkRowAgainstConditions(row, constellation.conditions)
+        );
+        
+    // 4. Combine results (individual AND positive-constellation AND negated-constellation)
+    return individualMatch && positiveConstellationMatch && negatedConstellationMatch;
+}
 
         /**
          * Check if a row matches all conditions in a group
