@@ -6280,70 +6280,82 @@
         /**
          * Check if a row matches a group definition
          */
-        function checkRowAgainstGroupDefinition(row, group) {
-    // 1. Check individual conditions
-    const individualMatch = group.conditions.length === 0 ? true : 
-        checkRowAgainstConditions(row, group.conditions);
-    
-    // 2. Check positive constellations
-    const positiveConstellations = group.constellations
-        .filter(c => !c.negated)
-        .map(c => globalState.parameterConstellations.find(con => con.name === c.name))
-        .filter(c => c);
-    
-    const positiveConstellationMatch = positiveConstellations.length === 0 ? true :
-        positiveConstellations.every(constellation => 
-            checkRowAgainstConditions(row, constellation.conditions)
-        );
-    
-    // 3. Check negated constellations
-    const negatedConstellations = group.constellations
-        .filter(c => c.negated)
-        .map(c => globalState.parameterConstellations.find(con => con.name === c.name))
-        .filter(c => c);
-    
-    const negatedConstellationMatch = negatedConstellations.length === 0 ? true :
-        negatedConstellations.every(constellation => 
-            !checkRowAgainstConditions(row, constellation.conditions)
-        );
-        
-    // 4. Combine results (individual AND positive-constellation AND negated-constellation)
-    return individualMatch && positiveConstellationMatch && negatedConstellationMatch;
+        Copyfunction checkRowAgainstGroupDefinition(row, group) {
+    // The row must meet ALL individual conditions.
+    if (!checkRowAgainstConditions(row, group.conditions)) {
+        // Note: If group.conditions is empty, this now correctly returns false.
+        // We must handle the case where a group is defined ONLY by constellations.
+        // So, if individual conditions fail, we only exit if there WERE conditions to check.
+        if (group.conditions.length > 0) {
+            return false;
+        }
+    }
+
+    // The row must meet the conditions of EVERY positive constellation.
+    const positiveConstellations = group.constellations.filter(c => !c.negated);
+    for (const constRef of positiveConstellations) {
+        const constellation = globalState.parameterConstellations.find(c => c.name === constRef.name);
+        if (!constellation || !checkRowAgainstConditions(row, constellation.conditions)) {
+            return false; // If constellation is missing or doesn't match, the row is out.
+        }
+    }
+
+    // The row must NOT meet the conditions of ANY negated constellation.
+    const negatedConstellations = group.constellations.filter(c => c.negated);
+    for (const constRef of negatedConstellations) {
+        const constellation = globalState.parameterConstellations.find(c => c.name === constRef.name);
+        // If a negated constellation exists AND its conditions are met by the row...
+        if (constellation && checkRowAgainstConditions(row, constellation.conditions)) {
+            return false; // ...then the row is out.
+        }
+    }
+
+    // If the row has passed all checks, it's a match.
+    return true;
 }
+
 
         /**
          * Check if a row matches all conditions in a group
          */
-        function checkRowAgainstConditions(row, conditions) {
-            return conditions.every(condition => {
-                // Handle "All Data" condition
-                if (condition.parameter === '__all_data__') {
-                    return true; // Always matches
-                }
-
-                const value = row[condition.parameter];
-                const { operator, value: conditionValue, type } = condition;
-
-                if (scaleTypes[type].numeric) {
-                    const numValue = utils.parseNumericValue(value);
-                    const numConditionValue = utils.parseNumericValue(conditionValue);
-
-                    if (isNaN(numValue) || isNaN(numConditionValue)) return false;
-
-                    return utils.compareNumbers(numValue, numConditionValue, operator);
-                } else if (type === 'k') {
-    if (value === null || value === undefined || value === '') return false;
-
-    switch (operator) {
-        case '=': return String(value).trim() === String(conditionValue).trim();
-        case '!=': return String(value).trim() !== String(conditionValue).trim();
-        default: return false;
+function checkRowAgainstConditions(row, conditions) {
+    // CRITICAL FIX: An empty set of conditions should never be considered a "match".
+    if (!conditions || conditions.length === 0) {
+        return false;
     }
-                }
 
-                return false;
-            });
+    return conditions.every(condition => {
+        // Handle "All Data" condition
+        if (condition.parameter === '__all_data__') {
+            return true; // This specific condition is a pass.
         }
+
+        const value = row[condition.parameter];
+        const { operator, value: conditionValue, type } = condition;
+
+        if (scaleTypes[type].numeric) {
+            const numValue = utils.parseNumericValue(value);
+            const numConditionValue = utils.parseNumericValue(conditionValue);
+
+            // If data is not a valid number for a numeric check, it cannot match.
+            if (isNaN(numValue)) return false;
+
+            return utils.compareNumbers(numValue, numConditionValue, operator);
+        } else if (type === 'k') {
+            // If data is null/undefined for a categorical check, it cannot match.
+            if (value === null || value === undefined) return false;
+
+            switch (operator) {
+                case '=': return String(value) === String(conditionValue);
+                case '!=': return String(value) !== String(conditionValue);
+                default: return false;
+            }
+        }
+
+        // Failsafe for any unhandled condition type.
+        return false;
+    });
+}
 
         /**
          * Update analysis results
