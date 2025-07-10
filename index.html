@@ -8521,46 +8521,35 @@ function updateSignificanceGroupSelection() {
          * Run statistical significance test
          */
         function runSignificanceTest() {
-            const paramName = document.getElementById('sig-parameter-select').value;
-if (!paramName) {
-    utils.showError("Please select a parameter for significance testing.");
-    return;
-}
+    const paramName = document.getElementById('sig-parameter-select').value;
+    if (!paramName) {
+        utils.showError("Please select a parameter for significance testing.");
+        return;
+    }
 
-// Get selected groups early
-const selectedGroups = [];
-document.querySelectorAll('#sig-group-selection input:checked').forEach(checkbox => {
-    selectedGroups.push(checkbox.value);
-});
+    // Get selected groups early
+    const selectedGroups = [];
+    document.querySelectorAll('#sig-group-selection input:checked').forEach(checkbox => {
+        selectedGroups.push(checkbox.value);
+    });
 
-if (selectedGroups.length < 1) {
-    utils.showError("Please select at least one group for comparison.");
-    return;
-}
+    if (selectedGroups.length < 1) {
+        utils.showError("Please select at least one group for comparison.");
+        return;
+    }
 
-// Check prerequisites if not already done
-const paramType = globalState.columnTypes[paramName];
-if (scaleTypes[paramType].numeric && !globalState.prerequisiteResults[paramName]) {
-    utils.showError("Please check prerequisites first before running the test.");
-    checkAllPrerequisites();
-    return;
-}
-            
-            const paramName = document.getElementById('sig-parameter-select').value;
-            if (!paramName) {
-                utils.showError("Please select a parameter for significance testing.");
-                return;
-            }
+    // Check prerequisites if not already done
+    const paramType = globalState.columnTypes[paramName];
+    if (scaleTypes[paramType].numeric && !globalState.prerequisiteResults[paramName]) {
+        utils.showError("Please check prerequisites first before running the test.");
+        checkAllPrerequisites();
+        return;
+    }
 
-            // Always recalculate prerequisites fresh
-if (paramName && scaleTypes[globalState.columnTypes[paramName]].numeric) {
-    checkAllPrerequisites();
-}
+    let testType = document.getElementById('sig-test-type').value;
+    const forceExecution = true; // Always force execution
 
-            let testType = document.getElementById('sig-test-type').value;
-            const forceExecution = true; // Always force execution
-
-            // Get alpha level
+    // Get alpha level
             let alpha = 0.05;
             const alphaSelect = document.getElementById('sig-alpha');
             if (alphaSelect.value === 'custom') {
