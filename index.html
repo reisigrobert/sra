@@ -1816,34 +1816,6 @@
         </div>
         
         <!-- Manual Test Selection -->
-        <div style="margin-bottom: 20px;">
-    <h5>Test Selection</h5>
-    <div id="test-recommendation-inline" style="margin-bottom: 15px; padding: 15px; background-color: var(--background-light); border-radius: 8px; border: 1px solid var(--border-color); display: none;">
-        <!-- Recommendation will be displayed here -->
-    </div>
-    <div class="flex-container">
-        <div class="flex-item">
-            <label for="sig-test-type">Test Method:</label>
-            <select id="sig-test-type" style="width: 100%; margin-top: 5px;">
-                <option value="">Select test manually...</option>
-                <optgroup label="Parametric Tests">
-                    <option value="ttest">t-Test (2 groups, normal distribution)</option>
-                    <option value="welch">Welch's t-Test (2 groups, unequal variances)</option>
-                    <option value="anova">ANOVA (>2 groups, normal distribution)</option>
-                </optgroup>
-                <optgroup label="Non-Parametric Tests">
-                    <option value="mann-whitney">Mann-Whitney U (2 groups, non-normal)</option>
-                    <option value="wilcoxon">Wilcoxon Signed-Rank (paired samples)</option>
-                    <option value="kruskal-wallis">Kruskal-Wallis (>2 groups, non-normal)</option>
-                </optgroup>
-                <optgroup label="Categorical Tests">
-                    <option value="chi-square">Chi-Square (categorical data)</option>
-                    <option value="fisher">Fisher's Exact (2x2 tables, small samples)</option>
-                </optgroup>
-            </select>
-        </div>
-    </div>
-
 <div style="margin-bottom: 20px;">
     <h5>Test Selection</h5>
     <div id="test-recommendation-inline" style="margin-bottom: 15px; padding: 15px; background-color: var(--background-light); border-radius: 8px; border: 1px solid var(--border-color); display: none;">
