@@ -1788,20 +1788,12 @@
         <!-- Test Prerequisites Section -->
         <div class="test-prerequisites" style="margin-bottom: 20px;">
             <h5>Check Prerequisites</h5>
-            <div class="flex-container">
-                <div class="flex-item">
-                    <button id="check-normality" class="btn btn-primary btn-small">Check Normality</button>
-                    <span class="tooltip">ⓘ
-                        <span class="tooltip-text">Shapiro-Wilk test for samples n ≤ 50. Tests if data follows normal distribution. Required for parametric tests like t-test and ANOVA.</span>
-                    </span>
-                </div>
-                <div class="flex-item">
-                    <button id="check-variance" class="btn btn-primary btn-small">Check Variance Homogeneity</button>
-                    <span class="tooltip">ⓘ
-                        <span class="tooltip-text">F-test for 2 groups. Tests if groups have equal variances. Important for choosing between standard t-test and Welch's t-test.</span>
-                    </span>
-                </div>
-            </div>
+            <div style="text-align: center;">
+    <button id="check-prerequisites" class="btn btn-primary">Check All Prerequisites</button>
+    <span class="tooltip">ⓘ
+        <span class="tooltip-text">Performs normality tests (Shapiro-Wilk) for all groups and variance homogeneity test (F-test) for 2 groups if applicable.</span>
+    </span>
+</div>
             <div id="prerequisite-results"></div>
 
             <!-- Add normality override option -->
@@ -1898,14 +1890,6 @@
                 </div>
             </div>
         </div>
-        
-        <div class="checkbox-container">
-            <input type="checkbox" id="force-test-execution">
-            <label for="force-test-execution">Force test execution even if prerequisites are not met</label>
-            <span class="tooltip">ⓘ
-                <span class="tooltip-text">Enable this to run tests even when assumptions are violated. Results will include warnings about which assumptions were not met.</span>
-            </span>
-        </div>
     </div>
     
     <!-- Step 3: Run Test -->
@@ -1956,7 +1940,6 @@
                                 <option value="scatter">Scatter Plot</option>
                                 <option value="bar">Bar Chart</option>
                                 <option value="line">Line Chart</option>
-                                <option value="correlation">Correlation Matrix</option>
                             </select>
                         </div>
                     </div>
@@ -4717,9 +4700,8 @@ document.addEventListener('DOMContentLoaded', function() {
             document.getElementById('generate-visualization').addEventListener('click', generateCustomVisualization);
 
             // Prerequisite tests
-            document.getElementById('check-normality').addEventListener('click', checkNormality);
-            document.getElementById('check-variance').addEventListener('click', checkVarianceHomogeneity);
-
+            document.getElementById('check-prerequisites').addEventListener('click', checkAllPrerequisites);
+            
             // Visualization controls
             document.getElementById('viz-chart-type').addEventListener('change', updateVisualizationControls);
             document.getElementById('viz-parameter-x').addEventListener('change', updateVisualizationControls);
@@ -4985,7 +4967,7 @@ document.getElementById('get-test-recommendation').addEventListener('click', get
         recommendation.alternatives.forEach(alt => {
             html += `
                 <li>
-                    <strong>${alt.test.name}</strong> (${alt.confidence}% Empfehlung)
+                    <strong>${alt.test.name}</strong>
                     <br><small>${alt.test.indication}</small>
                 </li>
             `;
@@ -5185,24 +5167,24 @@ function updateTestSelectionUI() {
     const hasValidSelection = paramName && selectedGroups.length >= 1;
     
     // Enable/disable recommendation button
-    const recommendBtn = document.getElementById('get-test-recommendation');
-    recommendBtn.disabled = !hasValidSelection;
+const recommendBtn = document.getElementById('get-test-recommendation');
+const prerequisiteResults = globalState.prerequisiteResults[paramName];
+const hasPrerequisiteResults = prerequisiteResults && Object.keys(prerequisiteResults).length > 0;
+
+recommendBtn.disabled = !hasValidSelection || !hasPrerequisiteResults;
+
+// Update button text based on selection
+if (!hasValidSelection) {
+    recommendBtn.textContent = 'Select parameter and groups first';
+} else if (!hasPrerequisiteResults) {
+    recommendBtn.textContent = 'Check prerequisites first';
+} else {
+    recommendBtn.textContent = '📊 Get Test Recommendation';
     
-    // Enable/disable run test button
-    const runTestBtn = document.getElementById('run-significance-test');
-    const testType = document.getElementById('sig-test-type').value;
-    runTestBtn.disabled = !hasValidSelection || !testType;
-    
-    // Update button text based on selection
-    if (hasValidSelection) {
-        recommendBtn.textContent = '📊 Get Test Recommendation';
-        
-        if (selectedGroups.length === 1) {
-            recommendBtn.innerHTML += '<br><small style="font-size: 11px;">Note: Single group selected - limited test options</small>';
-        }
-    } else {
-        recommendBtn.textContent = 'Select parameter and groups first';
+    if (selectedGroups.length === 1) {
+        recommendBtn.innerHTML += '<br><small style="font-size: 11px;">Note: Single group selected - limited test options</small>';
     }
+}
 }
 
 /**
@@ -5257,8 +5239,6 @@ function runRecommendedTest() {
          * Check normality for selected parameter and groups
          */
         function checkNormality() {
-            // Clear all previous prerequisite results
-document.getElementById('prerequisite-results').innerHTML = '';
             
     const paramName = document.getElementById('sig-parameter-select').value;
     if (!paramName) {
@@ -5385,8 +5365,6 @@ if (globalState.prerequisiteResults[paramName][groupId]) {
          * Check variance homogeneity between groups
          */
         function checkVarianceHomogeneity() {
-            // Clear all previous prerequisite results
-document.getElementById('prerequisite-results').innerHTML = '';
             
             const paramName = document.getElementById('sig-parameter-select').value;
             if (!paramName) {
@@ -5464,6 +5442,57 @@ if (isOverridden) {
 
             resultsContainer.appendChild(resultDiv);
         }
+
+        /**
+ * Check all prerequisites at once
+ */
+function checkAllPrerequisites() {
+    const paramName = document.getElementById('sig-parameter-select').value;
+    if (!paramName) {
+        utils.showError("Please select a parameter first.");
+        return;
+    }
+
+    const paramType = globalState.columnTypes[paramName];
+    if (!scaleTypes[paramType].numeric) {
+        utils.showError("Prerequisite tests require a numeric parameter (ordinal, interval, or ratio scale).");
+        return;
+    }
+
+    // Get selected groups
+    const selectedGroups = [];
+    document.querySelectorAll('#sig-group-selection input:checked').forEach(checkbox => {
+        selectedGroups.push(checkbox.value);
+    });
+
+    if (selectedGroups.length === 0) {
+        utils.showError("Please select at least one group.");
+        return;
+    }
+
+    // Clear all previous results
+    document.getElementById('prerequisite-results').innerHTML = '';
+    
+    // Initialize results storage
+    if (!globalState.prerequisiteResults[paramName]) {
+        globalState.prerequisiteResults[paramName] = {};
+    }
+
+    // First check normality for all groups
+    checkNormality();
+    
+    // Then check variance homogeneity if exactly 2 groups
+    if (selectedGroups.length === 2) {
+        setTimeout(() => {
+            checkVarianceHomogeneity();
+        }, 100);
+    }
+    
+    // Enable test recommendation button after prerequisites are checked
+    setTimeout(() => {
+        document.getElementById('get-test-recommendation').disabled = false;
+    }, 200);
+}
 
         /**
          * Handle file upload event
@@ -8375,7 +8404,7 @@ function updateSignificanceGroupSelection() {
             }
 
             let testType = document.getElementById('sig-test-type').value;
-            const forceExecution = document.getElementById('force-test-execution').checked;
+            const forceExecution = true; // Always force execution
 
             // Get alpha level
             let alpha = 0.05;
@@ -9049,11 +9078,6 @@ if (selectedGroups.length === 0) {
             } else if (chartType === 'bar' || chartType === 'line') {
                 createBarOrLinePlot(ctx, paramX, paramY, chartType);
             }
-
-            if (chartType === 'correlation') {
-    createCorrelationMatrix(ctx);
-    return;
-}
         }
 
         function createCorrelationMatrix(ctx) {
