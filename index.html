@@ -5383,8 +5383,7 @@ if (globalState.prerequisiteResults[paramName][groupId]) {
          */
         function checkVarianceHomogeneity() {
             // Clear any existing variance test results
-const resultsContainer = document.getElementById('prerequisite-results');
-const existingVarianceResults = resultsContainer.querySelectorAll('.variance-test-result');
+const existingVarianceResults = document.getElementById('prerequisite-results').querySelectorAll('.variance-test-result');
 existingVarianceResults.forEach(el => el.remove());
             
             const paramName = document.getElementById('sig-parameter-select').value;
