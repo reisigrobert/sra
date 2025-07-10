@@ -1758,130 +1758,170 @@
                     </div>
                 </div>
 
-                <!-- Significance Tests Tab -->
-                <div class="tab-content" id="significance">
-                    <h3>Statistical Significance Tests</h3>
-
-                    <!-- Test Prerequisites Section -->
-                    <div class="test-prerequisites">
-                        <h4>Test Prerequisites</h4>
-                        <div class="flex-container">
-                            <div class="flex-item">
-                                <button id="check-normality" class="btn btn-primary btn-small">Check Normality</button>
-                                <span class="tooltip">ⓘ
-                                    <span class="tooltip-text">Shapiro-Wilk test for samples n ≤ 50. Tests if data
-                                        follows normal distribution. Required for parametric tests like t-test and
-                                        ANOVA.</span>
-                                </span>
-                            </div>
-                            <div class="flex-item">
-                                <button id="check-variance" class="btn btn-primary btn-small">Check Variance Homogeneity
-                                </button>
-                                <span class="tooltip">ⓘ
-                                    <span class="tooltip-text">F-test for 2 groups. Tests if groups have equal
-                                        variances. Important for choosing between standard t-test and Welch's
-                                        t-test.</span>
-                                </span>
-                            </div>
-                        </div>
-                        <div id="prerequisite-results"></div>
-                    </div>
-
-                    <div class="flex-container" style="margin-bottom: 20px;">
-                        <div class="flex-item">
-                            <label for="sig-parameter-select">Parameter for Testing:</label>
-                            <select id="sig-parameter-select" style="width: 100%; margin-top: 5px;">
-                                <option value="">Select parameter</option>
-                            </select>
-                        </div>
-                        <div class="flex-item">
-                            <label for="sig-test-type">Test Method:</label>
-                            <select id="sig-test-type" style="width: 100%; margin-top: 5px;">
-                                <option value="auto">🤖 Intelligente Auswahl (Empfohlen)</option>
-                                <optgroup label="Parametric Tests">
-                                    <option value="ttest">t-Test (2 groups, normal distribution)</option>
-                                    <option value="welch">Welch's t-Test (2 groups, unequal variances)</option>
-                                    <option value="anova">ANOVA (>2 groups, normal distribution)</option>
-                                </optgroup>
-                                <optgroup label="Non-Parametric Tests">
-                                    <option value="mann-whitney">Mann-Whitney U (2 groups, non-normal)</option>
-                                    <option value="wilcoxon">Wilcoxon Signed-Rank (paired samples)</option>
-                                    <option value="kruskal-wallis">Kruskal-Wallis (>2 groups, non-normal)</option>
-                                </optgroup>
-                                <optgroup label="Categorical Tests">
-                                    <option value="chi-square">Chi-Square (categorical data)</option>
-                                    <option value="fisher">Fisher's Exact (2x2 tables, small samples)</option>
-                                </optgroup>
-                                <optgroup label="Correlation Tests">
-                                    <option value="pearson">Pearson Correlation (linear, normal)</option>
-                                    <option value="spearman">Spearman Correlation (monotonic, non-normal)</option>
-                                </optgroup>
-                            </select>
-                        </div>
-                    </div>
-
-                    <div class="test-info" id="test-info" style="display: none;"></div>
-
-                    <div class="flex-container" style="margin-bottom: 20px;">
-                        <div class="flex-item">
-                            <label for="sig-alpha">Significance Level (α):</label>
-                            <select id="sig-alpha" style="width: 100%; margin-top: 5px;">
-                                <option value="0.05">0.05 (5%)</option>
-                                <option value="0.01">0.01 (1%)</option>
-                                <option value="0.1">0.10 (10%)</option>
-                                <option value="custom">Custom</option>
-                            </select>
-                            <input type="number" id="sig-custom-alpha"
-                                style="width: 100%; margin-top: 5px; display: none;" min="0.001" max="0.5" step="0.001"
-                                value="0.05" placeholder="Enter custom alpha (0.001-0.5)">
-                        </div>
-                        <div class="flex-item">
-                            <label for="sig-direction">Test Direction:</label>
-                            <select id="sig-direction" style="width: 100%; margin-top: 5px;">
-                                <option value="two-sided">Two-sided (≠)</option>
-                                <option value="left">Left-sided (
-                                    <)< /option>
-                                <option value="right">Right-sided (>)</option>
-                            </select>
-                            <div style="margin-top: 5px;">
-                                <span class="tooltip">ⓘ
-                                    <span class="tooltip-text">
-                                        Two-sided: Tests if groups are different<br>
-                                        Left-sided: Tests if Group 1 < Group 2<br>
-                                            Right-sided: Tests if Group 1 > Group 2<br>
-                                            Note: Only applicable for certain tests
-                                    </span>
-                                </span>
-                            </div>
-                        </div>
-                    </div>
-
-                    <div class="checkbox-container">
-                        <input type="checkbox" id="force-test-execution">
-                        <label for="force-test-execution">Force test execution even if prerequisites are not met</label>
-                        <span class="tooltip">ⓘ
-                            <span class="tooltip-text">Enable this to run tests even when assumptions are violated.
-                                Results will include warnings about which assumptions were not met.</span>
-                        </span>
-                    </div>
-
-                    <div style="margin-bottom: 20px;">
-                        <h4>Select Groups for Comparison:</h4>
-                        <div id="sig-group-selection" class="flex-container" style="margin-top: 10px;"></div>
-                    </div>
-
-                    <button id="run-significance-test" class="btn btn-primary">Run Significance Test</button>
-                    <button id="clear-significance-results" class="btn btn-danger">Clear Results</button>
-
-                    <div id="significance-results"></div>
-
-                    <div class="export-section">
-                        <h5>Export Test Results</h5>
-                        <button class="btn btn-accent btn-small" onclick="exportSignificanceTests()">Export All Test
-                            Results
-                        </button>
-                    </div>
+               <!-- Significance Tests Tab -->
+<div class="tab-content" id="significance">
+    <h3>Statistical Significance Tests</h3>
+    
+    <!-- Step 1: Parameter and Group Selection -->
+    <div class="card" style="background-color: var(--background-medium); margin-bottom: 20px;">
+        <h4>📊 Step 1: Select Parameter and Groups</h4>
+        
+        <div class="flex-container" style="margin-bottom: 20px;">
+            <div class="flex-item">
+                <label for="sig-parameter-select">Parameter for Testing:</label>
+                <select id="sig-parameter-select" style="width: 100%; margin-top: 5px;">
+                    <option value="">Select parameter</option>
+                </select>
+            </div>
+        </div>
+        
+        <div style="margin-bottom: 20px;">
+            <h5>Select Groups for Comparison:</h5>
+            <div id="sig-group-selection" class="flex-container" style="margin-top: 10px;"></div>
+        </div>
+    </div>
+    
+    <!-- Step 2: Test Configuration -->
+    <div class="card" style="background-color: var(--background-medium); margin-bottom: 20px;">
+        <h4>⚙️ Step 2: Test Configuration</h4>
+        
+        <!-- Test Prerequisites Section -->
+        <div class="test-prerequisites" style="margin-bottom: 20px;">
+            <h5>Check Prerequisites</h5>
+            <div class="flex-container">
+                <div class="flex-item">
+                    <button id="check-normality" class="btn btn-primary btn-small">Check Normality</button>
+                    <span class="tooltip">ⓘ
+                        <span class="tooltip-text">Shapiro-Wilk test for samples n ≤ 50. Tests if data follows normal distribution. Required for parametric tests like t-test and ANOVA.</span>
+                    </span>
                 </div>
+                <div class="flex-item">
+                    <button id="check-variance" class="btn btn-primary btn-small">Check Variance Homogeneity</button>
+                    <span class="tooltip">ⓘ
+                        <span class="tooltip-text">F-test for 2 groups. Tests if groups have equal variances. Important for choosing between standard t-test and Welch's t-test.</span>
+                    </span>
+                </div>
+            </div>
+            <div id="prerequisite-results"></div>
+        </div>
+        
+        <!-- Intelligent Test Selection -->
+        <div class="intelligent-test-panel" style="background-color: var(--background-light); padding: 20px; border-radius: 8px; margin-bottom: 20px;">
+            <h5>🎯 Intelligent Test Selection</h5>
+            <p style="margin-bottom: 15px;">Based on your data characteristics, we'll recommend the most appropriate statistical test.</p>
+            
+            <button id="get-test-recommendation" class="btn btn-primary" disabled>
+                Get Test Recommendation
+            </button>
+            
+            <div id="test-recommendation-display" class="recommendation-display" style="display: none; margin-top: 20px;">
+            </div>
+        </div>
+        
+        <!-- Manual Test Selection -->
+        <div style="margin-bottom: 20px;">
+            <h5>Manual Test Selection</h5>
+            <div class="flex-container">
+                <div class="flex-item">
+                    <label for="sig-test-type">Test Method:</label>
+                    <select id="sig-test-type" style="width: 100%; margin-top: 5px;">
+                        <option value="">Select test manually...</option>
+                        <optgroup label="Parametric Tests">
+                            <option value="ttest">t-Test (2 groups, normal distribution)</option>
+                            <option value="welch">Welch's t-Test (2 groups, unequal variances)</option>
+                            <option value="anova">ANOVA (>2 groups, normal distribution)</option>
+                        </optgroup>
+                        <optgroup label="Non-Parametric Tests">
+                            <option value="mann-whitney">Mann-Whitney U (2 groups, non-normal)</option>
+                            <option value="wilcoxon">Wilcoxon Signed-Rank (paired samples)</option>
+                            <option value="kruskal-wallis">Kruskal-Wallis (>2 groups, non-normal)</option>
+                        </optgroup>
+                        <optgroup label="Categorical Tests">
+                            <option value="chi-square">Chi-Square (categorical data)</option>
+                            <option value="fisher">Fisher's Exact (2x2 tables, small samples)</option>
+                        </optgroup>
+                        <optgroup label="Correlation Tests">
+                            <option value="pearson">Pearson Correlation (linear, normal)</option>
+                            <option value="spearman">Spearman Correlation (monotonic, non-normal)</option>
+                        </optgroup>
+                    </select>
+                </div>
+            </div>
+            
+            <div class="test-info" id="test-info" style="display: none; margin-top: 10px;"></div>
+        </div>
+        
+        <!-- Test Parameters -->
+        <div class="flex-container" style="margin-bottom: 20px;">
+            <div class="flex-item">
+                <label for="sig-alpha">Significance Level (α):</label>
+                <select id="sig-alpha" style="width: 100%; margin-top: 5px;">
+                    <option value="0.05">0.05 (5%)</option>
+                    <option value="0.01">0.01 (1%)</option>
+                    <option value="0.1">0.10 (10%)</option>
+                    <option value="custom">Custom</option>
+                </select>
+                <input type="number" id="sig-custom-alpha" style="width: 100%; margin-top: 5px; display: none;" 
+                       min="0.001" max="0.5" step="0.001" value="0.05" 
+                       placeholder="Enter custom alpha (0.001-0.5)">
+            </div>
+            <div class="flex-item">
+                <label for="sig-direction">Test Direction:</label>
+                <select id="sig-direction" style="width: 100%; margin-top: 5px;">
+                    <option value="two-sided">Two-sided (≠)</option>
+                    <option value="left">Left-sided (<)</option>
+                    <option value="right">Right-sided (>)</option>
+                </select>
+                <div style="margin-top: 5px;">
+                    <span class="tooltip">ⓘ
+                        <span class="tooltip-text">
+                            Two-sided: Tests if groups are different<br>
+                            Left-sided: Tests if Group 1 < Group 2<br>
+                            Right-sided: Tests if Group 1 > Group 2<br>
+                            Note: Only applicable for certain tests
+                        </span>
+                    </span>
+                </div>
+            </div>
+        </div>
+        
+        <div class="checkbox-container">
+            <input type="checkbox" id="force-test-execution">
+            <label for="force-test-execution">Force test execution even if prerequisites are not met</label>
+            <span class="tooltip">ⓘ
+                <span class="tooltip-text">Enable this to run tests even when assumptions are violated. Results will include warnings about which assumptions were not met.</span>
+            </span>
+        </div>
+    </div>
+    
+    <!-- Step 3: Run Test -->
+    <div class="card" style="background-color: var(--background-medium); margin-bottom: 20px;">
+        <h4>🚀 Step 3: Run Test</h4>
+        
+        <div style="text-align: center; margin: 20px 0;">
+            <button id="run-significance-test" class="btn btn-primary" style="padding: 12px 40px; font-size: 16px;" disabled>
+                Run Significance Test
+            </button>
+            <button id="run-recommended-test" class="btn btn-secondary" style="padding: 12px 40px; font-size: 16px; display: none;">
+                Run Recommended Test
+            </button>
+            <button id="clear-significance-results" class="btn btn-danger" style="margin-left: 10px;">
+                Clear Results
+            </button>
+        </div>
+    </div>
+    
+    <!-- Results Section -->
+    <div id="significance-results"></div>
+    
+    <!-- Export Section -->
+    <div class="export-section">
+        <h5>Export Test Results</h5>
+        <button class="btn btn-accent btn-small" onclick="exportSignificanceTests()">
+            Export All Test Results
+        </button>
+    </div>
+</div>
 
                 <!-- Visualization Tab -->
                 <div class="tab-content" id="visualization">
@@ -4060,6 +4100,19 @@ document.addEventListener('DOMContentLoaded', function() {
             document.getElementById('fourfold-constellation-1').addEventListener('focus', updateConstellationState);
             document.getElementById('fourfold-constellation-2').addEventListener('focus', updateConstellationState);
 
+            // Parameter and group selection change listeners
+    document.getElementById('sig-parameter-select').addEventListener('change', updateTestSelectionUI);
+
+    // Test type change listener
+    document.getElementById('sig-test-type').addEventListener('change', function() {
+        updateTestSelectionUI();
+        // Hide recommended test button when manually selecting
+        document.getElementById('run-recommended-test').style.display = 'none';
+    });
+
+    // Run recommended test button
+    document.getElementById('run-recommended-test').addEventListener('click', runRecommendedTest);
+
         }
 
         /**
@@ -4193,81 +4246,47 @@ document.addEventListener('DOMContentLoaded', function() {
             });
         }
 
-        /**
- * Set up intelligent test selection
- */
-        function setupIntelligentTestSelection() {
-            const sigTestContainer = document.getElementById('significance');
-            const existingH3 = sigTestContainer.querySelector('h3');
-
-            const intelligentPanel = document.createElement('div');
-            intelligentPanel.className = 'intelligent-test-panel';
-            intelligentPanel.innerHTML = `
-        <div class="test-recommendation-section">
-            <h4>🎯 Intelligente Testauswahl</h4>
-            <p>Das System analysiert Ihre Daten und empfiehlt den optimalen statistischen Test.</p>
-            
-            <div class="recommendation-controls">
-                <button id="get-test-recommendation" class="btn btn-primary">
-                    📊 Test-Empfehlung erhalten
-                </button>
-                <button id="auto-run-test" class="btn btn-secondary" disabled>
-                    🚀 Empfohlenen Test ausführen
-                </button>
-            </div>
-            
-            <div id="test-recommendation-display" class="recommendation-display" style="display: none;">
-            </div>
-        </div>
-        
-        <div class="prerequisite-overview">
-            <h4>📋 Voraussetzungsprüfung</h4>
-            <div id="prerequisite-overview-display" class="prerequisite-overview-content">
-                <p>Wählen Sie Parameter und Gruppen aus, um Testvoraussetzungen zu prüfen.</p>
-            </div>
-        </div>
-    `;
-
-            sigTestContainer.insertBefore(intelligentPanel, existingH3.nextSibling);
-
-            document.getElementById('get-test-recommendation').addEventListener('click', getIntelligentTestRecommendation);
-            document.getElementById('auto-run-test').addEventListener('click', runRecommendedTest);
-
-            document.getElementById('sig-parameter-select').addEventListener('change', updateTestRecommendation);
-            document.addEventListener('change', function (e) {
-                if (e.target.matches('#sig-group-selection input[type="checkbox"]')) {
-                    updateTestRecommendation();
-                }
-            });
-        }
-
         function getIntelligentTestRecommendation() {
-            const paramName = document.getElementById('sig-parameter-select').value;
-            if (!paramName) {
-                utils.showError("Bitte wählen Sie zuerst einen Parameter aus.");
-                return;
-            }
+    const paramName = document.getElementById('sig-parameter-select').value;
+    if (!paramName) {
+        utils.showError("Please select a parameter first.");
+        return;
+    }
 
-            const selectedGroups = [];
-            document.querySelectorAll('#sig-group-selection input:checked').forEach(checkbox => {
-                selectedGroups.push(checkbox.value);
-            });
+    const selectedGroups = [];
+    document.querySelectorAll('#sig-group-selection input:checked').forEach(checkbox => {
+        selectedGroups.push(checkbox.value);
+    });
 
-            if (selectedGroups.length < 1) {
-                utils.showError("Bitte wählen Sie mindestens eine Gruppe aus.");
-                return;
-            }
+    if (selectedGroups.length < 1) {
+        utils.showError("Please select at least one group.");
+        return;
+    }
 
-            const testSelector = new IntelligentTestSelector(statistics);
-            const recommendation = testSelector.selectOptimalTest(paramName, selectedGroups);
+    const testSelector = new IntelligentTestSelector(statistics);
+    const recommendation = testSelector.selectOptimalTest(paramName, selectedGroups);
 
-            if (recommendation.error) {
-                utils.showError(recommendation.error);
-                return;
-            }
+    if (recommendation.error) {
+        utils.showError(recommendation.error);
+        return;
+    }
 
-            displayTestRecommendation(recommendation, paramName, selectedGroups);
-        }
+    displayTestRecommendation(recommendation, paramName, selectedGroups);
+    
+    // Show the "Run Recommended Test" button
+    const runRecommendedBtn = document.getElementById('run-recommended-test');
+    if (recommendation.recommended) {
+        runRecommendedBtn.style.display = 'inline-block';
+        runRecommendedBtn.dataset.recommendedTest = recommendation.recommended.test.key;
+        runRecommendedBtn.textContent = `Run ${recommendation.recommended.test.name}`;
+        
+        // Also update the manual dropdown to show the recommended test
+        document.getElementById('sig-test-type').value = recommendation.recommended.test.key;
+        
+        // Enable the run test button
+        document.getElementById('run-significance-test').disabled = false;
+    }
+}
 
         function displayTestRecommendation(recommendation, paramName, selectedGroups) {
             const displayDiv = document.getElementById('test-recommendation-display');
@@ -4467,6 +4486,51 @@ document.addEventListener('DOMContentLoaded', function() {
 
     const mappedTest = testKeyMap[recommendedTest] || recommendedTest;
     document.getElementById('sig-test-type').value = mappedTest;
+    runSignificanceTest();
+}
+
+        /**
+ * Update test selection UI based on parameter and group selection
+ */
+function updateTestSelectionUI() {
+    const paramName = document.getElementById('sig-parameter-select').value;
+    const selectedGroups = [];
+    document.querySelectorAll('#sig-group-selection input:checked').forEach(checkbox => {
+        selectedGroups.push(checkbox.value);
+    });
+    
+    const hasValidSelection = paramName && selectedGroups.length >= 1;
+    
+    // Enable/disable recommendation button
+    const recommendBtn = document.getElementById('get-test-recommendation');
+    recommendBtn.disabled = !hasValidSelection;
+    
+    // Enable/disable run test button
+    const runTestBtn = document.getElementById('run-significance-test');
+    const testType = document.getElementById('sig-test-type').value;
+    runTestBtn.disabled = !hasValidSelection || !testType;
+    
+    // Update button text based on selection
+    if (hasValidSelection) {
+        recommendBtn.textContent = '📊 Get Test Recommendation';
+        
+        if (selectedGroups.length === 1) {
+            recommendBtn.innerHTML += '<br><small style="font-size: 11px;">Note: Single group selected - limited test options</small>';
+        }
+    } else {
+        recommendBtn.textContent = 'Select parameter and groups first';
+    }
+}
+
+/**
+ * Run the recommended test
+ */
+function runRecommendedTest() {
+    const recommendedTest = document.getElementById('run-recommended-test').dataset.recommendedTest;
+    if (!recommendedTest) return;
+    
+    // Set the test type and run
+    document.getElementById('sig-test-type').value = recommendedTest;
     runSignificanceTest();
 }
 
@@ -6584,38 +6648,44 @@ document.addEventListener('DOMContentLoaded', function() {
         }
 
         /**
-         * Update significance test group selection
-         */
-        function updateSignificanceGroupSelection() {
-            const container = document.getElementById('sig-group-selection');
-            container.innerHTML = '';
+ * Update significance test group selection
+ */
+function updateSignificanceGroupSelection() {
+    const container = document.getElementById('sig-group-selection');
+    container.innerHTML = '';
 
-            Object.entries(globalState.currentGroups).forEach(([groupId, group], index) => {
-                const color = group.customColor || groupColors[group.colorIndex];
-                const bgColor = typeof color === 'string' ? color : color.bg;
+    Object.entries(globalState.currentGroups).forEach(([groupId, group], index) => {
+        const color = group.customColor || groupColors[group.colorIndex];
+        const bgColor = typeof color === 'string' ? color : color.bg;
 
-                const checkboxDiv = document.createElement('div');
-                checkboxDiv.className = 'checkbox-container';
+        const checkboxDiv = document.createElement('div');
+        checkboxDiv.className = 'checkbox-container';
 
-                const checkbox = document.createElement('input');
-                checkbox.type = 'checkbox';
-                checkbox.id = `sig-group-${groupId}`;
-                checkbox.value = groupId;
-                checkbox.checked = true;
+        const checkbox = document.createElement('input');
+        checkbox.type = 'checkbox';
+        checkbox.id = `sig-group-${groupId}`;
+        checkbox.value = groupId;
+        checkbox.checked = true;
+        
+        // Add change listener
+        checkbox.addEventListener('change', updateTestSelectionUI);
 
-                const label = document.createElement('label');
-                label.htmlFor = `sig-group-${groupId}`;
-                label.innerHTML = `
+        const label = document.createElement('label');
+        label.htmlFor = `sig-group-${groupId}`;
+        label.innerHTML = `
             <span class="group-badge" style="background-color: ${bgColor};">
                 ${group.name}
             </span> (n=${group.count})
         `;
 
-                checkboxDiv.appendChild(checkbox);
-                checkboxDiv.appendChild(label);
-                container.appendChild(checkboxDiv);
-            });
-        }
+        checkboxDiv.appendChild(checkbox);
+        checkboxDiv.appendChild(label);
+        container.appendChild(checkboxDiv);
+    });
+    
+    // Update UI state after rendering
+    updateTestSelectionUI();
+}
 
         /**
          * Update parameter dropdowns across the application
