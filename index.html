@@ -9285,6 +9285,7 @@ function updateSignificanceGroupSelection() {
     // Show warning if present
     if (result.warning) {
         html += `<p style="color: #e74c3c;"><strong>Warning:</strong> ${result.warning}</p>`;
+    }
     } else if (result.test === "Fisher's Exact Test") {
         html += `
             <div style="margin: 15px 0;">
