@@ -5386,8 +5386,7 @@ if (globalState.prerequisiteResults[paramName][groupId]) {
          */
         function checkVarianceHomogeneity() {
             // Clear all previous prerequisite results
-const resultsContainer = document.getElementById('prerequisite-results');
-resultsContainer.innerHTML = '';
+document.getElementById('prerequisite-results').innerHTML = '';
             
             const paramName = document.getElementById('sig-parameter-select').value;
             if (!paramName) {
