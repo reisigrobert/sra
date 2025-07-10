@@ -3920,21 +3920,95 @@ calculatePhiCoefficient(a, b, c, d) {
             }
         }
 
-        // Globale Instanz erstellen
-        const statistics = new StatisticalLibrary();
+        // Global instance - will be initialized after libraries load
+let statistics;
 
-        /**
-         * Event Handlers & Initialization
-         */
-        document.addEventListener('DOMContentLoaded', function () {
-            setupEventListeners();
-            setupDragAndDrop();
-            setupTabs();
-            setupAboutModal();
-            setupSignificanceTestOptions();
-            setupTestInfoDisplay();
-            setupIntelligentTestSelection();
-        });
+/**
+ * Initialize the application after all libraries are loaded
+ */
+function initializeApplication() {
+    // Create the statistics instance
+    statistics = new StatisticalLibrary();
+    
+    // Set up all event listeners and UI components
+    setupEventListeners();
+    setupDragAndDrop();
+    setupTabs();
+    setupAboutModal();
+    setupSignificanceTestOptions();
+    setupTestInfoDisplay();
+    setupIntelligentTestSelection();
+    
+    console.log('Application initialized successfully');
+}
+
+/**
+ * Wait for all libraries to load
+ */
+function waitForLibraries() {
+    // Check if loader promises exist (CDN mode)
+    if (window.libraryLoader) {
+        const promises = [];
+        
+        // Collect all library promises
+        if (window.libraryLoader.papaparse) promises.push(window.libraryLoader.papaparse);
+        if (window.libraryLoader.chartjs) promises.push(window.libraryLoader.chartjs);
+        if (window.libraryLoader.jstat) promises.push(window.libraryLoader.jstat);
+        if (window.libraryLoader.html2canvas) promises.push(window.libraryLoader.html2canvas);
+        if (window.libraryLoader.simplestatistics) promises.push(window.libraryLoader.simplestatistics);
+        
+        if (promises.length > 0) {
+            // Wait for all CDN libraries to load
+            Promise.all(promises)
+                .then(() => {
+                    console.log('All libraries loaded from CDN');
+                    initializeApplication();
+                })
+                .catch(error => {
+                    console.error('Failed to load libraries:', error);
+                    alert('Failed to load required libraries. Please check your internet connection or use offline versions.');
+                });
+            return;
+        }
+    }
+    
+    // If no loader promises, check if libraries are already loaded (offline mode)
+    if (typeof Papa !== 'undefined' && 
+        typeof Chart !== 'undefined' && 
+        typeof jStat !== 'undefined' && 
+        typeof html2canvas !== 'undefined' && 
+        typeof ss !== 'undefined') {
+        console.log('All libraries loaded (offline mode)');
+        initializeApplication();
+    } else {
+        // Libraries not loaded yet, show error
+        console.error('Libraries not loaded. Make sure to either use CDN loaders or download actual library files.');
+        alert('Required libraries are not loaded. Please check your library files.');
+    }
+}
+
+/**
+ * Start the application when DOM is ready
+ */
+document.addEventListener('DOMContentLoaded', function() {
+    // Add loading indicator
+    const loadingDiv = document.createElement('div');
+    loadingDiv.id = 'library-loading';
+    loadingDiv.innerHTML = '<div class="loading">Loading libraries...</div>';
+    loadingDiv.style.cssText = 'position: fixed; top: 50%; left: 50%; transform: translate(-50%, -50%); background: var(--card-background); padding: 40px; border-radius: 12px; box-shadow: var(--box-shadow); z-index: 9999;';
+    document.body.appendChild(loadingDiv);
+    
+    // Start loading process
+    waitForLibraries();
+    
+    // Remove loading indicator when done
+    window.addEventListener('load', () => {
+        setTimeout(() => {
+            const loader = document.getElementById('library-loading');
+            if (loader) loader.remove();
+        }, 1000);
+    });
+});
 
         /**
          * Set up all event listeners for the application
