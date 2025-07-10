@@ -8722,12 +8722,6 @@ function updateSignificanceGroupSelection() {
             // Get test direction
             const direction = document.getElementById('sig-direction').value;
 
-            // Get selected groups
-            const selectedGroups = [];
-            document.querySelectorAll('#sig-group-selection input:checked').forEach(checkbox => {
-                selectedGroups.push(checkbox.value);
-            });
-
             if (selectedGroups.length < 1) {
                 utils.showError("Please select at least one group for comparison.");
                 return;
