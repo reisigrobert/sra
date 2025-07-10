@@ -1799,7 +1799,7 @@
             <!-- Add normality override option -->
 <div class="checkbox-container" style="margin-top: 15px; padding: 12px; background-color: var(--background-dark); border-radius: 6px;">
     <input type="checkbox" id="override-normality">onchange="updateRecommendationBasedOnOverrides()"
-    <label for="override-normality">Override normality assumption (based on visual inspection)</label>
+    <label for="override-normality">Assume normal distribution (override test results)</label>
     <span class="tooltip">ⓘ
         <span class="tooltip-text">Check this if histogram/Q-Q plot suggests normality despite failed statistical tests. Use with caution!</span>
     </span>
@@ -1808,7 +1808,7 @@
 <!-- Add variance homogeneity override option -->
 <div class="checkbox-container" style="margin-top: 10px; padding: 12px; background-color: var(--background-dark); border-radius: 6px;">
     <input type="checkbox" id="override-homogeneity">onchange="updateRecommendationBasedOnOverrides()"
-    <label for="override-homogeneity">Override variance homogeneity assumption</label>
+    <label for="override-homogeneity">Assume equal variances (override test results)</label>
     <span class="tooltip">ⓘ
         <span class="tooltip-text">Check this if you want to assume equal variances despite failed F-test. Use with caution!</span>
     </span>
@@ -1817,32 +1817,33 @@
         
         <!-- Manual Test Selection -->
         <div style="margin-bottom: 20px;">
-            <h5>Manual Test Selection</h5>
-            <div class="flex-container">
-                <div class="flex-item">
-                    <label for="sig-test-type">Test Method:</label>
-                    <select id="sig-test-type" style="width: 100%; margin-top: 5px;">
-                        <option value="">Select test manually...</option>
-                        <optgroup label="Parametric Tests">
-                            <option value="ttest">t-Test (2 groups, normal distribution)</option>
-                            <option value="welch">Welch's t-Test (2 groups, unequal variances)</option>
-                            <option value="anova">ANOVA (>2 groups, normal distribution)</option>
-                        </optgroup>
-                        <optgroup label="Non-Parametric Tests">
-                            <option value="mann-whitney">Mann-Whitney U (2 groups, non-normal)</option>
-                            <option value="wilcoxon">Wilcoxon Signed-Rank (paired samples)</option>
-                            <option value="kruskal-wallis">Kruskal-Wallis (>2 groups, non-normal)</option>
-                        </optgroup>
-                        <optgroup label="Categorical Tests">
-                            <option value="chi-square">Chi-Square (categorical data)</option>
-                            <option value="fisher">Fisher's Exact (2x2 tables, small samples)</option>
-                        </optgroup>
-                    </select>
-                </div>
-            </div>
-            
-            <div class="test-info" id="test-info" style="display: none; margin-top: 10px;"></div>
+    <h5>Test Selection</h5>
+    <div id="test-recommendation-inline" style="margin-bottom: 15px; padding: 15px; background-color: var(--background-light); border-radius: 8px; border: 1px solid var(--border-color); display: none;">
+        <!-- Recommendation will be displayed here -->
+    </div>
+    <div class="flex-container">
+        <div class="flex-item">
+            <label for="sig-test-type">Test Method:</label>
+            <select id="sig-test-type" style="width: 100%; margin-top: 5px;">
+                <option value="">Select test manually...</option>
+                <optgroup label="Parametric Tests">
+                    <option value="ttest">t-Test (2 groups, normal distribution)</option>
+                    <option value="welch">Welch's t-Test (2 groups, unequal variances)</option>
+                    <option value="anova">ANOVA (>2 groups, normal distribution)</option>
+                </optgroup>
+                <optgroup label="Non-Parametric Tests">
+                    <option value="mann-whitney">Mann-Whitney U (2 groups, non-normal)</option>
+                    <option value="wilcoxon">Wilcoxon Signed-Rank (paired samples)</option>
+                    <option value="kruskal-wallis">Kruskal-Wallis (>2 groups, non-normal)</option>
+                </optgroup>
+                <optgroup label="Categorical Tests">
+                    <option value="chi-square">Chi-Square (categorical data)</option>
+                    <option value="fisher">Fisher's Exact (2x2 tables, small samples)</option>
+                </optgroup>
+            </select>
         </div>
+    </div>
+</div>
         
         <!-- Test Parameters -->
         <div class="flex-container" style="margin-bottom: 20px;">
@@ -4908,6 +4909,44 @@ document.getElementById('regression-custom-alpha').addEventListener('change', up
 }
 
         function displayTestRecommendation(recommendation, paramName, selectedGroups) {
+// Display inline recommendation
+const inlineDisplay = document.getElementById('test-recommendation-inline');
+if (inlineDisplay) {
+    const primary = recommendation.recommended;
+    let inlineHtml = `
+        <div style="display: flex; align-items: center; justify-content: space-between;">
+            <div>
+                <strong style="color: var(--primary-color);">🎯 Recommended Test: ${primary.test.name}</strong>
+                <div style="font-size: 14px; color: var(--text-light); margin-top: 5px;">
+                    ${primary.test.indication}
+                </div>
+            </div>
+            <div style="text-align: right;">
+                <div class="confidence-indicator">
+                    <span style="font-size: 12px; color: var(--text-light);">Confidence:</span>
+                    <span style="font-weight: bold; color: ${primary.confidence >= 80 ? 'var(--success-color)' : primary.confidence >= 60 ? 'var(--warning-color)' : 'var(--danger-color)'};">
+                        ${primary.confidence}%
+                    </span>
+                </div>
+            </div>
+        </div>
+    `;
+    
+    if (primary.violations.length > 0) {
+        inlineHtml += `
+            <div style="margin-top: 10px; padding: 10px; background-color: rgba(212, 162, 90, 0.1); border-radius: 6px;">
+                <strong style="color: var(--warning-color);">⚠️ Violations:</strong>
+                <ul style="margin: 5px 0 0 20px; font-size: 14px;">
+                    ${primary.violations.map(v => `<li>${v}</li>`).join('')}
+                </ul>
+            </div>
+        `;
+    }
+    
+    inlineDisplay.innerHTML = inlineHtml;
+    inlineDisplay.style.display = 'block';
+}
+            
     const displayDiv = document.getElementById('test-recommendation-display');
 
     const primary = recommendation.recommended;
@@ -5209,6 +5248,44 @@ function updateTestSelectionUI() {
             document.getElementById('sig-test-type').value = recommendation.recommended.test.key;
         }
     }
+
+            // Update inline display
+const inlineDisplay = document.getElementById('test-recommendation-inline');
+if (inlineDisplay && recommendation.recommended) {
+    const primary = recommendation.recommended;
+    let inlineHtml = `
+        <div style="display: flex; align-items: center; justify-content: space-between;">
+            <div>
+                <strong style="color: var(--primary-color);">🎯 Recommended Test: ${primary.test.name}</strong>
+                <div style="font-size: 14px; color: var(--text-light); margin-top: 5px;">
+                    ${primary.test.indication}
+                </div>
+            </div>
+            <div style="text-align: right;">
+                <div class="confidence-indicator">
+                    <span style="font-size: 12px; color: var(--text-light);">Confidence:</span>
+                    <span style="font-weight: bold; color: ${primary.confidence >= 80 ? 'var(--success-color)' : primary.confidence >= 60 ? 'var(--warning-color)' : 'var(--danger-color)'};">
+                        ${primary.confidence}%
+                    </span>
+                </div>
+            </div>
+        </div>
+    `;
+    
+    if (primary.violations.length > 0) {
+        inlineHtml += `
+            <div style="margin-top: 10px; padding: 10px; background-color: rgba(212, 162, 90, 0.1); border-radius: 6px;">
+                <strong style="color: var(--warning-color);">⚠️ Violations:</strong>
+                <ul style="margin: 5px 0 0 20px; font-size: 14px;">
+                    ${primary.violations.map(v => `<li>${v}</li>`).join('')}
+                </ul>
+            </div>
+        `;
+    }
+    
+    inlineDisplay.innerHTML = inlineHtml;
+    inlineDisplay.style.display = 'block';
+}
 }
 
         /**
