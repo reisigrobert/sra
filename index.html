@@ -5104,24 +5104,22 @@ document.getElementById('get-test-recommendation').addEventListener('click', get
             return names[category] || category;
         }
 
-        function updateTestRecommendation() {
-            const paramName = document.getElementById('sig-parameter-select').value;
-            const selectedGroups = [];
-            document.querySelectorAll('#sig-group-selection input:checked').forEach(checkbox => {
-                selectedGroups.push(checkbox.value);
-            });
+        /**
+ * Update test recommendation based on parameter and group selection
+ */
+function updateTestRecommendation() {
+    const paramName = document.getElementById('sig-parameter-select').value;
+    const selectedGroups = [];
+    document.querySelectorAll('#sig-group-selection input:checked').forEach(checkbox => {
+        selectedGroups.push(checkbox.value);
+    });
 
-            if (paramName && selectedGroups.length > 0) {
-                clearTimeout(updateTestRecommendation.timeout);
-                updateTestRecommendation.timeout = setTimeout(() => {
-                    getIntelligentTestRecommendation();
-                }, 500);
-            }
-        }
-
-    const mappedTest = testKeyMap[recommendedTest] || recommendedTest;
-    document.getElementById('sig-test-type').value = mappedTest;
-    runSignificanceTest();
+    if (paramName && selectedGroups.length > 0) {
+        clearTimeout(updateTestRecommendation.timeout);
+        updateTestRecommendation.timeout = setTimeout(() => {
+            getIntelligentTestRecommendation();
+        }, 500);
+    }
 }
 
         /**
@@ -5163,9 +5161,17 @@ function updateTestSelectionUI() {
 function runRecommendedTest() {
     const recommendedTest = document.getElementById('run-recommended-test').dataset.recommendedTest;
     if (!recommendedTest) return;
-    
-    // Set the test type and run
-    document.getElementById('sig-test-type').value = recommendedTest;
+
+    // Map test keys if needed
+    const testKeyMap = {
+        'mann_whitney': 'mann-whitney',
+        'chi_square': 'chi-square',
+        'fisher_exact': 'fisher',
+        'kruskal_wallis': 'kruskal-wallis'
+    };
+
+    const mappedTest = testKeyMap[recommendedTest] || recommendedTest;
+    document.getElementById('sig-test-type').value = mappedTest;
     runSignificanceTest();
 }
 
