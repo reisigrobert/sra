@@ -2145,37 +2145,38 @@
          * Global State Management
          */
         const globalState = {
-            // Data related properties
-            rawData: [],                // Original data from CSV
-            columnTypes: {},            // Data types for each column
-            columnNames: [],            // Column names from CSV header
-            processedData: {},          // Data organized by groups
-            csvDelimiter: ';',         // CSV delimiter detected from import
-            decimalSeparator: '.',     // Decimal separator detected from import
+    // Data related properties
+    rawData: [],                // Original data from CSV
+    columnTypes: {},            // Data types for each column
+    columnNames: [],            // Column names from CSV header
+    processedData: {},          // Data organized by groups
+    csvDelimiter: ';',         // CSV delimiter detected from import
+    decimalSeparator: '.',     // Decimal separator detected from import
 
-            // Group related properties
-            groupDefinitions: [],       // User defined group criteria
-            currentGroups: {},          // Current active groups
-            parameterConstellations: [], // Reusable parameter combinations
+    // Group related properties
+    groupDefinitions: [],       // User defined group criteria
+    currentGroups: {},          // Current active groups
+    parameterConstellations: [], // Reusable parameter combinations
 
-            // UI state
-            charts: {},                 // References to all created charts
-            isProcessing: false,        // Processing state flag
-            currentPage: 1,             // Current page for data pagination
-            rowsPerPage: 25,            // Number of rows per page
+    // UI state
+    charts: {},                 // References to all created charts
+    isProcessing: false,        // Processing state flag
+    currentPage: 1,             // Current page for data pagination
+    rowsPerPage: 25,            // Number of rows per page
 
-            // Analysis state
-            selectedParameter: null,    // Currently selected parameter for analysis
-            significanceResults: [],    // Stored significance test results
-            prerequisiteResults: {},    // Stored prerequisite test results
-            recordAssignments: [],      // Track which groups each record belongs to
-            fourfoldResults: null       // Store fourfold table results for export
-
-            globalState.assumptionOverrides = {
-    normality: {},  // paramName -> { groupId -> boolean }
-    homogeneity: {} // paramName -> boolean
+    // Analysis state
+    selectedParameter: null,    // Currently selected parameter for analysis
+    significanceResults: [],    // Stored significance test results
+    prerequisiteResults: {},    // Stored prerequisite test results
+    recordAssignments: [],      // Track which groups each record belongs to
+    fourfoldResults: null,      // Store fourfold table results for export
+    
+    // Add assumption overrides
+    assumptionOverrides: {
+        normality: {},  // paramName -> { groupId -> boolean }
+        homogeneity: {} // paramName -> boolean
+    }
 };
-        };
 
         /**
          * Color Palette for Groups - dark theme colors
