@@ -3120,51 +3120,88 @@ const power = 1 - this.jstat.normal.cdf(criticalValue - ncp, 0, 1) + this.jstat.
     if (validGroups.length < 2) return null;
 
     try {
-        const result = jStat.anovatest(...validGroups);
-        const etaSquared = result.ssb / (result.ssb + result.ssw);
-
-        const groupStats = validGroups.map(group => {
-            const stats = this.calculate(group);
-            return {
-                n: stats.count,
-                mean: stats.mean,
-                variance: stats.variance
-            };
-        });
+        // Calculate ANOVA manually using jStat functions
+        const k = validGroups.length;
+        const N = validGroups.reduce((sum, group) => sum + group.length, 0);
+        
+        // Calculate grand mean
+        const allValues = validGroups.flat();
+        const grandMean = this.jstat.mean(allValues);
+        
+        // Calculate group means
+        const groupMeans = validGroups.map(group => this.jstat.mean(group));
+        const groupSizes = validGroups.map(group => group.length);
+        
+        // Calculate SSB (between groups)
+        let ssb = 0;
+        for (let i = 0; i < k; i++) {
+            ssb += groupSizes[i] * Math.pow(groupMeans[i] - grandMean, 2);
+        }
+        
+        // Calculate SSW (within groups)
+        let ssw = 0;
+        for (let i = 0; i < k; i++) {
+            for (let j = 0; j < validGroups[i].length; j++) {
+                ssw += Math.pow(validGroups[i][j] - groupMeans[i], 2);
+            }
+        }
+        
+        // Calculate degrees of freedom
+        const dfb = k - 1;
+        const dfw = N - k;
+        
+        // Calculate mean squares
+        const msb = ssb / dfb;
+        const msw = ssw / dfw;
+        
+        // Calculate F statistic
+        const f = msb / msw;
+        
+        // Calculate p-value using F distribution
+        const pValue = 1 - this.jstat.centralF.cdf(f, dfb, dfw);
+        
+        // Calculate effect size
+        const etaSquared = ssb / (ssb + ssw);
+        const effectSizeF = Math.sqrt(etaSquared / (1 - etaSquared));
         
         // Calculate power
-        const k = validGroups.length;
-        const N = groupStats.reduce((sum, g) => sum + g.n, 0);
-        const effectSizeF = Math.sqrt(etaSquared / (1 - etaSquared));
         const lambda = effectSizeF * effectSizeF * N;
-        const dfNum = k - 1;
-        const dfDen = N - k;
+        const fcrit = this.jstat.centralF.inv(1 - alpha, dfb, dfw);
+        const power = 1 - this.jstat.centralF.cdf(fcrit, dfb, dfw, lambda);
         
-        const fcrit = this.jstat.centralF.inv(1 - alpha, dfNum, dfDen);
-        const power = 1 - this.jstat.centralF.cdf(fcrit, dfNum, dfDen, lambda);
+        // Group statistics
+        const groupStats = validGroups.map((group, i) => ({
+            n: groupSizes[i],
+            mean: groupMeans[i],
+            variance: this.jstat.variance(group, true),
+            stdDev: this.jstat.stdev(group, true)
+        }));
         
+        // Perform post-hoc tests if significant and more than 2 groups
         let postHocResults = null;
-        if (result.p < alpha && validGroups.length > 2) {
-            postHocResults = this.tukeyHSD(validGroups, result.msw, alpha);
+        if (pValue < alpha && validGroups.length > 2) {
+            postHocResults = this.tukeyHSD(validGroups, msw, alpha);
         }
 
         return {
             test: 'ANOVA',
-            statistic: result.f,
-            pValue: result.p,
-            dfBetween: result.dfb,
-            dfWithin: result.dfw,
-            significant: result.p < alpha,
+            statistic: f,
+            pValue: pValue,
+            dfBetween: dfb,
+            dfWithin: dfw,
+            significant: pValue < alpha,
             alpha: alpha,
-            ssb: result.ssb,
-            ssw: result.ssw,
-            msb: result.msb,
-            msw: result.msw,
+            ssb: ssb,
+            ssw: ssw,
+            msb: msb,
+            msw: msw,
             etaSquared: etaSquared,
             effectSizeF: effectSizeF,
             groupStats: groupStats,
             power: power,
-            postHoc: postHocResults
+            postHoc: postHocResults,
+            f: f,
+            p: pValue
         };
     } catch (error) {
         return {
@@ -4859,24 +4896,29 @@ document.getElementById('regression-custom-alpha').addEventListener('change', up
          * Set up test info display
          */
         function setupTestInfoDisplay() {
-            const testTypeSelect = document.getElementById('sig-test-type');
-            const testInfoDiv = document.getElementById('test-info');
+    const testTypeSelect = document.getElementById('sig-test-type');
+    const testInfoDiv = document.getElementById('test-info');
+    
+    if (!testTypeSelect || !testInfoDiv) {
+        console.warn('Test type select or info div not found');
+        return;
+    }
 
-            testTypeSelect.addEventListener('change', () => {
-                const selectedTest = testTypeSelect.value;
-                if (selectedTest && testInfo[selectedTest]) {
-                    const info = testInfo[selectedTest];
-                    testInfoDiv.innerHTML = `
-                        <strong>${info.name}</strong><br>
-                        ${info.description}<br>
-                        ${info.requirements ? `<em>Requirements: ${info.requirements}</em>` : ''}
-                    `;
-                    testInfoDiv.style.display = 'block';
-                } else {
-                    testInfoDiv.style.display = 'none';
-                }
-            });
+    testTypeSelect.addEventListener('change', () => {
+        const selectedTest = testTypeSelect.value;
+        if (selectedTest && testInfo[selectedTest]) {
+            const info = testInfo[selectedTest];
+            testInfoDiv.innerHTML = `
+                <strong>${info.name}</strong><br>
+                ${info.description}<br>
+                ${info.requirements ? `<em>Requirements: ${info.requirements}</em>` : ''}
+            `;
+            testInfoDiv.style.display = 'block';
+        } else {
+            testInfoDiv.style.display = 'none';
         }
+    });
+}
 
         function getIntelligentTestRecommendation() {
     const paramName = document.getElementById('sig-parameter-select').value;
@@ -8479,6 +8521,31 @@ function updateSignificanceGroupSelection() {
          * Run statistical significance test
          */
         function runSignificanceTest() {
+            const paramName = document.getElementById('sig-parameter-select').value;
+if (!paramName) {
+    utils.showError("Please select a parameter for significance testing.");
+    return;
+}
+
+// Get selected groups early
+const selectedGroups = [];
+document.querySelectorAll('#sig-group-selection input:checked').forEach(checkbox => {
+    selectedGroups.push(checkbox.value);
+});
+
+if (selectedGroups.length < 1) {
+    utils.showError("Please select at least one group for comparison.");
+    return;
+}
+
+// Check prerequisites if not already done
+const paramType = globalState.columnTypes[paramName];
+if (scaleTypes[paramType].numeric && !globalState.prerequisiteResults[paramName]) {
+    utils.showError("Please check prerequisites first before running the test.");
+    checkAllPrerequisites();
+    return;
+}
+            
             const paramName = document.getElementById('sig-parameter-select').value;
             if (!paramName) {
                 utils.showError("Please select a parameter for significance testing.");
