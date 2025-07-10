@@ -1798,7 +1798,7 @@
 
             <!-- Add normality override option -->
 <div class="checkbox-container" style="margin-top: 15px; padding: 12px; background-color: var(--background-dark); border-radius: 6px;">
-    <input type="checkbox" id="override-normality">
+    <input type="checkbox" id="override-normality">onchange="updateRecommendationBasedOnOverrides()"
     <label for="override-normality">Override normality assumption (based on visual inspection)</label>
     <span class="tooltip">ⓘ
         <span class="tooltip-text">Check this if histogram/Q-Q plot suggests normality despite failed statistical tests. Use with caution!</span>
@@ -1807,25 +1807,12 @@
 
 <!-- Add variance homogeneity override option -->
 <div class="checkbox-container" style="margin-top: 10px; padding: 12px; background-color: var(--background-dark); border-radius: 6px;">
-    <input type="checkbox" id="override-homogeneity">
+    <input type="checkbox" id="override-homogeneity">onchange="updateRecommendationBasedOnOverrides()"
     <label for="override-homogeneity">Override variance homogeneity assumption</label>
     <span class="tooltip">ⓘ
         <span class="tooltip-text">Check this if you want to assume equal variances despite failed F-test. Use with caution!</span>
     </span>
 </div>
-        </div>
-        
-        <!-- Intelligent Test Selection -->
-        <div class="intelligent-test-panel" style="background-color: var(--background-light); padding: 20px; border-radius: 8px; margin-bottom: 20px;">
-            <h5>🎯 Intelligent Test Selection</h5>
-            <p style="margin-bottom: 15px;">Based on your data characteristics, we'll recommend the most appropriate statistical test.</p>
-            
-            <button id="get-test-recommendation" class="btn btn-primary" disabled>
-                Get Test Recommendation
-            </button>
-            
-            <div id="test-recommendation-display" class="recommendation-display" style="display: none; margin-top: 20px;">
-            </div>
         </div>
         
         <!-- Manual Test Selection -->
@@ -1900,9 +1887,6 @@
             <button id="run-significance-test" class="btn btn-primary" style="padding: 12px 40px; font-size: 16px;" disabled>
                 Run Significance Test
             </button>
-            <button id="run-recommended-test" class="btn btn-secondary" style="padding: 12px 40px; font-size: 16px; display: none;">
-                Run Recommended Test
-            </button>
             <button id="clear-significance-results" class="btn btn-danger" style="margin-left: 10px;">
                 Clear Results
             </button>
@@ -1969,12 +1953,17 @@
                             <label for="show-regression">Show regression line</label>
                         </div>
                         <div class="regression-type-container" style="margin-top: 10px;">
-                            <label for="regression-alpha">Significance Level:</label>
-                            <select id="regression-alpha">
-                                <option value="0.05">0.05 (95% confidence)</option>
-                                <option value="0.01">0.01 (99% confidence)</option>
-                            </select>
-                        </div>
+    <label for="regression-alpha">Confidence Level:</label>
+    <select id="regression-alpha">
+        <option value="0.05">95% (α = 0.05)</option>
+        <option value="0.01">99% (α = 0.01)</option>
+        <option value="0.1">90% (α = 0.10)</option>
+        <option value="custom">Custom</option>
+    </select>
+    <input type="number" id="regression-custom-alpha" style="display: none; margin-left: 10px; width: 80px;" 
+           min="0.001" max="0.5" step="0.001" value="0.05" 
+           placeholder="α value">
+</div>
                         <div id="regression-info" style="margin-top: 10px; font-size: 0.9em; color: var(--text-light);">
                         </div>
                     </div>
@@ -3130,14 +3119,7 @@ const power = 1 - this.jstat.normal.cdf(criticalValue - ncp, 0, 1) + this.jstat.
     if (validGroups.length < 2) return null;
 
     try {
-        // Ensure we're passing arrays of numbers
-        const result = this.jstat.anovatest(...validGroups);
-        
-        if (!result || typeof result !== 'object') {
-            // Fallback calculation if jstat.anovatest fails
-            return this.calculateAnovaManually(validGroups, alpha);
-        }
-        
+        const result = jStat.anovatest(...validGroups);
         const etaSquared = result.ssb / (result.ssb + result.ssw);
 
         const groupStats = validGroups.map(group => {
@@ -3157,11 +3139,9 @@ const power = 1 - this.jstat.normal.cdf(criticalValue - ncp, 0, 1) + this.jstat.
         const dfNum = k - 1;
         const dfDen = N - k;
         
-        // Power calculation using non-central F distribution approximation
         const fcrit = this.jstat.centralF.inv(1 - alpha, dfNum, dfDen);
         const power = 1 - this.jstat.centralF.cdf(fcrit, dfNum, dfDen, lambda);
         
-        // Perform post-hoc tests if significant
         let postHocResults = null;
         if (result.p < alpha && validGroups.length > 2) {
             postHocResults = this.tukeyHSD(validGroups, result.msw, alpha);
@@ -3186,66 +3166,10 @@ const power = 1 - this.jstat.normal.cdf(criticalValue - ncp, 0, 1) + this.jstat.
             postHoc: postHocResults
         };
     } catch (error) {
-        console.error('ANOVA error:', error);
-        // Use manual calculation as fallback
-        return this.calculateAnovaManually(validGroups, alpha);
+        return {
+            error: 'ANOVA calculation failed: ' + error.message
+        };
     }
-}
-
-            calculateAnovaManually(groups, alpha) {
-    const k = groups.length;
-    const N = groups.reduce((sum, group) => sum + group.length, 0);
-    
-    // Calculate grand mean
-    const allValues = groups.flat();
-    const grandMean = this.ss.mean(allValues);
-    
-    // Calculate SSB (between groups)
-    let ssb = 0;
-    groups.forEach(group => {
-        const groupMean = this.ss.mean(group);
-        ssb += group.length * Math.pow(groupMean - grandMean, 2);
-    });
-    
-    // Calculate SSW (within groups)
-    let ssw = 0;
-    groups.forEach(group => {
-        const groupMean = this.ss.mean(group);
-        group.forEach(value => {
-            ssw += Math.pow(value - groupMean, 2);
-        });
-    });
-    
-    const dfb = k - 1;
-    const dfw = N - k;
-    const msb = ssb / dfb;
-    const msw = ssw / dfw;
-    const f = msb / msw;
-    const pValue = 1 - this.jstat.centralF.cdf(f, dfb, dfw);
-    const etaSquared = ssb / (ssb + ssw);
-    
-    return {
-        test: 'ANOVA',
-        statistic: f,
-        pValue: pValue,
-        dfBetween: dfb,
-        dfWithin: dfw,
-        significant: pValue < alpha,
-        alpha: alpha,
-        ssb: ssb,
-        ssw: ssw,
-        msb: msb,
-        msw: msw,
-        etaSquared: etaSquared,
-        effectSizeF: Math.sqrt(etaSquared / (1 - etaSquared)),
-        groupStats: groups.map(group => ({
-            n: group.length,
-            mean: this.ss.mean(group),
-            variance: this.ss.variance(group)
-        })),
-        power: 0.8, // Simplified power estimate
-        postHoc: null
-    };
 }
 
 // Add Tukey HSD post-hoc test
@@ -4794,6 +4718,13 @@ document.addEventListener('DOMContentLoaded', function() {
 
             // Regression controls
             document.getElementById('regression-type').addEventListener('change', updateRegressionInfo);
+            document.getElementById('regression-alpha').addEventListener('change', function() {
+    const customInput = document.getElementById('regression-custom-alpha');
+    customInput.style.display = this.value === 'custom' ? 'inline-block' : 'none';
+    updateRegressionInfo();
+});
+
+document.getElementById('regression-custom-alpha').addEventListener('change', updateRegressionInfo);
             document.getElementById('show-regression').addEventListener('change', updateRegressionInfo);
 
             // Fourfold table
@@ -4815,13 +4746,6 @@ document.addEventListener('DOMContentLoaded', function() {
         // Hide recommended test button when manually selecting
         document.getElementById('run-recommended-test').style.display = 'none';
     });
-
-    // Run recommended test button
-    document.getElementById('run-recommended-test').addEventListener('click', runRecommendedTest);
-
-            // Intelligent test recommendation
-document.getElementById('get-test-recommendation').addEventListener('click', getIntelligentTestRecommendation);
-
         }
 
         /**
@@ -4981,20 +4905,6 @@ document.getElementById('get-test-recommendation').addEventListener('click', get
     }
 
     displayTestRecommendation(recommendation, paramName, selectedGroups);
-    
-    // Show the "Run Recommended Test" button
-    const runRecommendedBtn = document.getElementById('run-recommended-test');
-    if (recommendation.recommended) {
-        runRecommendedBtn.style.display = 'inline-block';
-        runRecommendedBtn.dataset.recommendedTest = recommendation.recommended.test.key;
-        runRecommendedBtn.textContent = `Run ${recommendation.recommended.test.name}`;
-        
-        // Also update the manual dropdown to show the recommended test
-        document.getElementById('sig-test-type').value = recommendation.recommended.test.key;
-        
-        // Enable the run test button
-        document.getElementById('run-significance-test').disabled = false;
-    }
 }
 
         function displayTestRecommendation(recommendation, paramName, selectedGroups) {
@@ -5130,6 +5040,13 @@ document.getElementById('get-test-recommendation').addEventListener('click', get
     }
 
     displayDiv.innerHTML = html;
+
+            // Remove any existing recommendation display
+const existingDisplay = document.getElementById('test-recommendation-display');
+if (existingDisplay) {
+    existingDisplay.innerHTML = '';
+}
+            
     displayDiv.style.display = 'block';
 
     // Update buttons
@@ -5251,57 +5168,47 @@ function updateTestSelectionUI() {
     
     const hasValidSelection = paramName && selectedGroups.length >= 1;
     
-    // Enable/disable recommendation button
-const recommendBtn = document.getElementById('get-test-recommendation');
-const prerequisiteResults = globalState.prerequisiteResults[paramName];
-const hasPrerequisiteResults = prerequisiteResults && Object.keys(prerequisiteResults).length > 0;
-
-recommendBtn.disabled = !hasValidSelection || !hasPrerequisiteResults;
-
-    // Add visual styling based on state
-if (!hasValidSelection) {
-    recommendBtn.style.backgroundColor = 'var(--accent-color)';
-    recommendBtn.style.opacity = '0.6';
-} else if (!hasPrerequisiteResults) {
-    recommendBtn.style.backgroundColor = 'var(--warning-color)';
-    recommendBtn.style.opacity = '0.8';
-} else {
-    recommendBtn.style.backgroundColor = 'var(--primary-color)';
-    recommendBtn.style.opacity = '1';
+    // Enable/disable run test button
+    document.getElementById('run-significance-test').disabled = !hasValidSelection;
 }
 
-// Update button text based on selection
-if (!hasValidSelection) {
-    recommendBtn.textContent = 'Select parameter and groups first';
-} else if (!hasPrerequisiteResults) {
-    recommendBtn.textContent = '⚠️ Check prerequisites first to get recommendation';
-} else {
-    recommendBtn.textContent = '🎯 Get Test Recommendation';
+        function updateRecommendationBasedOnOverrides() {
+    const paramName = document.getElementById('sig-parameter-select').value;
+    if (!paramName) return;
     
-    if (selectedGroups.length === 1) {
-        recommendBtn.innerHTML += '<br><small style="font-size: 11px;">Note: Single group selected - limited test options</small>';
+    const selectedGroups = [];
+    document.querySelectorAll('#sig-group-selection input:checked').forEach(checkbox => {
+        selectedGroups.push(checkbox.value);
+    });
+    
+    if (selectedGroups.length === 0) return;
+    
+    // Update stored overrides
+    const normalityOverride = document.getElementById('override-normality').checked;
+    const homogeneityOverride = document.getElementById('override-homogeneity').checked;
+    
+    if (!globalState.assumptionOverrides.normality[paramName]) {
+        globalState.assumptionOverrides.normality[paramName] = {};
     }
-}
-}
-
-/**
- * Run the recommended test
- */
-function runRecommendedTest() {
-    const recommendedTest = document.getElementById('run-recommended-test').dataset.recommendedTest;
-    if (!recommendedTest) return;
-
-    // Map test keys if needed
-    const testKeyMap = {
-        'mann_whitney': 'mann-whitney',
-        'chi_square': 'chi-square',
-        'fisher_exact': 'fisher',
-        'kruskal_wallis': 'kruskal-wallis'
-    };
-
-    const mappedTest = testKeyMap[recommendedTest] || recommendedTest;
-    document.getElementById('sig-test-type').value = mappedTest;
-    runSignificanceTest();
+    
+    selectedGroups.forEach(groupId => {
+        globalState.assumptionOverrides.normality[paramName][groupId] = normalityOverride;
+    });
+    
+    globalState.assumptionOverrides.homogeneity[paramName] = homogeneityOverride;
+    
+    // Re-run test recommendation
+    const testSelector = new IntelligentTestSelector(statistics);
+    const recommendation = testSelector.selectOptimalTest(paramName, selectedGroups);
+    
+    if (!recommendation.error) {
+        displayTestRecommendation(recommendation, paramName, selectedGroups);
+        
+        // Pre-select the recommended test
+        if (recommendation.recommended && recommendation.recommended.test) {
+            document.getElementById('sig-test-type').value = recommendation.recommended.test.key;
+        }
+    }
 }
 
         /**
@@ -5444,11 +5351,11 @@ if (isOverridden) {
     html += '<br><strong style="color: var(--warning-color);">⚠️ Normality assumption manually overridden</strong>';
     resultDiv.className = 'prerequisite-result pass';
 } else if (overallNormal) {
-    html += '<br><strong style="color: var(--success-color);">✓ Normal distribution (Shapiro-Wilk test passed)</strong>';
-    resultDiv.className = 'prerequisite-result pass';
+const testName = shapiroResult.test || 'Shapiro-Wilk';
+html += `<br><strong style="color: var(--success-color);">✓ Normal distribution (${testName} test passed)</strong>`;    resultDiv.className = 'prerequisite-result pass';
 } else {
-    html += '<br><strong style="color: var(--danger-color);">✗ Not normally distributed (Shapiro-Wilk test failed)</strong>';
-    resultDiv.className = 'prerequisite-result fail';
+const testName = shapiroResult.test || 'Shapiro-Wilk';
+html += `<br><strong style="color: var(--danger-color);">✗ Not normally distributed (${testName} test failed)</strong>`;    resultDiv.className = 'prerequisite-result fail';
 }
 
         resultDiv.innerHTML = html;
@@ -5559,7 +5466,6 @@ function checkAllPrerequisites() {
         return;
     }
 
-    // Get selected groups
     const selectedGroups = [];
     document.querySelectorAll('#sig-group-selection input:checked').forEach(checkbox => {
         selectedGroups.push(checkbox.value);
@@ -5570,32 +5476,42 @@ function checkAllPrerequisites() {
         return;
     }
 
-    // Clear all previous results
     const resultsContainer = document.getElementById('prerequisite-results');
     resultsContainer.innerHTML = '';
     
-    // Initialize results storage
     if (!globalState.prerequisiteResults[paramName]) {
         globalState.prerequisiteResults[paramName] = {};
     }
 
-    // Add a header
+    // Check normality
     const headerDiv = document.createElement('div');
     headerDiv.innerHTML = '<h5>Normality Test Results:</h5>';
     resultsContainer.appendChild(headerDiv);
-
-    // First check normality for all groups
     checkNormality();
     
-    // Then check variance homogeneity if exactly 2 groups
+    // Check variance homogeneity if exactly 2 groups
     if (selectedGroups.length === 2) {
-        setTimeout(() => {
-            const varianceHeader = document.createElement('div');
-            varianceHeader.innerHTML = '<h5 style="margin-top: 20px;">Variance Homogeneity Test:</h5>';
-            resultsContainer.appendChild(varianceHeader);
-            checkVarianceHomogeneity();
-        }, 100);
+        const varianceHeader = document.createElement('div');
+        varianceHeader.innerHTML = '<h5 style="margin-top: 20px;">Variance Homogeneity Test:</h5>';
+        resultsContainer.appendChild(varianceHeader);
+        checkVarianceHomogeneity();
     }
+    
+    // Automatically get test recommendation
+    setTimeout(() => {
+        const testSelector = new IntelligentTestSelector(statistics);
+        const recommendation = testSelector.selectOptimalTest(paramName, selectedGroups);
+        
+        if (!recommendation.error) {
+            displayTestRecommendation(recommendation, paramName, selectedGroups);
+            
+            // Pre-select the recommended test
+            if (recommendation.recommended && recommendation.recommended.test) {
+                document.getElementById('sig-test-type').value = recommendation.recommended.test.key;
+            }
+        }
+    }, 100);
+}
     
     // Enable test recommendation button after prerequisites are checked
     setTimeout(() => {
@@ -8512,6 +8428,11 @@ function updateSignificanceGroupSelection() {
                 return;
             }
 
+            // Always recalculate prerequisites fresh
+if (paramName && scaleTypes[globalState.columnTypes[paramName]].numeric) {
+    checkAllPrerequisites();
+}
+
             let testType = document.getElementById('sig-test-type').value;
             const forceExecution = true; // Always force execution
 
@@ -9419,7 +9340,16 @@ if (selectedGroups.length === 0) {
             const datasets = [];
             const showRegression = document.getElementById('show-regression').checked;
             const regressionType = document.getElementById('regression-type').value;
-            const alpha = parseFloat(document.getElementById('regression-alpha').value);
+            let alpha = 0.05;
+const alphaSelect = document.getElementById('regression-alpha');
+if (alphaSelect.value === 'custom') {
+    alpha = parseFloat(document.getElementById('regression-custom-alpha').value);
+    if (isNaN(alpha) || alpha <= 0 || alpha >= 1) {
+        alpha = 0.05;
+    }
+} else {
+    alpha = parseFloat(alphaSelect.value);
+}
             let regressionInfo = '';
 
             // Check if both parameters are numeric for scatter plot
