@@ -4269,7 +4269,7 @@ solveLinearSystem(A, b) {
                         canProceed: recommendation.canProceed || forceTest
                     };
                 } catch (error) {
-                    return { error: Test selection failed: ${error.message}` };
+                    return { error: `Test selection failed: ${error.message}` };
                 }
             }
 
