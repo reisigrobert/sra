@@ -2523,7 +2523,7 @@
         background-color: var(--success-color);
         opacity: 0;
         pointer-events: none;
-        z-index: 9999;
+        z-index: 1;
         transition: opacity 0.2s ease-in-out;
     `;
     
@@ -2531,7 +2531,7 @@
     
     // Trigger the flash
     setTimeout(() => {
-        flash.style.opacity = '0.3';
+        flash.style.opacity = '0.15';
     }, 10);
     
     // Fade out
@@ -4430,14 +4430,14 @@ if (globalState.assumptionOverrides.normality[parameterName]) {
                     if (test.requirements.includes('normal_distribution')) {
                         if (prerequisiteResults.normality.tested && !prerequisiteResults.normality.allGroupsNormal) {
                             score -= 40;
-                            violations.push('Normalverteilung nicht in allen Gruppen erfüllt');
+                            violations.push('Normal distribution not met in all groups');
                         }
                     }
 
                     if (test.requirements.includes('equal_variances')) {
                         if (prerequisiteResults.variance.tested && !prerequisiteResults.variance.homogeneous) {
                             score -= 30;
-                            violations.push('Varianzhomogenität nicht erfüllt');
+                            violations.push('Variance homogeneity not met');
                         }
                     }
 
@@ -4455,7 +4455,7 @@ if (globalState.assumptionOverrides.normality[parameterName]) {
                             score += 10;
                         } else {
                             score -= 15;
-                            warnings.push('Kleine Stichprobengröße kann Testergebnis beeinträchtigen');
+                            warnings.push('Small sample size may affect test results');
                         }
                     }
 
@@ -4480,16 +4480,16 @@ if (globalState.assumptionOverrides.normality[parameterName]) {
                 explanation += `• ${primary.test.indication}\n`;
 
                 if (primary.violations.length === 0) {
-                    explanation += '• ✅ Alle Testvoraussetzungen sind erfüllt\n';
+                    explanation += '• ✅ All test prerequisites are met\n';
                 } else {
-                    explanation += `• ⚠️ Voraussetzungsverletzungen: ${primary.violations.join(', ')}\n`;
+                    explanation += `• ⚠️ Prerequisite violations: ${primary.violations.join(', ')}\n`;
                     if (primary.test.category === 'nonparametric') {
-                        explanation += '• ✅ Non-parametrischer Test ist robust gegen diese Verletzungen\n';
+                        explanation += '• ✅ Non-parametric test is robust against these violations\n';
                     }
                 }
 
                 if (primary.warnings.length > 0) {
-                    explanation += `• ⚠️ Hinweise: ${primary.warnings.join(', ')}\n`;
+                    explanation += `• ⚠️ Notes: ${primary.warnings.join(', ')}\n`;
                 }
 
                 return {
@@ -4939,24 +4939,24 @@ document.getElementById('get-test-recommendation').addEventListener('click', get
     let html = `
         <div class="recommendation-card confidence-${getConfidenceClass(primary.confidence)}">
             <div class="recommended-test-header">
-                <h5>🎯 Empfohlener Test: ${primary.test.name}</h5>
+                <h5>🎯 Recommended Test: ${primary.test.name}</h5>
             </div>
             
             <div class="test-indication">
-                <p><strong>Anwendung:</strong> ${primary.test.indication}</p>
+                <p><strong>Application:</strong> ${primary.test.indication}</p>
             </div>
             
             <div class="test-details">
                 <p><strong>Parameter:</strong> ${paramName}</p>
                 <p><strong>Gruppen:</strong> ${groupNames.join(', ')}</p>
-                <p><strong>Testkategorie:</strong> ${getTestCategoryName(primary.test.category)}</p>
+                <p><strong>Test Category:</strong> ${getTestCategoryName(primary.test.category)}</p>
             </div>
     `;
 
     if (primary.violations.length > 0) {
         html += `
             <div class="test-violations">
-                <h6>⚠️ Voraussetzungsverletzungen:</h6>
+                <h6>⚠️ Prerequisite Violations:</h6>
                 <ul>
                     ${primary.violations.map(v => `<li>${v}</li>`).join('')}
                 </ul>
@@ -4967,7 +4967,7 @@ document.getElementById('get-test-recommendation').addEventListener('click', get
     if (primary.warnings.length > 0) {
         html += `
             <div class="test-warnings">
-                <h6>💡 Hinweise:</h6>
+                <h6>💡 Notes:</h6>
                 <ul>
                     ${primary.warnings.map(w => `<li>${w}</li>`).join('')}
                 </ul>
@@ -4999,7 +4999,7 @@ document.getElementById('get-test-recommendation').addEventListener('click', get
 
     html += `
             <div class="recommendation-explanation">
-                <h6>📝 Begründung:</h6>
+                <h6>📝 Reasoning:</h6>
                 <div class="explanation-text">${recommendation.explanation.replace(/\n/g, '<br>')}</div>
             </div>
         </div>
@@ -5011,7 +5011,7 @@ document.getElementById('get-test-recommendation').addEventListener('click', get
         
         if (recommendation.prerequisites.normality.tested) {
             html += '<div class="prerequisite-section">';
-            html += '<h6>📊 Normalitätstests:</h6>';
+            html += '<h6>📊 Normality Tests:</h6>';
 
             Object.entries(recommendation.prerequisites.normality.results).forEach(([groupName, result]) => {
                 const status = result.error ? 'error' : (result.normal ? 'pass' : 'fail');
@@ -5034,7 +5034,7 @@ document.getElementById('get-test-recommendation').addEventListener('click', get
             const icon = status === 'pass' ? '✅' : (status === 'fail' ? '❌' : '⚠️');
 
             html += '<div class="prerequisite-section">';
-            html += '<h6>📏 Varianzhomogenität:</h6>';
+            html += '<h6>📏 Variance Homogeneity:</h6>';
             html += `
                 <div class="prerequisite-item ${status}">
                     ${icon} <strong>F-Test:</strong> 
@@ -5046,7 +5046,7 @@ document.getElementById('get-test-recommendation').addEventListener('click', get
 
         if (recommendation.prerequisites.sampleSize.warnings.length > 0) {
             html += '<div class="prerequisite-section">';
-            html += '<h6>👥 Stichprobengröße:</h6>';
+            html += '<h6>👥 Sample Size:</h6>';
 
             recommendation.prerequisites.sampleSize.warnings.forEach(warning => {
                 html += `
@@ -5145,14 +5145,14 @@ document.getElementById('get-test-recommendation').addEventListener('click', get
             return 'low';
         }
 
-        function getTestCategoryName(category) {
-            const names = {
-                'parametric': 'Parametrisch',
-                'nonparametric': 'Non-parametrisch',
-                'categorical': 'Kategorial'
-            };
-            return names[category] || category;
-        }
+        getTestCategoryName(category) {
+    const names = {
+        'parametric': 'Parametric',
+        'nonparametric': 'Non-parametric',
+        'categorical': 'Categorical'
+    };
+    return names[category] || category;
+}
 
         /**
  * Update test recommendation based on parameter and group selection
@@ -5257,6 +5257,10 @@ function runRecommendedTest() {
          * Check normality for selected parameter and groups
          */
         function checkNormality() {
+            // Clear all previous prerequisite results
+const resultsContainer = document.getElementById('prerequisite-results');
+resultsContainer.innerHTML = '';
+            
     const paramName = document.getElementById('sig-parameter-select').value;
     if (!paramName) {
         utils.showError("Please select a parameter first.");
@@ -5382,9 +5386,9 @@ if (globalState.prerequisiteResults[paramName][groupId]) {
          * Check variance homogeneity between groups
          */
         function checkVarianceHomogeneity() {
-            // Clear any existing variance test results
-const existingVarianceResults = document.getElementById('prerequisite-results').querySelectorAll('.variance-test-result');
-existingVarianceResults.forEach(el => el.remove());
+            // Clear all previous prerequisite results
+const resultsContainer = document.getElementById('prerequisite-results');
+resultsContainer.innerHTML = '';
             
             const paramName = document.getElementById('sig-parameter-select').value;
             if (!paramName) {
@@ -8974,6 +8978,71 @@ function updateSignificanceGroupSelection() {
                 return;
             }
 
+            // Get selected groups for visualization
+const selectedGroups = [];
+const allGroups = Object.keys(globalState.currentGroups);
+
+// Create group selection dialog if not exists
+if (!document.getElementById('viz-group-selection-container')) {
+    const vizControls = document.querySelector('.regression-controls') || document.querySelector('#visualization .flex-container');
+    const selectionDiv = document.createElement('div');
+    selectionDiv.id = 'viz-group-selection-container';
+    selectionDiv.style.cssText = 'margin-bottom: 20px; padding: 15px; background-color: var(--background-medium); border-radius: 8px; border: 1px solid var(--border-color);';
+    selectionDiv.innerHTML = `
+        <div style="margin-bottom: 10px;">
+            <strong>Select Groups to Display:</strong>
+            <button id="viz-select-all" class="btn btn-small btn-primary" style="margin-left: 10px;">Select All</button>
+            <button id="viz-select-none" class="btn btn-small btn-accent">Select None</button>
+        </div>
+        <div id="viz-group-selection" style="display: flex; flex-wrap: wrap; gap: 10px;"></div>
+    `;
+    vizControls.parentNode.insertBefore(selectionDiv, vizControls.nextSibling);
+    
+    // Populate group checkboxes
+    const groupContainer = document.getElementById('viz-group-selection');
+    Object.entries(globalState.currentGroups).forEach(([groupId, group]) => {
+        const color = group.customColor || groupColors[group.colorIndex];
+        const bgColor = typeof color === 'string' ? color : color.bg;
+        
+        const checkboxDiv = document.createElement('div');
+        checkboxDiv.className = 'checkbox-container';
+        checkboxDiv.style.marginBottom = '0';
+        
+        const checkbox = document.createElement('input');
+        checkbox.type = 'checkbox';
+        checkbox.id = `viz-group-${groupId}`;
+        checkbox.value = groupId;
+        checkbox.checked = true;
+        
+        const label = document.createElement('label');
+        label.htmlFor = `viz-group-${groupId}`;
+        label.innerHTML = `<span class="group-badge" style="background-color: ${bgColor};">${group.name}</span>`;
+        
+        checkboxDiv.appendChild(checkbox);
+        checkboxDiv.appendChild(label);
+        groupContainer.appendChild(checkboxDiv);
+    });
+    
+    // Add event listeners
+    document.getElementById('viz-select-all').addEventListener('click', () => {
+        document.querySelectorAll('#viz-group-selection input[type="checkbox"]').forEach(cb => cb.checked = true);
+    });
+    
+    document.getElementById('viz-select-none').addEventListener('click', () => {
+        document.querySelectorAll('#viz-group-selection input[type="checkbox"]').forEach(cb => cb.checked = false);
+    });
+}
+
+// Get selected groups
+document.querySelectorAll('#viz-group-selection input:checked').forEach(checkbox => {
+    selectedGroups.push(checkbox.value);
+});
+
+if (selectedGroups.length === 0) {
+    utils.showError("Please select at least one group to visualize.");
+    return;
+}
+
             const ctx = document.getElementById('custom-visualization-chart').getContext('2d');
             utils.destroyChart('custom-visualization-chart');
 
@@ -9230,7 +9299,17 @@ function updateSignificanceGroupSelection() {
             const yScaleType = globalState.columnTypes[paramY];
 
             // Process each group
-            Object.entries(globalState.currentGroups).forEach(([groupId, group], index) => {
+            // Get selected groups from visualization controls
+const vizSelectedGroups = [];
+document.querySelectorAll('#viz-group-selection input:checked').forEach(checkbox => {
+    vizSelectedGroups.push(checkbox.value);
+});
+
+Object.entries(globalState.currentGroups).forEach(([groupId, group], index) => {
+    // Skip if group not selected
+    if (vizSelectedGroups.length > 0 && !vizSelectedGroups.includes(groupId)) {
+        return;
+    }
                 const color = group.customColor || groupColors[group.colorIndex];
                 const bgColor = typeof color === 'string' ? color : color.bg;
                 const borderColor = typeof color === 'string' ? color.replace('B3', '') : color.border;
@@ -9445,7 +9524,17 @@ function updateSignificanceGroupSelection() {
 
                 const datasets = [];
 
-                Object.entries(globalState.currentGroups).forEach(([groupId, group], index) => {
+                // Get selected groups from visualization controls
+const vizSelectedGroups = [];
+document.querySelectorAll('#viz-group-selection input:checked').forEach(checkbox => {
+    vizSelectedGroups.push(checkbox.value);
+});
+
+Object.entries(globalState.currentGroups).forEach(([groupId, group], index) => {
+    // Skip if group not selected
+    if (vizSelectedGroups.length > 0 && !vizSelectedGroups.includes(groupId)) {
+        return;
+    }
                     const color = group.customColor || groupColors[group.colorIndex];
                     const bgColor = typeof color === 'string' ? color : color.bg;
                     const borderColor = typeof color === 'string' ? color.replace('B3', '') : color.border;
