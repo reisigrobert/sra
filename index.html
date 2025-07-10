@@ -3349,7 +3349,7 @@ H = (12 / (N * (N + 1))) * H - 3 * (N + 1);
 
 // Calculate tie correction
 let tieCorrection = 0;
-let i = 0;
+i = 0;  // <-- HIER: Kein "let" mehr, da i schon oben deklariert wurde
 while (i < N) {
     let j = i;
     while (j < N && combined[j].value === combined[i].value) {
