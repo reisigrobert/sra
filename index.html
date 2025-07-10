@@ -4743,10 +4743,8 @@ document.getElementById('regression-custom-alpha').addEventListener('change', up
 
     // Test type change listener
     document.getElementById('sig-test-type').addEventListener('change', function() {
-        updateTestSelectionUI();
-        // Hide recommended test button when manually selecting
-        document.getElementById('run-recommended-test').style.display = 'none';
-    });
+    updateTestSelectionUI();
+});
         }
 
         /**
