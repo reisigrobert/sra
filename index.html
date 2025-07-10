@@ -2460,37 +2460,109 @@
              * Display error message to the user
              */
             showError(message) {
-                const errorElement = document.getElementById('error-message');
-                const successElement = document.getElementById('success-message');
-
-                successElement.style.display = 'none';
-                errorElement.textContent = message;
-                errorElement.style.display = 'block';
-
-                console.error('Error:', message);
-
-                // Auto-hide after 10 seconds
-                setTimeout(() => {
-                    errorElement.style.display = 'none';
-                }, 10000);
-            },
+    // Create modal overlay
+    const modal = document.createElement('div');
+    modal.style.cssText = `
+        position: fixed;
+        top: 0;
+        left: 0;
+        width: 100%;
+        height: 100%;
+        background-color: rgba(0, 0, 0, 0.8);
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        z-index: 10000;
+    `;
+    
+    // Create modal content
+    const modalContent = document.createElement('div');
+    modalContent.style.cssText = `
+        background-color: var(--card-background);
+        padding: 30px;
+        border-radius: 12px;
+        box-shadow: 0 8px 32px rgba(0, 0, 0, 0.5);
+        max-width: 500px;
+        width: 90%;
+        border: 2px solid var(--danger-color);
+    `;
+    
+    modalContent.innerHTML = `
+        <h3 style="color: var(--danger-color); margin-bottom: 15px;">Error</h3>
+        <p style="color: var(--text-color); margin-bottom: 20px;">${message}</p>
+        <button onclick="this.closest('div').parentElement.remove()" 
+                style="background-color: var(--danger-color); 
+                       color: white; 
+                       border: none; 
+                       padding: 10px 20px; 
+                       border-radius: 6px; 
+                       cursor: pointer;">
+            OK
+        </button>
+    `;
+    
+    modal.appendChild(modalContent);
+    document.body.appendChild(modal);
+    
+    // Also log to console
+    console.error('Error:', message);
+},
 
             /**
              * Display success message to the user
              */
             showSuccess(message) {
-                const errorElement = document.getElementById('error-message');
-                const successElement = document.getElementById('success-message');
-
-                errorElement.style.display = 'none';
-                successElement.textContent = message;
-                successElement.style.display = 'block';
-
-                // Auto-hide after 5 seconds
-                setTimeout(() => {
-                    successElement.style.display = 'none';
-                }, 5000);
-            },
+    // Create modal overlay
+    const modal = document.createElement('div');
+    modal.style.cssText = `
+        position: fixed;
+        top: 0;
+        left: 0;
+        width: 100%;
+        height: 100%;
+        background-color: rgba(0, 0, 0, 0.8);
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        z-index: 10000;
+    `;
+    
+    // Create modal content
+    const modalContent = document.createElement('div');
+    modalContent.style.cssText = `
+        background-color: var(--card-background);
+        padding: 30px;
+        border-radius: 12px;
+        box-shadow: 0 8px 32px rgba(0, 0, 0, 0.5);
+        max-width: 500px;
+        width: 90%;
+        border: 2px solid var(--success-color);
+    `;
+    
+    modalContent.innerHTML = `
+        <h3 style="color: var(--success-color); margin-bottom: 15px;">Success</h3>
+        <p style="color: var(--text-color); margin-bottom: 20px;">${message}</p>
+        <button onclick="this.closest('div').parentElement.remove()" 
+                style="background-color: var(--success-color); 
+                       color: white; 
+                       border: none; 
+                       padding: 10px 20px; 
+                       border-radius: 6px; 
+                       cursor: pointer;">
+            OK
+        </button>
+    `;
+    
+    modal.appendChild(modalContent);
+    document.body.appendChild(modal);
+    
+    // Auto-close after 3 seconds
+    setTimeout(() => {
+        if (document.body.contains(modal)) {
+            modal.remove();
+        }
+    }, 3000);
+},
 
             /**
              * Safely destroy a chart instance
@@ -4044,6 +4116,7 @@ calculatePhiCoefficient(a, b, c, d) {
         };
     } catch (error) {
         console.error('Polynomial regression error:', error);
+utils.showError(`Polynomial regression failed: ${error.message}`);
         return null;
     }
 }
@@ -4340,7 +4413,8 @@ if (globalState.assumptionOverrides.homogeneity[parameterName]) {
                     });
 
                 } catch (error) {
-                    console.warn('Fehler bei Voraussetzungstests:', error);
+console.warn('Fehler bei Voraussetzungstests:', error);
+utils.showError(`Error checking prerequisites: ${error.message}`);
                 }
 
                 // Check for manual overrides
@@ -6952,6 +7026,7 @@ if (isOverridden) {
             globalState.groupDefinitions.forEach(group => {
                 if (group.conditions.length === 0 && group.constellations.length === 0) {
                     console.warn(`Group "${group.name}" has no conditions or constellations`);
+utils.showError(`Group "${group.name}" has no conditions or constellations`);
                 }
 
                 // Check if referenced constellations exist
@@ -6959,6 +7034,7 @@ if (isOverridden) {
                     const exists = globalState.parameterConstellations.find(c => c.name === constRef.name);
                     if (!exists) {
                         console.error(`Group "${group.name}" references non-existent constellation "${constRef.name}"`);
+utils.showError(`Group "${group.name}" references non-existent constellation "${constRef.name}"`);
                     }
                 });
             });
@@ -10248,6 +10324,7 @@ function updateSignificanceGroupSelection() {
                                 conditionValue = match[3];
                             } else {
                                 console.warn(`Could not parse condition: ${value}`);
+utils.showError(`Could not parse condition: ${value}`);
                                 return;
                             }
                         }
@@ -10270,6 +10347,7 @@ function updateSignificanceGroupSelection() {
                             parsedValue = utils.parseNumericValue(conditionValue);
                             if (isNaN(parsedValue)) {
                                 console.warn(`Invalid numeric value for parameter '${parameter}': ${conditionValue}`);
+utils.showError(`Invalid numeric value for parameter '${parameter}': ${conditionValue}`);
                                 return;
                             }
                         } else {
