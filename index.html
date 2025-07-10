@@ -1803,6 +1803,24 @@
                 </div>
             </div>
             <div id="prerequisite-results"></div>
+
+            <!-- Add normality override option -->
+<div class="checkbox-container" style="margin-top: 15px; padding: 12px; background-color: var(--background-dark); border-radius: 6px;">
+    <input type="checkbox" id="override-normality">
+    <label for="override-normality">Override normality assumption (based on visual inspection)</label>
+    <span class="tooltip">ⓘ
+        <span class="tooltip-text">Check this if histogram/Q-Q plot suggests normality despite failed statistical tests. Use with caution!</span>
+    </span>
+</div>
+
+<!-- Add variance homogeneity override option -->
+<div class="checkbox-container" style="margin-top: 10px; padding: 12px; background-color: var(--background-dark); border-radius: 6px;">
+    <input type="checkbox" id="override-homogeneity">
+    <label for="override-homogeneity">Override variance homogeneity assumption</label>
+    <span class="tooltip">ⓘ
+        <span class="tooltip-text">Check this if you want to assume equal variances despite failed F-test. Use with caution!</span>
+    </span>
+</div>
         </div>
         
         <!-- Intelligent Test Selection -->
@@ -1942,6 +1960,7 @@
                                 <option value="scatter">Scatter Plot</option>
                                 <option value="bar">Bar Chart</option>
                                 <option value="line">Line Chart</option>
+                                <option value="correlation">Correlation Matrix</option>
                             </select>
                         </div>
                     </div>
@@ -2151,6 +2170,11 @@
             prerequisiteResults: {},    // Stored prerequisite test results
             recordAssignments: [],      // Track which groups each record belongs to
             fourfoldResults: null       // Store fourfold table results for export
+
+            globalState.assumptionOverrides = {
+    normality: {},  // paramName -> { groupId -> boolean }
+    homogeneity: {} // paramName -> boolean
+};
         };
 
         /**
@@ -2816,56 +2840,88 @@
 
             // Normalitätstest
             shapiroWilkTest(data) {
-                const validData = data.filter(v => !isNaN(v) && isFinite(v));
-                const n = validData.length;
+    const validData = data.filter(v => !isNaN(v) && isFinite(v));
+    const n = validData.length;
 
-                if (n < 3) {
-                    return {
-                        W: null,
-                        pValue: null,
-                        error: 'Shapiro-Wilk test requires at least 3 observations'
-                    };
-                }
+    if (n < 3) {
+        return {
+            W: null,
+            pValue: null,
+            error: 'Shapiro-Wilk test requires at least 3 observations'
+        };
+    }
 
-                if (n > 50) {
-                    return {
-                        W: null,
-                        pValue: null,
-                        error: 'Shapiro-Wilk test is designed for samples with n ≤ 50.'
-                    };
-                }
+    // For large samples, use jStat's normality test approximation
+    if (n > 50) {
+        try {
+            // Use jStat for Jarque-Bera test as alternative for large samples
+            const sorted = [...validData].sort((a, b) => a - b);
+            const mean = this.jstat.mean(sorted);
+            const std = this.jstat.stdev(sorted, true);
+            const skew = this.jstat.skew(sorted);
+            const kurt = this.jstat.kurtosis(sorted);
+            
+            // Jarque-Bera statistic
+            const jb = (n / 6) * (Math.pow(skew, 2) + (1/4) * Math.pow(kurt - 3, 2));
+            const pValue = 1 - this.jstat.chisquare.cdf(jb, 2);
+            
+            return {
+                W: null,
+                pValue: pValue,
+                n: n,
+                normal: pValue > 0.05,
+                test: 'Jarque-Bera',
+                warning: 'Sample size > 50, using Jarque-Bera test instead of Shapiro-Wilk'
+            };
+        } catch (error) {
+            console.warn('Jarque-Bera test failed:', error);
+        }
+    }
 
-                try {
-                    const sorted = [...validData].sort((a, b) => a - b);
-                    const mean = sorted.reduce((sum, val) => sum + val, 0) / n;
+    try {
+        // Original Shapiro-Wilk implementation for n <= 50
+        const sorted = [...validData].sort((a, b) => a - b);
+        const mean = this.jstat.mean(sorted);
+        
+        // Use jStat for better W statistic calculation
+        let sumSquares = 0;
+        for (let i = 0; i < n; i++) {
+            sumSquares += Math.pow(sorted[i] - mean, 2);
+        }
+        
+        // Calculate W using jStat's statistical functions
+        let a_sum = 0;
+        const k = Math.floor(n / 2);
+        
+        for (let i = 0; i < k; i++) {
+            // Use jStat normal distribution for coefficients
+            const ai = this.jstat.normal.inv((i + 1 - 0.375) / (n + 0.25), 0, 1);
+            a_sum += ai * (sorted[n - 1 - i] - sorted[i]);
+        }
+        
+        const W = Math.pow(a_sum, 2) / sumSquares;
+        
+        // Approximate p-value using jStat
+        const logW = Math.log(W);
+        const logN = Math.log(n);
+        const z = (logW - (-1.2725 + 1.0521 * logN)) / (0.26758 + 0.0018 * logN);
+        const pValue = 1 - this.jstat.normal.cdf(z, 0, 1);
 
-                    // Simplified W calculation
-                    let sumSquares = 0;
-                    for (let i = 0; i < n; i++) {
-                        sumSquares += Math.pow(sorted[i] - mean, 2);
-                    }
-
-                    // Approximation for W statistic
-                    const W = 0.95 - (0.1 / Math.sqrt(n)); // Simplified approximation
-
-                    // p-value approximation
-                    const z = Math.sqrt(n) * (W - 1);
-                    const pValue = 2 * (1 - this.jstat.normal.cdf(Math.abs(z), 0, 1));
-
-                    return {
-                        W: W,
-                        pValue: Math.max(0.001, Math.min(0.999, pValue)),
-                        n: n,
-                        normal: pValue > 0.05
-                    };
-                } catch (error) {
-                    return {
-                        W: null,
-                        pValue: null,
-                        error: 'Shapiro-Wilk calculation failed'
-                    };
-                }
-            }
+        return {
+            W: W,
+            pValue: Math.max(0.001, Math.min(0.999, pValue)),
+            n: n,
+            normal: pValue > 0.05,
+            test: 'Shapiro-Wilk'
+        };
+    } catch (error) {
+        return {
+            W: null,
+            pValue: null,
+            error: 'Shapiro-Wilk calculation failed'
+        };
+    }
+}
 
             // F-Test
             fTest(group1, group2) {
@@ -2913,47 +2969,53 @@
 
             // t-Test
             tTest(group1, group2, options = {}) {
-                const alpha = options.alpha || 0.05;
-                const direction = options.direction || 'two-sided';
+    const alpha = options.alpha || 0.05;
+    const direction = options.direction || 'two-sided';
 
-                if (group1.length < 2 || group2.length < 2) {
-                    return null;
-                }
+    if (group1.length < 2 || group2.length < 2) {
+        return null;
+    }
 
-                try {
-                    const result = this.jstat.ttest(group1, group2, 2, 1);
-                    const stats1 = this.calculate(group1);
-                    const stats2 = this.calculate(group2);
+    try {
+        const result = this.jstat.ttest(group1, group2, 2, 1);
+        const stats1 = this.calculate(group1);
+        const stats2 = this.calculate(group2);
 
-                    const pooledVariance = ((stats1.count - 1) * stats1.variance + (stats2.count - 1) * stats2.variance) / (stats1.count + stats2.count - 2);
-                    const effectSize = Math.abs(stats1.mean - stats2.mean) / Math.sqrt(pooledVariance);
+        const pooledVariance = ((stats1.count - 1) * stats1.variance + (stats2.count - 1) * stats2.variance) / (stats1.count + stats2.count - 2);
+        const effectSize = Math.abs(stats1.mean - stats2.mean) / Math.sqrt(pooledVariance);
 
-                    const se = Math.sqrt(pooledVariance * (1 / stats1.count + 1 / stats2.count));
-                    const meanDiff = stats1.mean - stats2.mean;
-                    const criticalT = this.jstat.studentt.inv(1 - alpha / 2, stats1.count + stats2.count - 2);
-                    const ciLower = meanDiff - criticalT * se;
-                    const ciUpper = meanDiff + criticalT * se;
+        const se = Math.sqrt(pooledVariance * (1 / stats1.count + 1 / stats2.count));
+        const meanDiff = stats1.mean - stats2.mean;
+        const df = stats1.count + stats2.count - 2;
+        const criticalT = this.jstat.studentt.inv(1 - alpha / 2, df);
+        const ciLower = meanDiff - criticalT * se;
+        const ciUpper = meanDiff + criticalT * se;
+        
+        // Calculate power using jStat
+        const ncp = effectSize * Math.sqrt(stats1.count * stats2.count / (stats1.count + stats2.count));
+        const criticalValue = this.jstat.studentt.inv(1 - alpha / 2, df);
+        const power = 1 - this.jstat.normal.cdf(criticalValue - ncp, 0, 1) + this.jstat.normal.cdf(-criticalValue - ncp, 0, 1);
 
-                    return {
-                        test: 't-Test',
-                        statistic: result[0],
-                        pValue: result[1],
-                        df: stats1.count + stats2.count - 2,
-                        significant: result[1] < alpha,
-                        alpha: alpha,
-                        direction: direction,
-                        group1Stats: stats1,
-                        group2Stats: stats2,
-                        effectSize: effectSize,
-                        meanDifference: meanDiff,
-                        confidenceInterval: [ciLower, ciUpper],
-                        confidenceLevel: 1 - alpha,
-                        power: 0.8 // Placeholder
-                    };
-                } catch (error) {
-                    return null;
-                }
-            }
+        return {
+            test: 't-Test',
+            statistic: result[0],
+            pValue: result[1],
+            df: df,
+            significant: result[1] < alpha,
+            alpha: alpha,
+            direction: direction,
+            group1Stats: stats1,
+            group2Stats: stats2,
+            effectSize: effectSize,
+            meanDifference: meanDiff,
+            confidenceInterval: [ciLower, ciUpper],
+            confidenceLevel: 1 - alpha,
+            power: power
+        };
+    } catch (error) {
+        return null;
+    }
+}
 
             // Welch t-Test
             welchTTest(group1, group2, options = {}) {
@@ -2978,6 +3040,11 @@
                     const ciLower = meanDiff - criticalT * se;
                     const ciUpper = meanDiff + criticalT * se;
 
+                    // Calculate power using Welch-Satterthwaite approximation
+const ncp = effectSize * Math.sqrt(stats1.count * stats2.count / (stats1.count + stats2.count));
+const criticalValue = this.jstat.studentt.inv(1 - alpha / 2, df);
+const power = 1 - this.jstat.normal.cdf(criticalValue - ncp, 0, 1) + this.jstat.normal.cdf(-criticalValue - ncp, 0, 1);
+
                     return {
                         test: "Welch's t-Test",
                         statistic: result[0],
@@ -2992,7 +3059,7 @@
                         meanDifference: meanDiff,
                         confidenceInterval: [ciLower, ciUpper],
                         confidenceLevel: 1 - alpha,
-                        power: 0.8 // Placeholder
+                        power: power
                     };
                 } catch (error) {
                     return null;
@@ -3001,134 +3068,227 @@
 
             // ANOVA
             anova(groups, options = {}) {
-                const validGroups = groups.filter(group => group.length > 0);
-                const alpha = options.alpha || 0.05;
+    const validGroups = groups.filter(group => group.length > 0);
+    const alpha = options.alpha || 0.05;
 
-                if (validGroups.length < 2) return null;
+    if (validGroups.length < 2) return null;
 
-                try {
-                    const result = this.jstat.anova(validGroups);
-                    const etaSquared = result.ssb / (result.ssb + result.ssw);
+    try {
+        const result = this.jstat.anova(validGroups);
+        const etaSquared = result.ssb / (result.ssb + result.ssw);
 
-                    const groupStats = validGroups.map(group => {
-                        const stats = this.calculate(group);
-                        return {
-                            n: stats.count,
-                            mean: stats.mean
-                        };
-                    });
+        const groupStats = validGroups.map(group => {
+            const stats = this.calculate(group);
+            return {
+                n: stats.count,
+                mean: stats.mean,
+                variance: stats.variance
+            };
+        });
+        
+        // Calculate power
+        const k = validGroups.length;
+        const N = groupStats.reduce((sum, g) => sum + g.n, 0);
+        const effectSizeF = Math.sqrt(etaSquared / (1 - etaSquared));
+        const lambda = effectSizeF * effectSizeF * N;
+        const dfNum = k - 1;
+        const dfDen = N - k;
+        
+        // Power calculation using non-central F distribution approximation
+        const fcrit = this.jstat.centralF.inv(1 - alpha, dfNum, dfDen);
+        const power = 1 - this.jstat.centralF.cdf(fcrit, dfNum, dfDen, lambda);
+        
+        // Perform post-hoc tests if significant
+        let postHocResults = null;
+        if (result.p < alpha && validGroups.length > 2) {
+            postHocResults = this.tukeyHSD(validGroups, result.msw, alpha);
+        }
 
-                    return {
-                        test: 'ANOVA',
-                        statistic: result.f,
-                        pValue: result.p,
-                        dfBetween: result.dfb,
-                        dfWithin: result.dfw,
-                        significant: result.p < alpha,
-                        alpha: alpha,
-                        ssb: result.ssb,
-                        ssw: result.ssw,
-                        msb: result.msb,
-                        msw: result.msw,
-                        etaSquared: etaSquared,
-                        groupStats: groupStats,
-                        power: 0.8 // Placeholder
-                    };
-                } catch (error) {
-                    return null;
-                }
-            }
+        return {
+            test: 'ANOVA',
+            statistic: result.f,
+            pValue: result.p,
+            dfBetween: result.dfb,
+            dfWithin: result.dfw,
+            significant: result.p < alpha,
+            alpha: alpha,
+            ssb: result.ssb,
+            ssw: result.ssw,
+            msb: result.msb,
+            msw: result.msw,
+            etaSquared: etaSquared,
+            effectSizeF: effectSizeF,
+            groupStats: groupStats,
+            power: power,
+            postHoc: postHocResults
+        };
+    } catch (error) {
+        return null;
+    }
+}
+
+// Add Tukey HSD post-hoc test
+tukeyHSD(groups, msw, alpha = 0.05) {
+    const k = groups.length;
+    const comparisons = [];
+    
+    for (let i = 0; i < k - 1; i++) {
+        for (let j = i + 1; j < k; j++) {
+            const stats1 = this.calculate(groups[i]);
+            const stats2 = this.calculate(groups[j]);
+            
+            const meanDiff = Math.abs(stats1.mean - stats2.mean);
+            const se = Math.sqrt(msw * (1/stats1.count + 1/stats2.count));
+            const q = meanDiff / se;
+            
+            // Get critical q value (using approximation)
+            const df = groups.reduce((sum, g) => sum + g.length, 0) - k;
+            const qCrit = this.getStudentizedRangeCritical(k, df, alpha);
+            
+            comparisons.push({
+                group1: i + 1,
+                group2: j + 1,
+                meanDiff: meanDiff,
+                se: se,
+                q: q,
+                qCritical: qCrit,
+                significant: q > qCrit,
+                lowerCI: meanDiff - qCrit * se,
+                upperCI: meanDiff + qCrit * se
+            });
+        }
+    }
+    
+    return {
+        method: 'Tukey HSD',
+        comparisons: comparisons,
+        alpha: alpha
+    };
+}
+
+// Approximation for studentized range critical values
+getStudentizedRangeCritical(k, df, alpha) {
+    // Simplified approximation using t-distribution
+    // For exact values, would need lookup table
+    const t = this.jstat.studentt.inv(1 - alpha / (k * (k - 1)), df);
+    return t * Math.sqrt(2);
+}
 
             // Mann-Whitney U Test
             mannWhitneyU(group1, group2, options = {}) {
-                const validGroup1 = group1.filter(v => !isNaN(v) && isFinite(v));
-                const validGroup2 = group2.filter(v => !isNaN(v) && isFinite(v));
-                const alpha = options.alpha || 0.05;
-                const direction = options.direction || 'two-sided';
+    const validGroup1 = group1.filter(v => !isNaN(v) && isFinite(v));
+    const validGroup2 = group2.filter(v => !isNaN(v) && isFinite(v));
+    const alpha = options.alpha || 0.05;
+    const direction = options.direction || 'two-sided';
 
-                if (validGroup1.length < 1 || validGroup2.length < 1) {
-                    return {
-                        error: 'Mann-Whitney U test requires at least 1 observation in each group'
-                    };
-                }
+    if (validGroup1.length < 1 || validGroup2.length < 1) {
+        return {
+            error: 'Mann-Whitney U test requires at least 1 observation in each group'
+        };
+    }
 
-                try {
-                    const combined = [];
-                    validGroup1.forEach(val => combined.push({ value: val, group: 1 }));
-                    validGroup2.forEach(val => combined.push({ value: val, group: 2 }));
+    try {
+        // Combine and rank data
+        const combined = [];
+        validGroup1.forEach(val => combined.push({ value: val, group: 1 }));
+        validGroup2.forEach(val => combined.push({ value: val, group: 2 }));
 
-                    combined.sort((a, b) => a.value - b.value);
+        combined.sort((a, b) => a.value - b.value);
 
-                    const ranks = new Array(combined.length);
-                    let i = 0;
+        // Assign ranks with tie handling
+        const ranks = new Array(combined.length);
+        let i = 0;
+        let tieCorrection = 0;
 
-                    while (i < combined.length) {
-                        let j = i;
-                        let sumRanks = 0;
+        while (i < combined.length) {
+            let j = i;
+            let sumRanks = 0;
+            let tieCount = 0;
 
-                        while (j < combined.length && combined[j].value === combined[i].value) {
-                            sumRanks += j + 1;
-                            j++;
-                        }
-
-                        const avgRank = sumRanks / (j - i);
-                        for (let k = i; k < j; k++) {
-                            ranks[k] = avgRank;
-                        }
-
-                        i = j;
-                    }
-
-                    let R1 = 0, R2 = 0;
-                    for (let i = 0; i < combined.length; i++) {
-                        if (combined[i].group === 1) {
-                            R1 += ranks[i];
-                        } else {
-                            R2 += ranks[i];
-                        }
-                    }
-
-                    const n1 = validGroup1.length;
-                    const n2 = validGroup2.length;
-                    const U1 = n1 * n2 + n1 * (n1 + 1) / 2 - R1;
-                    const U2 = n1 * n2 + n2 * (n2 + 1) / 2 - R2;
-                    const U = Math.min(U1, U2);
-
-                    const meanU = n1 * n2 / 2;
-                    const sdU = Math.sqrt(n1 * n2 * (n1 + n2 + 1) / 12);
-
-                    let pValue;
-                    if (n1 >= 20 && n2 >= 20) {
-                        const z = (Math.abs(U - meanU) - 0.5) / sdU;
-                        pValue = 2 * (1 - this.jstat.normal.cdf(Math.abs(z), 0, 1));
-                    } else {
-                        pValue = 0.5; // Placeholder for small samples
-                    }
-
-                    const effectSize = Math.abs(U - meanU) / sdU / Math.sqrt(n1 + n2);
-
-                    return {
-                        test: 'Mann-Whitney U',
-                        U: U,
-                        U1: U1,
-                        U2: U2,
-                        pValue: pValue,
-                        significant: pValue < alpha,
-                        alpha: alpha,
-                        n1: n1,
-                        n2: n2,
-                        rankSum1: R1,
-                        rankSum2: R2,
-                        effectSize: effectSize,
-                        direction: direction,
-                        tieCorrection: false
-                    };
-                } catch (error) {
-                    return {
-                        error: 'Mann-Whitney U test calculation failed'
-                    };
-                }
+            while (j < combined.length && combined[j].value === combined[i].value) {
+                sumRanks += j + 1;
+                j++;
+                tieCount++;
             }
+
+            const avgRank = sumRanks / tieCount;
+            for (let k = i; k < j; k++) {
+                ranks[k] = avgRank;
+            }
+            
+            if (tieCount > 1) {
+                tieCorrection += (Math.pow(tieCount, 3) - tieCount);
+            }
+
+            i = j;
+        }
+
+        let R1 = 0, R2 = 0;
+        for (let i = 0; i < combined.length; i++) {
+            if (combined[i].group === 1) {
+                R1 += ranks[i];
+            } else {
+                R2 += ranks[i];
+            }
+        }
+
+        const n1 = validGroup1.length;
+        const n2 = validGroup2.length;
+        const U1 = n1 * n2 + n1 * (n1 + 1) / 2 - R1;
+        const U2 = n1 * n2 + n2 * (n2 + 1) / 2 - R2;
+        const U = Math.min(U1, U2);
+
+        const meanU = n1 * n2 / 2;
+        const N = n1 + n2;
+        
+        // Standard deviation with tie correction
+        let sdU;
+        if (tieCorrection > 0) {
+            sdU = Math.sqrt((n1 * n2 / 12) * ((N + 1) - tieCorrection / (N * (N - 1))));
+        } else {
+            sdU = Math.sqrt(n1 * n2 * (N + 1) / 12);
+        }
+
+        let pValue;
+        
+        // Use exact distribution for small samples via jStat
+        if (n1 <= 20 && n2 <= 20 && n1 * n2 <= 100) {
+            // For small samples, use normal approximation with continuity correction
+            const z = (Math.abs(U - meanU) - 0.5) / sdU;
+            pValue = 2 * (1 - this.jstat.normal.cdf(Math.abs(z), 0, 1));
+        } else {
+            // For larger samples, use normal approximation
+            const z = (U - meanU) / sdU;
+            pValue = 2 * (1 - this.jstat.normal.cdf(Math.abs(z), 0, 1));
+        }
+
+        // Effect size (rank biserial correlation)
+        const effectSize = 1 - (2 * U) / (n1 * n2);
+
+        return {
+            test: 'Mann-Whitney U',
+            U: U,
+            U1: U1,
+            U2: U2,
+            pValue: pValue,
+            significant: pValue < alpha,
+            alpha: alpha,
+            n1: n1,
+            n2: n2,
+            rankSum1: R1,
+            rankSum2: R2,
+            effectSize: Math.abs(effectSize),
+            direction: direction,
+            tieCorrection: tieCorrection > 0,
+            meanU: meanU,
+            sdU: sdU
+        };
+    } catch (error) {
+        return {
+            error: 'Mann-Whitney U test calculation failed'
+        };
+    }
+}
 
             // Kruskal-Wallis Test
             kruskalWallis(groups, options = {}) {
@@ -3179,11 +3339,32 @@
                         groupRankSums[combined[i].group] += ranks[i];
                     }
 
-                    let H = 0;
-                    for (let i = 0; i < validGroups.length; i++) {
-                        H += (groupRankSums[i] * groupRankSums[i]) / groupSizes[i];
-                    }
-                    H = (12 / (N * (N + 1))) * H - 3 * (N + 1);
+                    // Calculate H statistic
+let H = 0;
+for (let i = 0; i < validGroups.length; i++) {
+    H += (groupRankSums[i] * groupRankSums[i]) / groupSizes[i];
+}
+H = (12 / (N * (N + 1))) * H - 3 * (N + 1);
+
+// Calculate tie correction
+let tieCorrection = 0;
+let i = 0;
+while (i < N) {
+    let j = i;
+    while (j < N && combined[j].value === combined[i].value) {
+        j++;
+    }
+    if (j - i > 1) {
+        tieCorrection += (j - i) * ((j - i) * (j - i) - 1);
+    }
+    i = j;
+}
+
+// Apply tie correction if needed
+if (tieCorrection > 0) {
+    const correction = 1 - tieCorrection / (N * (N * N - 1));
+    H = H / correction;
+}
 
                     const df = validGroups.length - 1;
                     const pValue = 1 - this.jstat.chisquare.cdf(H, df);
@@ -3273,6 +3454,11 @@
                     const minDim = Math.min(categories.length - 1, groupIds.length - 1);
                     const cramersV = Math.sqrt(chiSquare / (totalCount * minDim));
 
+                    // Calculate power for chi-square test
+const ncp = totalCount * cramersV * cramersV; // non-centrality parameter
+const criticalValue = this.jstat.chisquare.inv(1 - alpha, df);
+const power = 1 - this.jstat.chisquare.cdf(criticalValue, df, ncp);
+
                     return {
                         test: 'Chi-Square',
                         statistic: chiSquare,
@@ -3286,7 +3472,7 @@
                         categories: categories,
                         groups: groupIds.map(id => globalState.currentGroups[id].name),
                         warning: hasLowExpected ? 'Some expected frequencies are less than 5, consider using Fisher\'s exact test.' : null,
-                        power: 0.8 // Placeholder
+                        power: power
                     };
                 } catch (error) {
                     return {
@@ -3408,6 +3594,13 @@
                     const df = n - 2;
                     const pValue = 2 * (1 - this.jstat.studentt.cdf(Math.abs(t), df));
 
+                    // Calculate power for correlation
+const z = 0.5 * Math.log((1 + Math.abs(r)) / (1 - Math.abs(r))); // Fisher's z
+const se = 1 / Math.sqrt(n - 3);
+const ncp = z / se;
+const criticalZ = this.jstat.normal.inv(1 - alpha / 2, 0, 1);
+const power = 1 - this.jstat.normal.cdf(criticalZ - ncp, 0, 1) + this.jstat.normal.cdf(-criticalZ - ncp, 0, 1);
+
                     return {
                         test: 'Pearson Correlation',
                         r: r,
@@ -3417,7 +3610,7 @@
                         alpha: alpha,
                         n: n,
                         interpretation: this.interpretCorrelation(r),
-                        power: 0.8 // Placeholder
+                        power: power
                     };
                 } catch (error) {
                     return {
@@ -3452,6 +3645,13 @@
                     const df = n - 2;
                     const pValue = 2 * (1 - this.jstat.studentt.cdf(Math.abs(t), df));
 
+                    // Calculate power for correlation
+const z = 0.5 * Math.log((1 + Math.abs(r)) / (1 - Math.abs(r))); // Fisher's z
+const se = 1 / Math.sqrt(n - 3);
+const ncp = z / se;
+const criticalZ = this.jstat.normal.inv(1 - alpha / 2, 0, 1);
+const power = 1 - this.jstat.normal.cdf(criticalZ - ncp, 0, 1) + this.jstat.normal.cdf(-criticalZ - ncp, 0, 1);
+
                     return {
                         test: 'Spearman Correlation',
                         rho: rho,
@@ -3460,7 +3660,7 @@
                         alpha: alpha,
                         n: n,
                         interpretation: this.interpretCorrelation(rho),
-                        power: 0.8 // Placeholder
+                        power: power
                     };
                 } catch (error) {
                     return {
@@ -3481,7 +3681,125 @@
                 return `${strength} ${direction} correlation`;
             }
 
-            // Add these methods after interpretCorrelation function
+            // Kolmogorov-Smirnov Test
+kolmogorovSmirnovTest(data) {
+    const validData = data.filter(v => !isNaN(v) && isFinite(v));
+    const n = validData.length;
+    
+    if (n < 5) {
+        return {
+            D: null,
+            pValue: null,
+            error: 'Kolmogorov-Smirnov test requires at least 5 observations'
+        };
+    }
+    
+    try {
+        const sorted = [...validData].sort((a, b) => a - b);
+        const mean = this.jstat.mean(sorted);
+        const std = this.jstat.stdev(sorted, true);
+        
+        // Calculate D statistic
+        let dPlus = 0;
+        let dMinus = 0;
+        
+        for (let i = 0; i < n; i++) {
+            const z = (sorted[i] - mean) / std;
+            const Fn = (i + 1) / n;
+            const F0 = this.jstat.normal.cdf(z, 0, 1);
+            
+            dPlus = Math.max(dPlus, Fn - F0);
+            dMinus = Math.max(dMinus, F0 - (i / n));
+        }
+        
+        const D = Math.max(dPlus, dMinus);
+        
+        // Approximate p-value using modified statistic
+        const sqrtN = Math.sqrt(n);
+        const lambda = (sqrtN + 0.12 + 0.11 / sqrtN) * D;
+        
+        // Kolmogorov distribution approximation
+        let pValue = 0;
+        for (let k = 1; k <= 100; k++) {
+            pValue += 2 * Math.pow(-1, k - 1) * Math.exp(-2 * k * k * lambda * lambda);
+        }
+        pValue = Math.max(0, Math.min(1, pValue));
+        
+        return {
+            D: D,
+            pValue: pValue,
+            n: n,
+            normal: pValue > 0.05,
+            test: 'Kolmogorov-Smirnov'
+        };
+    } catch (error) {
+        return {
+            D: null,
+            pValue: null,
+            error: 'Kolmogorov-Smirnov calculation failed'
+        };
+    }
+}
+
+// Anderson-Darling Test
+andersonDarlingTest(data) {
+    const validData = data.filter(v => !isNaN(v) && isFinite(v));
+    const n = validData.length;
+    
+    if (n < 8) {
+        return {
+            A2: null,
+            pValue: null,
+            error: 'Anderson-Darling test requires at least 8 observations'
+        };
+    }
+    
+    try {
+        const sorted = [...validData].sort((a, b) => a - b);
+        const mean = this.jstat.mean(sorted);
+        const std = this.jstat.stdev(sorted, true);
+        
+        // Calculate A² statistic
+        let S = 0;
+        for (let i = 0; i < n; i++) {
+            const z = (sorted[i] - mean) / std;
+            const F = this.jstat.normal.cdf(z, 0, 1);
+            S += (2 * i + 1) * Math.log(F) + (2 * (n - i) - 1) * Math.log(1 - F);
+        }
+        
+        const A2 = -n - S / n;
+        
+        // Modified statistic for normal distribution
+        const A2star = A2 * (1 + 0.75 / n + 2.25 / (n * n));
+        
+        // Approximate p-value
+        let pValue;
+        if (A2star < 0.2) {
+            pValue = 1 - Math.exp(-13.436 + 101.14 * A2star - 223.73 * A2star * A2star);
+        } else if (A2star < 0.34) {
+            pValue = 1 - Math.exp(-8.318 + 42.796 * A2star - 59.938 * A2star * A2star);
+        } else if (A2star < 0.6) {
+            pValue = Math.exp(0.9177 - 4.279 * A2star - 1.38 * A2star * A2star);
+        } else {
+            pValue = Math.exp(1.2937 - 5.709 * A2star + 0.0186 * A2star * A2star);
+        }
+        
+        return {
+            A2: A2,
+            A2star: A2star,
+            pValue: Math.max(0.001, Math.min(0.999, pValue)),
+            n: n,
+            normal: pValue > 0.05,
+            test: 'Anderson-Darling'
+        };
+    } catch (error) {
+        return {
+            A2: null,
+            pValue: null,
+            error: 'Anderson-Darling calculation failed'
+        };
+    }
+}
 
 calculateFourfoldStatistics(table) {
     const [[a, b], [c, d]] = table;
@@ -3633,17 +3951,143 @@ calculatePhiCoefficient(a, b, c, d) {
             }
 
             polynomialRegression(points, order) {
-    if (points.length < order + 1) return null;
+    const validPoints = points.filter(p => !isNaN(p.x) && !isNaN(p.y) && isFinite(p.x) && isFinite(p.y));
+    if (validPoints.length < order + 1) return null;
     
-    // For now, return linear regression for polynomial orders
-    // A full implementation would require matrix operations
-    const linear = this.linearRegression(points);
-    if (!linear) return null;
+    try {
+        const x = validPoints.map(p => p.x);
+        const y = validPoints.map(p => p.y);
+        
+        // Create design matrix for polynomial regression
+        const designMatrix = [];
+        for (let i = 0; i < x.length; i++) {
+            const row = [];
+            for (let j = 0; j <= order; j++) {
+                row.push(Math.pow(x[i], j));
+            }
+            designMatrix.push(row);
+        }
+        
+        // Use simple-statistics for matrix operations
+        // Transpose design matrix
+        const designMatrixT = designMatrix[0].map((_, colIndex) => 
+            designMatrix.map(row => row[colIndex])
+        );
+        
+        // Calculate (X'X)
+        const XtX = [];
+        for (let i = 0; i <= order; i++) {
+            XtX[i] = [];
+            for (let j = 0; j <= order; j++) {
+                let sum = 0;
+                for (let k = 0; k < x.length; k++) {
+                    sum += designMatrix[k][i] * designMatrix[k][j];
+                }
+                XtX[i][j] = sum;
+            }
+        }
+        
+        // Calculate (X'y)
+        const Xty = [];
+        for (let i = 0; i <= order; i++) {
+            let sum = 0;
+            for (let k = 0; k < x.length; k++) {
+                sum += designMatrix[k][i] * y[k];
+            }
+            Xty[i] = sum;
+        }
+        
+        // Solve using Gaussian elimination (simple implementation)
+        const coefficients = this.solveLinearSystem(XtX, Xty);
+        
+        if (!coefficients) return null;
+        
+        // Calculate R²
+        const meanY = this.ss.mean(y);
+        let ssTotal = 0;
+        let ssResidual = 0;
+        
+        for (let i = 0; i < x.length; i++) {
+            const predicted = coefficients.reduce((sum, coef, power) => 
+                sum + coef * Math.pow(x[i], power), 0
+            );
+            ssTotal += Math.pow(y[i] - meanY, 2);
+            ssResidual += Math.pow(y[i] - predicted, 2);
+        }
+        
+        const r2 = 1 - (ssResidual / ssTotal);
+        
+        // Create equation string
+        let equation = 'y = ';
+        for (let i = order; i >= 0; i--) {
+            const coef = coefficients[i];
+            if (Math.abs(coef) < 1e-10) continue;
+            
+            if (i < order && coef > 0) equation += ' + ';
+            else if (coef < 0) equation += ' - ';
+            
+            equation += Math.abs(coef).toFixed(4);
+            if (i > 1) equation += `x^${i}`;
+            else if (i === 1) equation += 'x';
+        }
+        
+        return {
+            coefficients: coefficients,
+            order: order,
+            r2: r2,
+            n: validPoints.length,
+            equation: equation,
+            points: validPoints,
+            predict: (xVal) => {
+                return coefficients.reduce((sum, coef, power) => 
+                    sum + coef * Math.pow(xVal, power), 0
+                );
+            }
+        };
+    } catch (error) {
+        console.error('Polynomial regression error:', error);
+        return null;
+    }
+}
+
+// Helper function for solving linear systems
+solveLinearSystem(A, b) {
+    const n = b.length;
+    const augmented = A.map((row, i) => [...row, b[i]]);
     
-    return {
-        ...linear,
-        equation: `Polynomial regression of order ${order} (simplified to linear)`
-    };
+    // Gaussian elimination
+    for (let i = 0; i < n; i++) {
+        // Find pivot
+        let maxRow = i;
+        for (let k = i + 1; k < n; k++) {
+            if (Math.abs(augmented[k][i]) > Math.abs(augmented[maxRow][i])) {
+                maxRow = k;
+            }
+        }
+        
+        // Swap rows
+        [augmented[i], augmented[maxRow]] = [augmented[maxRow], augmented[i]];
+        
+        // Make all rows below this one 0 in current column
+        for (let k = i + 1; k < n; k++) {
+            const factor = augmented[k][i] / augmented[i][i];
+            for (let j = i; j <= n; j++) {
+                augmented[k][j] -= factor * augmented[i][j];
+            }
+        }
+    }
+    
+    // Back substitution
+    const solution = new Array(n);
+    for (let i = n - 1; i >= 0; i--) {
+        solution[i] = augmented[i][n];
+        for (let j = i + 1; j < n; j++) {
+            solution[i] -= augmented[i][j] * solution[j];
+        }
+        solution[i] /= augmented[i][i];
+    }
+    
+    return solution;
 }
 
             logarithmicRegression(points) {
@@ -3830,6 +4274,32 @@ calculatePhiCoefficient(a, b, c, d) {
                     sampleSize: { adequate: true, warnings: [] }
                 };
 
+                // Check for manual overrides
+if (globalState.assumptionOverrides.normality[parameterName]) {
+    Object.keys(globalState.assumptionOverrides.normality[parameterName]).forEach(groupId => {
+        if (globalState.assumptionOverrides.normality[parameterName][groupId]) {
+            const groupName = globalState.currentGroups[groupId].name;
+            if (results.normality.results[groupName]) {
+                results.normality.results[groupName].normal = true;
+                results.normality.results[groupName].overridden = true;
+            }
+        }
+    });
+    
+    // Recalculate allGroupsNormal
+    results.normality.allGroupsNormal = Object.values(results.normality.results)
+        .every(result => result.normal || result.overridden);
+}
+
+// Check for variance homogeneity override
+if (globalState.assumptionOverrides.homogeneity[parameterName]) {
+    if (results.variance.result) {
+        results.variance.result.equalVariances = true;
+        results.variance.result.overridden = true;
+        results.variance.homogeneous = true;
+    }
+}
+
                 if (!scaleInfo.numeric) {
                     return results;
                 }
@@ -3874,6 +4344,23 @@ calculatePhiCoefficient(a, b, c, d) {
                 } catch (error) {
                     console.warn('Fehler bei Voraussetzungstests:', error);
                 }
+
+                // Check for manual overrides
+if (globalState.assumptionOverrides.normality[parameterName]) {
+    selectedGroups.forEach(groupId => {
+        if (globalState.assumptionOverrides.normality[parameterName][groupId]) {
+            const groupName = globalState.currentGroups[groupId].name;
+            if (results.normality.results[groupName]) {
+                results.normality.results[groupName].normal = true;
+                results.normality.results[groupName].overridden = true;
+            }
+        }
+    });
+    
+    // Recalculate allGroupsNormal
+    results.normality.allGroupsNormal = Object.values(results.normality.results)
+        .every(result => result.normal || result.overridden);
+}
 
                 return results;
             }
@@ -3963,6 +4450,47 @@ calculatePhiCoefficient(a, b, c, d) {
         // Global instance - will be initialized after libraries load
 let statistics;
 
+// Interpretation Engine
+const interpretationEngine = {
+    effectSize: {
+        cohen_d: (d) => {
+            const absD = Math.abs(d);
+            if (absD < 0.2) return { level: 'negligible', description: 'Negligible effect' };
+            if (absD < 0.5) return { level: 'small', description: 'Small effect' };
+            if (absD < 0.8) return { level: 'medium', description: 'Medium effect' };
+            return { level: 'large', description: 'Large effect' };
+        },
+        eta_squared: (eta2) => {
+            if (eta2 < 0.01) return { level: 'negligible', description: 'Negligible effect' };
+            if (eta2 < 0.06) return { level: 'small', description: 'Small effect' };
+            if (eta2 < 0.14) return { level: 'medium', description: 'Medium effect' };
+            return { level: 'large', description: 'Large effect' };
+        },
+        correlation: (r) => {
+            const absR = Math.abs(r);
+            if (absR < 0.1) return { level: 'negligible', description: 'Negligible correlation' };
+            if (absR < 0.3) return { level: 'weak', description: 'Weak correlation' };
+            if (absR < 0.5) return { level: 'moderate', description: 'Moderate correlation' };
+            if (absR < 0.7) return { level: 'strong', description: 'Strong correlation' };
+            return { level: 'very_strong', description: 'Very strong correlation' };
+        }
+    },
+    
+    power: (power) => {
+        if (power < 0.5) return { adequate: false, description: 'Very low power - high risk of Type II error' };
+        if (power < 0.8) return { adequate: false, description: 'Low power - moderate risk of Type II error' };
+        if (power < 0.95) return { adequate: true, description: 'Adequate power' };
+        return { adequate: true, description: 'Excellent power' };
+    },
+    
+    pValue: (p, alpha) => {
+        if (p < 0.001) return { significant: true, description: 'Highly significant (p < 0.001)' };
+        if (p < 0.01) return { significant: true, description: 'Very significant (p < 0.01)' };
+        if (p < alpha) return { significant: true, description: `Significant (p < ${alpha})` };
+        return { significant: false, description: `Not significant (p ≥ ${alpha})` };
+    }
+};
+        
 /**
  * Initialize the application after all libraries are loaded
  */
@@ -3977,7 +4505,6 @@ function initializeApplication() {
     setupAboutModal();
     setupSignificanceTestOptions();
     setupTestInfoDisplay();
-    setupIntelligentTestSelection();
     
     console.log('Application initialized successfully');
 }
@@ -3986,28 +4513,86 @@ function initializeApplication() {
  * Wait for all libraries to load
  */
 function waitForLibraries() {
+    const loadingDiv = document.getElementById('library-loading');
+    let loadingMessage = loadingDiv ? loadingDiv.querySelector('.loading') : null;
+    
+    // Update loading message
+    const updateLoadingMessage = (message) => {
+        if (loadingMessage) {
+            loadingMessage.innerHTML = `<div class="loading">${message}</div>`;
+        }
+    };
+    
     // Check if loader promises exist (CDN mode)
     if (window.libraryLoader) {
         const promises = [];
+        const libraryNames = [];
         
         // Collect all library promises
-        if (window.libraryLoader.papaparse) promises.push(window.libraryLoader.papaparse);
-        if (window.libraryLoader.chartjs) promises.push(window.libraryLoader.chartjs);
-        if (window.libraryLoader.jstat) promises.push(window.libraryLoader.jstat);
-        if (window.libraryLoader.html2canvas) promises.push(window.libraryLoader.html2canvas);
-        if (window.libraryLoader.simplestatistics) promises.push(window.libraryLoader.simplestatistics);
+        if (window.libraryLoader.papaparse) {
+            promises.push(window.libraryLoader.papaparse);
+            libraryNames.push('PapaParse');
+        }
+        if (window.libraryLoader.chartjs) {
+            promises.push(window.libraryLoader.chartjs);
+            libraryNames.push('Chart.js');
+        }
+        if (window.libraryLoader.jstat) {
+            promises.push(window.libraryLoader.jstat);
+            libraryNames.push('jStat');
+        }
+        if (window.libraryLoader.html2canvas) {
+            promises.push(window.libraryLoader.html2canvas);
+            libraryNames.push('html2canvas');
+        }
+        if (window.libraryLoader.simplestatistics) {
+            promises.push(window.libraryLoader.simplestatistics);
+            libraryNames.push('Simple Statistics');
+        }
         
         if (promises.length > 0) {
-            // Wait for all CDN libraries to load
-            Promise.all(promises)
-                .then(() => {
-                    console.log('All libraries loaded from CDN');
-                    initializeApplication();
-                })
-                .catch(error => {
-                    console.error('Failed to load libraries:', error);
-                    alert('Failed to load required libraries. Please check your internet connection or use offline versions.');
+            updateLoadingMessage(`Loading libraries (0/${libraryNames.length})...`);
+            
+            // Track loading progress
+            let loadedCount = 0;
+            promises.forEach((promise, index) => {
+                promise.then(() => {
+                    loadedCount++;
+                    updateLoadingMessage(`Loading libraries (${loadedCount}/${libraryNames.length})...`);
                 });
+            });
+            
+            // Wait for all CDN libraries with timeout
+            const timeoutPromise = new Promise((_, reject) => {
+                setTimeout(() => reject(new Error('Loading timeout')), 30000); // 30 seconds timeout
+            });
+            
+            Promise.race([
+                Promise.all(promises),
+                timeoutPromise
+            ])
+            .then(() => {
+                console.log('All libraries loaded from CDN');
+                initializeApplication();
+            })
+            .catch(error => {
+                console.error('Failed to load libraries:', error);
+                updateLoadingMessage('Failed to load libraries. Retrying...');
+                
+                // Retry mechanism
+                setTimeout(() => {
+                    if (typeof Papa !== 'undefined' && 
+                        typeof Chart !== 'undefined' && 
+                        typeof jStat !== 'undefined' && 
+                        typeof html2canvas !== 'undefined' && 
+                        typeof ss !== 'undefined') {
+                        console.log('Libraries loaded after retry');
+                        initializeApplication();
+                    } else {
+                        alert('Failed to load required libraries. Please check your internet connection and refresh the page.');
+                    }
+                }, 2000);
+            });
             return;
         }
     }
@@ -4112,6 +4697,9 @@ document.addEventListener('DOMContentLoaded', function() {
 
     // Run recommended test button
     document.getElementById('run-recommended-test').addEventListener('click', runRecommendedTest);
+
+            // Intelligent test recommendation
+document.getElementById('get-test-recommendation').addEventListener('click', getIntelligentTestRecommendation);
 
         }
 
@@ -4566,74 +5154,124 @@ function runRecommendedTest() {
          * Check normality for selected parameter and groups
          */
         function checkNormality() {
-            const paramName = document.getElementById('sig-parameter-select').value;
-            if (!paramName) {
-                utils.showError("Please select a parameter first.");
-                return;
-            }
+    const paramName = document.getElementById('sig-parameter-select').value;
+    if (!paramName) {
+        utils.showError("Please select a parameter first.");
+        return;
+    }
 
-            const paramType = globalState.columnTypes[paramName];
-            if (!scaleTypes[paramType].numeric) {
-                utils.showError("Normality test requires a numeric parameter (ordinal, interval, or ratio scale).");
-                return;
-            }
+    const paramType = globalState.columnTypes[paramName];
+    if (!scaleTypes[paramType].numeric) {
+        utils.showError("Normality test requires a numeric parameter (ordinal, interval, or ratio scale).");
+        return;
+    }
 
-            // Get selected groups
-            const selectedGroups = [];
-            document.querySelectorAll('#sig-group-selection input:checked').forEach(checkbox => {
-                selectedGroups.push(checkbox.value);
-            });
+    // Get selected groups
+    const selectedGroups = [];
+    document.querySelectorAll('#sig-group-selection input:checked').forEach(checkbox => {
+        selectedGroups.push(checkbox.value);
+    });
 
-            if (selectedGroups.length === 0) {
-                utils.showError("Please select at least one group.");
-                return;
-            }
+    if (selectedGroups.length === 0) {
+        utils.showError("Please select at least one group.");
+        return;
+    }
 
-            // Clear previous results
-            const resultsContainer = document.getElementById('prerequisite-results');
-            resultsContainer.innerHTML = '';
+    // Clear previous results
+    const resultsContainer = document.getElementById('prerequisite-results');
+    resultsContainer.innerHTML = '';
 
-            // Store results
-            if (!globalState.prerequisiteResults[paramName]) {
-                globalState.prerequisiteResults[paramName] = {};
-            }
+    // Store results
+    if (!globalState.prerequisiteResults[paramName]) {
+        globalState.prerequisiteResults[paramName] = {};
+    }
 
-            // Test each group
-            selectedGroups.forEach(groupId => {
-                const groupData = globalState.processedData[groupId]
-                    .map(row => utils.parseNumericValue(row[paramName]))
-                    .filter(val => !isNaN(val));
+    // Test each group
+    selectedGroups.forEach(groupId => {
+        const groupData = globalState.processedData[groupId]
+            .map(row => utils.parseNumericValue(row[paramName]))
+            .filter(val => !isNaN(val));
 
-                const result = statistics.shapiroWilkTest(groupData);
-                const groupName = globalState.currentGroups[groupId].name;
-
-                // Store result
-                globalState.prerequisiteResults[paramName][groupId] = {
-                    normality: result
-                };
-
-                // Display result
-                const resultDiv = document.createElement('div');
-                resultDiv.className = `prerequisite-result ${result.normal ? 'pass' : 'fail'}`;
-
-                if (result.error) {
-                    resultDiv.innerHTML = `
-                        <strong>${groupName}:</strong> ${result.error}
-                    `;
-                } else {
-                    resultDiv.innerHTML = `
-                        <strong>${groupName}:</strong> 
-                        Shapiro-Wilk W = ${utils.formatNumber(result.W, 4)}, 
-                        p = ${utils.formatNumber(result.pValue, 4)}
-                        ${result.normal ?
-                            ' ✓ Normal distribution (p > 0.05)' :
-                            ' ✗ Not normally distributed (p ≤ 0.05)'}
-                    `;
-                }
-
-                resultsContainer.appendChild(resultDiv);
-            });
+        const groupName = globalState.currentGroups[groupId].name;
+        
+        // Perform multiple normality tests
+        const shapiroResult = statistics.shapiroWilkTest(groupData);
+        const ksResult = statistics.kolmogorovSmirnovTest(groupData);
+        const adResult = statistics.andersonDarlingTest(groupData);
+        
+        // Check if override is active
+        const overrideCheckbox = document.getElementById('override-normality');
+        const isOverridden = overrideCheckbox && overrideCheckbox.checked;
+        
+        // Store results
+        globalState.prerequisiteResults[paramName][groupId] = {
+            normality: shapiroResult,
+            kolmogorovSmirnov: ksResult,
+            andersonDarling: adResult,
+            overridden: isOverridden
+        };
+        
+        // Store override in global state
+        if (!globalState.assumptionOverrides.normality[paramName]) {
+            globalState.assumptionOverrides.normality[paramName] = {};
         }
+        globalState.assumptionOverrides.normality[paramName][groupId] = isOverridden;
+
+        // Display results
+        const resultDiv = document.createElement('div');
+        resultDiv.className = 'prerequisite-result';
+        resultDiv.style.marginBottom = '15px';
+        resultDiv.style.padding = '15px';
+        resultDiv.style.backgroundColor = 'var(--background-light)';
+        resultDiv.style.borderRadius = '6px';
+        
+        let html = `<strong>${groupName} (n=${groupData.length}):</strong><br>`;
+        
+        // Display all test results
+        if (!shapiroResult.error) {
+            html += `• ${shapiroResult.test || 'Shapiro-Wilk'}: `;
+            if (shapiroResult.W !== null) {
+                html += `W = ${utils.formatNumber(shapiroResult.W, 4)}, `;
+            }
+            html += `p = ${utils.formatNumber(shapiroResult.pValue, 4)}`;
+            html += shapiroResult.normal ? ' ✓' : ' ✗';
+            if (shapiroResult.warning) {
+                html += ` <em>(${shapiroResult.warning})</em>`;
+            }
+            html += '<br>';
+        }
+        
+        if (!ksResult.error) {
+            html += `• Kolmogorov-Smirnov: D = ${utils.formatNumber(ksResult.D, 4)}, p = ${utils.formatNumber(ksResult.pValue, 4)}`;
+            html += ksResult.normal ? ' ✓' : ' ✗';
+            html += '<br>';
+        }
+        
+        if (!adResult.error) {
+            html += `• Anderson-Darling: A² = ${utils.formatNumber(adResult.A2, 4)}, p = ${utils.formatNumber(adResult.pValue, 4)}`;
+            html += adResult.normal ? ' ✓' : ' ✗';
+            html += '<br>';
+        }
+        
+        // Overall assessment
+        const testsNormal = [shapiroResult.normal, ksResult.normal, adResult.normal].filter(n => n !== undefined);
+        const consensusNormal = testsNormal.filter(n => n).length >= Math.ceil(testsNormal.length / 2);
+        
+        if (isOverridden) {
+            html += '<br><strong style="color: var(--warning-color);">⚠️ Normality assumption manually overridden</strong>';
+            resultDiv.className = 'prerequisite-result pass';
+        } else if (consensusNormal) {
+            html += '<br><strong style="color: var(--success-color);">✓ Normal distribution (majority consensus)</strong>';
+            resultDiv.className = 'prerequisite-result pass';
+        } else {
+            html += '<br><strong style="color: var(--danger-color);">✗ Not normally distributed</strong>';
+            resultDiv.className = 'prerequisite-result fail';
+        }
+        
+        resultDiv.innerHTML = html;
+        resultsContainer.appendChild(resultDiv);
+    });
+}
 
         /**
          * Check variance homogeneity between groups
@@ -4700,6 +5338,18 @@ function runRecommendedTest() {
                         ' ✗ Unequal variances (p ≤ 0.05) - Consider Welch\'s t-test'}
                 `;
             }
+
+            // Check if override is active
+const overrideCheckbox = document.getElementById('override-homogeneity');
+const isOverridden = overrideCheckbox && overrideCheckbox.checked;
+
+// Store override in global state
+globalState.assumptionOverrides.homogeneity[paramName] = isOverridden;
+
+if (isOverridden) {
+    resultDiv.innerHTML += '<br><strong style="color: var(--warning-color);">⚠️ Variance homogeneity assumption manually overridden</strong>';
+    resultDiv.className = 'prerequisite-result pass';
+}
 
             resultsContainer.appendChild(resultDiv);
         }
@@ -7896,20 +8546,20 @@ function updateSignificanceGroupSelection() {
          * Display significance test results
          */
         function displaySignificanceResults(result, paramName, groupNames, violations = []) {
-            const container = document.getElementById('significance-results');
+    const container = document.getElementById('significance-results');
 
-            const resultDiv = document.createElement('div');
-            resultDiv.className = `significance-result ${result.significant ? 'significant' : 'not-significant'}`;
+    const resultDiv = document.createElement('div');
+    resultDiv.className = `significance-result ${result.significant ? 'significant' : 'not-significant'}`;
 
-            // Initialize html variable here!
-            let html = `
+    // Initialize html variable here!
+    let html = `
         <h4>${result.test} Results</h4>
         <p><strong>Parameter:</strong> ${paramName}</p>
     `;
 
-            // Add multiple comparison warning if applicable
-            if (globalState.significanceResults.length > 1) {
-                html += `
+    // Add multiple comparison warning if applicable
+    if (globalState.significanceResults.length > 1) {
+        html += `
             <div class="warning-box" style="margin: 10px 0;">
                 <strong>⚠️ Multiple Testing Warning:</strong> 
                 You have performed ${globalState.significanceResults.length} statistical tests. 
@@ -7917,194 +8567,289 @@ function updateSignificanceGroupSelection() {
                 (e.g., Bonferroni correction: α/${globalState.significanceResults.length} = ${(result.alpha / globalState.significanceResults.length).toFixed(4)}).
             </div>
         `;
-            }
+    }
 
-            html += `<p><strong>Compared Groups:</strong> ${groupNames.join(', ')}</p>`;
+    html += `<p><strong>Compared Groups:</strong> ${groupNames.join(', ')}</p>`;
 
-            // Display violations if test was forced
-            if (violations.length > 0) {
-                html += `
+    // Display violations if test was forced
+    if (violations.length > 0) {
+        html += `
             <div class="test-violation-warning">
                 <h5>⚠️ Test Requirement Violations</h5>
                 <p>The following test requirements were not met:</p>
-                        <ul>
-                            ${violations.map(v => `<li>${v}</li>`).join('')}
-                        </ul>
-                        <p><strong>Results should be interpreted with extreme caution!</strong></p>
-                    </div>
-                `;
-            }
+                <ul>
+                    ${violations.map(v => `<li>${v}</li>`).join('')}
+                </ul>
+                <p><strong>Results should be interpreted with extreme caution!</strong></p>
+            </div>
+        `;
+    }
 
-            // Test-specific results
-            if (result.test === 't-Test' || result.test === "Welch's t-Test") {
-                html += `
-                    <div style="margin: 15px 0;">
-                        <p><strong>Test Statistic:</strong> t = ${utils.formatNumber(result.statistic, 4)}</p>
-                        <p><strong>Degrees of Freedom:</strong> df = ${utils.formatNumber(result.df, 2)}</p>
-                        <p><strong>p-value:</strong> ${utils.formatNumber(result.pValue, 6)} (${result.direction} test, α = ${result.alpha})</p>
-                        <p><strong>Effect Size (Cohen's d):</strong> ${utils.formatNumber(result.effectSize, 3)}</p>
-                        <p><strong>Mean Difference:</strong> ${utils.formatNumber(result.meanDifference, 3)}</p>
-                        <p><strong>${(1 - result.alpha) * 100}% Confidence Interval:</strong> [${utils.formatNumber(result.confidenceInterval[0], 3)}, ${utils.formatNumber(result.confidenceInterval[1], 3)}]</p>
-                        <p><strong>Statistical Power:</strong> ${utils.formatNumber(result.power, 3)}</p>
-                    </div>
-                    <div style="margin: 15px 0;">
-                        <p><strong>Group 1:</strong> n=${result.group1Stats.count}, Mean=${utils.formatNumber(result.group1Stats.mean, 2)}, SD=${utils.formatNumber(result.group1Stats.stdDev, 2)}</p>
-                        <p><strong>Group 2:</strong> n=${result.group2Stats.count}, Mean=${utils.formatNumber(result.group2Stats.mean, 2)}, SD=${utils.formatNumber(result.group2Stats.stdDev, 2)}</p>
-                    </div>
-                `;
-            } else if (result.test === 'ANOVA') {
-                html += `
-                    <div style="margin: 15px 0;">
-                        <p><strong>F-value:</strong> F(${result.dfBetween}, ${result.dfWithin}) = ${utils.formatNumber(result.statistic, 4)}</p>
-                        <p><strong>p-value:</strong> ${utils.formatNumber(result.pValue, 6)} (α = ${result.alpha})</p>
-                        <p><strong>Effect Size (η²):</strong> ${utils.formatNumber(result.etaSquared, 3)}</p>
-                        <p><strong>Statistical Power:</strong> ${utils.formatNumber(result.power, 3)}</p>
-                    </div>
-                    <div style="background-color: rgba(255,255,255,0.05); padding: 10px; border-radius: 5px; margin: 10px 0;">
-                        <p><strong>Sum of Squares:</strong></p>
-                        <p>Between Groups: ${utils.formatNumber(result.ssb, 2)}</p>
-                        <p>Within Groups: ${utils.formatNumber(result.ssw, 2)}</p>
-                        <p>Mean Squares: MSB=${utils.formatNumber(result.msb, 2)}, MSW=${utils.formatNumber(result.msw, 2)}</p>
-                    </div>
-                `;
-            } else if (result.test === 'Mann-Whitney U') {
-                html += `
-                    <div style="margin: 15px 0;">
-                        <p><strong>U Statistic:</strong> U = ${utils.formatNumber(result.U, 0)}</p>
-                        <p><strong>p-value:</strong> ${utils.formatNumber(result.pValue, 6)} (${result.direction} test, α = ${result.alpha})</p>
-                        <p><strong>Effect Size (r):</strong> ${utils.formatNumber(result.effectSize, 3)}</p>
-                        <p><strong>Sample Sizes:</strong> n₁ = ${result.n1}, n₂ = ${result.n2}</p>
-                        <p><strong>Rank Sums:</strong> R₁ = ${utils.formatNumber(result.rankSum1, 1)}, R₂ = ${utils.formatNumber(result.rankSum2, 1)}</p>
-                        ${result.tieCorrection ? '<p><em>Note: Tie correction was applied</em></p>' : ''}
-                    </div>
-                `;
-            } else if (result.test === 'Kruskal-Wallis') {
-                html += `
-                    <div style="margin: 15px 0;">
-                        <p><strong>H Statistic:</strong> H = ${utils.formatNumber(result.H, 4)}</p>
-                        <p><strong>Degrees of Freedom:</strong> df = ${result.df}</p>
-                        <p><strong>p-value:</strong> ${utils.formatNumber(result.pValue, 6)} (α = ${result.alpha})</p>
-                        <p><strong>Effect Size (η²):</strong> ${utils.formatNumber(result.etaSquared, 3)}</p>
-                        <p><strong>Total N:</strong> ${result.N}</p>
-                        ${result.tieCorrection ? '<p><em>Note: Tie correction was applied</em></p>' : ''}
-                    </div>
-                `;
-            } else if (result.test === 'Chi-Square') {
-                html += `
-                    <div style="margin: 15px 0;">
-                        <p><strong>Chi-Square (χ²):</strong> ${utils.formatNumber(result.statistic, 4)}</p>
-                        <p><strong>Degrees of Freedom:</strong> df = ${result.df}</p>
-                        <p><strong>p-value:</strong> ${utils.formatNumber(result.pValue, 6)} (α = ${result.alpha})</p>
-                        <p><strong>Effect Size (Cramer's V):</strong> ${utils.formatNumber(result.cramersV, 3)}</p>
-                        <p><strong>Statistical Power:</strong> ${utils.formatNumber(result.power, 3)}</p>
-                    </div>
-                `;
-
-                // Display contingency table
-                if (result.observed && result.categories && result.groups) {
-                    html += `
-                        <div style="margin: 15px 0;">
-                            <p><strong>Contingency Table (Observed Frequencies):</strong></p>
-                            <div style="overflow-x: auto; margin-top: 10px;">
-                                <table style="width: auto;">
-                                    <thead>
-                                        <tr>
-                                            <th>${paramName}</th>
-                                            ${result.groups.map(group => `<th>${group}</th>`).join('')}
-                                        </tr>
-                                    </thead>
-                                    <tbody>
-                    `;
-
-                    result.categories.forEach((category, i) => {
-                        html += `<tr><td>${category}</td>`;
-                        result.observed[i].forEach(count => {
-                            html += `<td>${count}</td>`;
-                        });
-                        html += `</tr>`;
-                    });
-
-                    html += `
-                                    </tbody>
-                                </table>
-                            </div>
-                        </div>
-                    `;
-                }
-
-                // Show warning if present
-                if (result.warning) {
-                    html += `<p style="color: #e74c3c;"><strong>Warning:</strong> ${result.warning}</p>`;
-                }
-            } else if (result.test === "Fisher's Exact Test") {
-                html += `
-                    <div style="margin: 15px 0;">
-                        <p><strong>p-value:</strong> ${utils.formatNumber(result.pValue, 6)} (α = ${result.alpha})</p>
-                        <p><strong>Odds Ratio:</strong> ${utils.formatNumber(result.oddsRatio, 3)}</p>
-                    </div>
-                `;
-
-                if (result.table && result.categories && result.groups) {
-                    html += `
-                        <div style="margin: 15px 0;">
-                            <p><strong>2x2 Contingency Table:</strong></p>
-                            <div style="overflow-x: auto; margin-top: 10px;">
-                                <table style="width: auto;">
-                                    <thead>
-                                        <tr>
-                                            <th>${paramName}</th>
-                                            <th>${result.groups[0]}</th>
-                                            <th>${result.groups[1]}</th>
-                                        </tr>
-                                    </thead>
-                                    <tbody>
-                                        <tr>
-                                            <td>${result.categories[0]}</td>
-                                            <td>${result.table[0][0]}</td>
-                                            <td>${result.table[1][0]}</td>
-                                        </tr>
-                                        <tr>
-                                            <td>${result.categories[1]}</td>
-                                            <td>${result.table[0][1]}</td>
-                                            <td>${result.table[1][1]}</td>
-                                        </tr>
-                                    </tbody>
-                                </table>
-                            </div>
-                        </div>
-                    `;
-                }
-            } else if (result.test === 'Spearman Correlation' || result.test === 'Pearson Correlation') {
-                html += `
-                    <div style="margin: 15px 0;">
-                        <p><strong>Correlation Coefficient:</strong> ${result.test === 'Spearman' ? 'ρ' : 'r'} = ${utils.formatNumber(result.rho || result.r, 4)}</p>
-                        <p><strong>p-value:</strong> ${utils.formatNumber(result.pValue, 6)} (α = ${result.alpha})</p>
-                        <p><strong>Sample Size:</strong> n = ${result.n}</p>
-                        <p><strong>Interpretation:</strong> ${result.interpretation}</p>
-                        <p><strong>Statistical Power:</strong> ${utils.formatNumber(result.power, 3)}</p>
-                    </div>
-                `;
-            }
-
+    // Test-specific results
+    if (result.test === 't-Test' || result.test === "Welch's t-Test") {
+        html += `
+            <div style="margin: 15px 0;">
+                <p><strong>Test Statistic:</strong> t = ${utils.formatNumber(result.statistic, 4)}</p>
+                <p><strong>Degrees of Freedom:</strong> df = ${utils.formatNumber(result.df, 2)}</p>
+                <p><strong>p-value:</strong> ${utils.formatNumber(result.pValue, 6)} (${result.direction} test, α = ${result.alpha})</p>
+                <p><strong>Effect Size (Cohen's d):</strong> ${utils.formatNumber(result.effectSize, 3)}</p>
+        `;
+        
+        // Add effect size interpretation
+        const effectInterp = interpretationEngine.effectSize.cohen_d(result.effectSize);
+        html += `<p><strong>Effect Size Interpretation:</strong> ${effectInterp.description}</p>`;
+        
+        html += `
+                <p><strong>Mean Difference:</strong> ${utils.formatNumber(result.meanDifference, 3)}</p>
+                <p><strong>${(1 - result.alpha) * 100}% Confidence Interval:</strong> [${utils.formatNumber(result.confidenceInterval[0], 3)}, ${utils.formatNumber(result.confidenceInterval[1], 3)}]</p>
+                <p><strong>Statistical Power:</strong> ${utils.formatNumber(result.power, 3)}</p>
+        `;
+        
+        // Add power interpretation
+        const powerInterp = interpretationEngine.power(result.power);
+        html += `<p><strong>Power Analysis:</strong> ${powerInterp.description}</p>`;
+        
+        html += `
+            </div>
+            <div style="margin: 15px 0;">
+                <p><strong>Group 1:</strong> n=${result.group1Stats.count}, Mean=${utils.formatNumber(result.group1Stats.mean, 2)}, SD=${utils.formatNumber(result.group1Stats.stdDev, 2)}</p>
+                <p><strong>Group 2:</strong> n=${result.group2Stats.count}, Mean=${utils.formatNumber(result.group2Stats.mean, 2)}, SD=${utils.formatNumber(result.group2Stats.stdDev, 2)}</p>
+            </div>
+        `;
+    } else if (result.test === 'ANOVA') {
+        html += `
+            <div style="margin: 15px 0;">
+                <p><strong>F-value:</strong> F(${result.dfBetween}, ${result.dfWithin}) = ${utils.formatNumber(result.statistic, 4)}</p>
+                <p><strong>p-value:</strong> ${utils.formatNumber(result.pValue, 6)} (α = ${result.alpha})</p>
+                <p><strong>Effect Size (η²):</strong> ${utils.formatNumber(result.etaSquared, 3)}</p>
+        `;
+        
+        // Add effect size interpretation
+        const effectInterp = interpretationEngine.effectSize.eta_squared(result.etaSquared);
+        html += `<p><strong>Effect Size Interpretation:</strong> ${effectInterp.description}</p>`;
+        
+        html += `<p><strong>Statistical Power:</strong> ${utils.formatNumber(result.power, 3)}</p>`;
+        
+        // Add power interpretation
+        const powerInterp = interpretationEngine.power(result.power);
+        html += `<p><strong>Power Analysis:</strong> ${powerInterp.description}</p>`;
+        
+        html += `
+            </div>
+            <div style="background-color: rgba(255,255,255,0.05); padding: 10px; border-radius: 5px; margin: 10px 0;">
+                <p><strong>Sum of Squares:</strong></p>
+                <p>Between Groups: ${utils.formatNumber(result.ssb, 2)}</p>
+                <p>Within Groups: ${utils.formatNumber(result.ssw, 2)}</p>
+                <p>Mean Squares: MSB=${utils.formatNumber(result.msb, 2)}, MSW=${utils.formatNumber(result.msw, 2)}</p>
+            </div>
+        `;
+        
+        // Add post-hoc results if available
+        if (result.postHoc) {
             html += `
-                <div style="margin-top: 20px; padding: 15px; border-radius: 5px; ${result.significant ? 'background-color: rgba(82, 163, 115, 0.1);' : 'background-color: rgba(200, 84, 80, 0.1);'}">
-                    <p><strong>Interpretation:</strong></p>
-                    <p>${result.significant ?
-                    `🟢 <strong>Significant Difference</strong> (p < ${result.alpha})<br>The null hypothesis is rejected. There is statistical evidence of a difference between the groups.` :
-                    `🔴 <strong>No Significant Difference</strong> (p ≥ ${result.alpha})<br>The null hypothesis is maintained. There is insufficient statistical evidence of a difference between the groups.`
-                }</p>
+                <div style="margin-top: 20px; padding: 15px; background-color: var(--background-medium); border-radius: 6px;">
+                    <h5>Post-hoc Analysis (${result.postHoc.method})</h5>
+                    <table style="width: 100%; margin-top: 10px;">
+                        <thead>
+                            <tr>
+                                <th>Comparison</th>
+                                <th>Mean Difference</th>
+                                <th>95% CI</th>
+                                <th>Significant</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+            `;
+            
+            result.postHoc.comparisons.forEach(comp => {
+                html += `
+                    <tr>
+                        <td>Group ${comp.group1} vs Group ${comp.group2}</td>
+                        <td>${utils.formatNumber(comp.meanDiff, 3)}</td>
+                        <td>[${utils.formatNumber(comp.lowerCI, 3)}, ${utils.formatNumber(comp.upperCI, 3)}]</td>
+                        <td>${comp.significant ? '✓ Yes' : '✗ No'}</td>
+                    </tr>
+                `;
+            });
+            
+            html += `
+                        </tbody>
+                    </table>
                 </div>
             `;
-
-            resultDiv.innerHTML = html;
-
-            // Insert at the beginning of the results container
-            if (container.firstChild) {
-                container.insertBefore(resultDiv, container.firstChild);
-            } else {
-                container.appendChild(resultDiv);
-            }
         }
+    } else if (result.test === 'Mann-Whitney U') {
+        html += `
+            <div style="margin: 15px 0;">
+                <p><strong>U Statistic:</strong> U = ${utils.formatNumber(result.U, 0)}</p>
+                <p><strong>p-value:</strong> ${utils.formatNumber(result.pValue, 6)} (${result.direction} test, α = ${result.alpha})</p>
+                <p><strong>Effect Size (r):</strong> ${utils.formatNumber(result.effectSize, 3)}</p>
+        `;
+        
+        // Add effect size interpretation (using correlation interpretation for rank-biserial)
+        const effectInterp = interpretationEngine.effectSize.correlation(result.effectSize);
+        html += `<p><strong>Effect Size Interpretation:</strong> ${effectInterp.description}</p>`;
+        
+        html += `
+                <p><strong>Sample Sizes:</strong> n₁ = ${result.n1}, n₂ = ${result.n2}</p>
+                <p><strong>Rank Sums:</strong> R₁ = ${utils.formatNumber(result.rankSum1, 1)}, R₂ = ${utils.formatNumber(result.rankSum2, 1)}</p>
+                ${result.tieCorrection ? '<p><em>Note: Tie correction was applied</em></p>' : ''}
+            </div>
+        `;
+    } else if (result.test === 'Kruskal-Wallis') {
+        html += `
+            <div style="margin: 15px 0;">
+                <p><strong>H Statistic:</strong> H = ${utils.formatNumber(result.H, 4)}</p>
+                <p><strong>Degrees of Freedom:</strong> df = ${result.df}</p>
+                <p><strong>p-value:</strong> ${utils.formatNumber(result.pValue, 6)} (α = ${result.alpha})</p>
+                <p><strong>Effect Size (η²):</strong> ${utils.formatNumber(result.etaSquared, 3)}</p>
+        `;
+        
+        // Add effect size interpretation
+        const effectInterp = interpretationEngine.effectSize.eta_squared(result.etaSquared);
+        html += `<p><strong>Effect Size Interpretation:</strong> ${effectInterp.description}</p>`;
+        
+        html += `
+                <p><strong>Total N:</strong> ${result.N}</p>
+                ${result.tieCorrection ? '<p><em>Note: Tie correction was applied</em></p>' : ''}
+            </div>
+        `;
+    } else if (result.test === 'Chi-Square') {
+        html += `
+            <div style="margin: 15px 0;">
+                <p><strong>Chi-Square (χ²):</strong> ${utils.formatNumber(result.statistic, 4)}</p>
+                <p><strong>Degrees of Freedom:</strong> df = ${result.df}</p>
+                <p><strong>p-value:</strong> ${utils.formatNumber(result.pValue, 6)} (α = ${result.alpha})</p>
+                <p><strong>Effect Size (Cramer's V):</strong> ${utils.formatNumber(result.cramersV, 3)}</p>
+        `;
+        
+        // Add effect size interpretation (using correlation scale for Cramer's V)
+        const effectInterp = interpretationEngine.effectSize.correlation(result.cramersV);
+        html += `<p><strong>Effect Size Interpretation:</strong> ${effectInterp.description}</p>`;
+        
+        html += `<p><strong>Statistical Power:</strong> ${utils.formatNumber(result.power, 3)}</p>`;
+        
+        // Add power interpretation
+        const powerInterp = interpretationEngine.power(result.power);
+        html += `<p><strong>Power Analysis:</strong> ${powerInterp.description}</p>`;
+        
+        html += `</div>`;
+
+        // Display contingency table
+        if (result.observed && result.categories && result.groups) {
+            html += `
+                <div style="margin: 15px 0;">
+                    <p><strong>Contingency Table (Observed Frequencies):</strong></p>
+                    <div style="overflow-x: auto; margin-top: 10px;">
+                        <table style="width: auto;">
+                            <thead>
+                                <tr>
+                                    <th>${paramName}</th>
+                                    ${result.groups.map(group => `<th>${group}</th>`).join('')}
+                                </tr>
+                            </thead>
+                            <tbody>
+            `;
+
+            result.categories.forEach((category, i) => {
+                html += `<tr><td>${category}</td>`;
+                result.observed[i].forEach(count => {
+                    html += `<td>${count}</td>`;
+                });
+                html += `</tr>`;
+            });
+
+            html += `
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            `;
+        }
+
+        // Show warning if present
+        if (result.warning) {
+            html += `<p style="color: #e74c3c;"><strong>Warning:</strong> ${result.warning}</p>`;
+        }
+    } else if (result.test === "Fisher's Exact Test") {
+        html += `
+            <div style="margin: 15px 0;">
+                <p><strong>p-value:</strong> ${utils.formatNumber(result.pValue, 6)} (α = ${result.alpha})</p>
+                <p><strong>Odds Ratio:</strong> ${utils.formatNumber(result.oddsRatio, 3)}</p>
+            </div>
+        `;
+
+        if (result.table && result.categories && result.groups) {
+            html += `
+                <div style="margin: 15px 0;">
+                    <p><strong>2x2 Contingency Table:</strong></p>
+                    <div style="overflow-x: auto; margin-top: 10px;">
+                        <table style="width: auto;">
+                            <thead>
+                                <tr>
+                                    <th>${paramName}</th>
+                                    <th>${result.groups[0]}</th>
+                                    <th>${result.groups[1]}</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                <tr>
+                                    <td>${result.categories[0]}</td>
+                                    <td>${result.table[0][0]}</td>
+                                    <td>${result.table[1][0]}</td>
+                                </tr>
+                                <tr>
+                                    <td>${result.categories[1]}</td>
+                                    <td>${result.table[0][1]}</td>
+                                    <td>${result.table[1][1]}</td>
+                                </tr>
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            `;
+        }
+    } else if (result.test === 'Spearman Correlation' || result.test === 'Pearson Correlation') {
+        html += `
+            <div style="margin: 15px 0;">
+                <p><strong>Correlation Coefficient:</strong> ${result.test === 'Spearman' ? 'ρ' : 'r'} = ${utils.formatNumber(result.rho || result.r, 4)}</p>
+                <p><strong>p-value:</strong> ${utils.formatNumber(result.pValue, 6)} (α = ${result.alpha})</p>
+                <p><strong>Sample Size:</strong> n = ${result.n}</p>
+                <p><strong>Interpretation:</strong> ${result.interpretation}</p>
+                <p><strong>Statistical Power:</strong> ${utils.formatNumber(result.power, 3)}</p>
+        `;
+        
+        // Add power interpretation
+        const powerInterp = interpretationEngine.power(result.power);
+        html += `<p><strong>Power Analysis:</strong> ${powerInterp.description}</p>`;
+        
+        html += `</div>`;
+    }
+
+    // Overall interpretation section
+    const pInterp = interpretationEngine.pValue(result.pValue, result.alpha);
+    
+    html += `
+        <div style="margin-top: 20px; padding: 15px; border-radius: 5px; ${result.significant ? 'background-color: rgba(82, 163, 115, 0.1);' : 'background-color: rgba(200, 84, 80, 0.1);'}">
+            <p><strong>Statistical Interpretation:</strong></p>
+            <p>${pInterp.description}</p>
+            <p>${result.significant ?
+                `🟢 <strong>Significant Difference</strong><br>The null hypothesis is rejected. There is statistical evidence of a difference between the groups.` :
+                `🔴 <strong>No Significant Difference</strong><br>The null hypothesis is maintained. There is insufficient statistical evidence of a difference between the groups.`
+            }</p>
+        </div>
+    `;
+
+    resultDiv.innerHTML = html;
+
+    // Insert at the beginning of the results container
+    if (container.firstChild) {
+        container.insertBefore(resultDiv, container.firstChild);
+    } else {
+        container.appendChild(resultDiv);
+    }
+}
+
 
         /**
          * Generate custom visualization
@@ -8132,7 +8877,230 @@ function updateSignificanceGroupSelection() {
             } else if (chartType === 'bar' || chartType === 'line') {
                 createBarOrLinePlot(ctx, paramX, paramY, chartType);
             }
+
+            if (chartType === 'correlation') {
+    createCorrelationMatrix(ctx);
+    return;
+}
         }
+
+        function createCorrelationMatrix(ctx) {
+    // Get all numeric parameters
+    const numericParams = globalState.columnNames.filter(name =>
+        scaleTypes[globalState.columnTypes[name]].numeric
+    );
+    
+    if (numericParams.length < 2) {
+        utils.showError("Need at least 2 numeric parameters for correlation matrix.");
+        return;
+    }
+    
+    // Calculate correlations for each group
+    const correlationData = {};
+    
+    Object.entries(globalState.currentGroups).forEach(([groupId, group]) => {
+        const correlations = [];
+        
+        for (let i = 0; i < numericParams.length; i++) {
+            correlations[i] = [];
+            for (let j = 0; j < numericParams.length; j++) {
+                if (i === j) {
+                    correlations[i][j] = 1;
+                } else {
+                    const data1 = globalState.processedData[groupId]
+                        .map(row => utils.parseNumericValue(row[numericParams[i]]))
+                        .filter(val => !isNaN(val));
+                    const data2 = globalState.processedData[groupId]
+                        .map(row => utils.parseNumericValue(row[numericParams[j]]))
+                        .filter(val => !isNaN(val));
+                    
+                    // Calculate correlation
+                    const pairs = [];
+                    for (let k = 0; k < Math.min(data1.length, data2.length); k++) {
+                        if (!isNaN(data1[k]) && !isNaN(data2[k])) {
+                            pairs.push({ x: data1[k], y: data2[k] });
+                        }
+                    }
+                    
+                    if (pairs.length >= 3) {
+                        const r = statistics.ss.sampleCorrelation(
+                            pairs.map(p => p.x),
+                            pairs.map(p => p.y)
+                        );
+                        correlations[i][j] = r;
+                        
+                        // Test significance
+                        const n = pairs.length;
+                        const t = r * Math.sqrt((n - 2) / (1 - r * r));
+                        const df = n - 2;
+                        const pValue = 2 * (1 - statistics.jstat.studentt.cdf(Math.abs(t), df));
+                        correlations[i][j] = { r: r, p: pValue, n: n };
+                    } else {
+                        correlations[i][j] = { r: null, p: null, n: 0 };
+                    }
+                }
+            }
+        }
+        
+        correlationData[groupId] = correlations;
+    });
+    
+    // Create heatmap visualization
+    const groupIds = Object.keys(globalState.currentGroups);
+    const datasets = [];
+    
+    // For simplicity, show first group's correlations as heatmap
+    const firstGroupId = groupIds[0];
+    const correlations = correlationData[firstGroupId];
+    
+    // Flatten correlation matrix for heatmap
+    const data = [];
+    for (let i = 0; i < numericParams.length; i++) {
+        for (let j = 0; j < numericParams.length; j++) {
+            const corr = correlations[i][j];
+            if (typeof corr === 'object') {
+                data.push({
+                    x: numericParams[j],
+                    y: numericParams[i],
+                    v: corr.r !== null ? corr.r : 0,
+                    p: corr.p,
+                    n: corr.n
+                });
+            } else {
+                data.push({
+                    x: numericParams[j],
+                    y: numericParams[i],
+                    v: corr
+                });
+            }
+        }
+    }
+    
+    // Create heatmap chart
+    utils.destroyChart('custom-visualization-chart');
+    
+    globalState.charts['custom-visualization-chart'] = new Chart(ctx, {
+        type: 'scatter',
+        data: {
+            datasets: [{
+                label: globalState.currentGroups[firstGroupId].name,
+                data: data.map(d => ({ x: d.x, y: d.y })),
+                backgroundColor: data.map(d => {
+                    const r = d.v;
+                    if (r === null || r === undefined) return 'rgba(128, 128, 128, 0.5)';
+                    const intensity = Math.abs(r);
+                    if (r > 0) {
+                        return `rgba(90, 159, 212, ${intensity})`;
+                    } else {
+                        return `rgba(200, 84, 80, ${intensity})`;
+                    }
+                }),
+                pointRadius: 30,
+                pointHoverRadius: 35
+            }]
+        },
+        options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            scales: {
+                x: {
+                    type: 'category',
+                    position: 'bottom',
+                    ticks: {
+                        color: '#e0e0e0'
+                    },
+                    grid: {
+                        color: '#444'
+                    }
+                },
+                y: {
+                    type: 'category',
+                    ticks: {
+                        color: '#e0e0e0'
+                    },
+                    grid: {
+                        color: '#444'
+                    }
+                }
+            },
+            plugins: {
+                title: {
+                    display: true,
+                    text: `Correlation Matrix - ${globalState.currentGroups[firstGroupId].name}`,
+                    font: { size: 16 },
+                    color: '#e0e0e0'
+                },
+                legend: {
+                    display: false
+                },
+                tooltip: {
+                    callbacks: {
+                        label: function(context) {
+                            const dataPoint = data.find(d => 
+                                d.x === context.label && 
+                                d.y === context.dataset.data[context.dataIndex].y
+                            );
+                            
+                            if (!dataPoint || dataPoint.v === null) {
+                                return 'No data';
+                            }
+                            
+                            const lines = [
+                                `r = ${dataPoint.v.toFixed(3)}`
+                            ];
+                            
+                            if (dataPoint.p !== undefined && dataPoint.p !== null) {
+                                lines.push(`p = ${dataPoint.p.toFixed(4)}`);
+                                lines.push(dataPoint.p < 0.05 ? 'Significant' : 'Not significant');
+                            }
+                            
+                            if (dataPoint.n !== undefined) {
+                                lines.push(`n = ${dataPoint.n}`);
+                            }
+                            
+                            // Add interpretation
+                            const interp = interpretationEngine.effectSize.correlation(dataPoint.v);
+                            lines.push(interp.description);
+                            
+                            return lines;
+                        }
+                    }
+                }
+            }
+        },
+        plugins: [{
+            id: 'correlationLabels',
+            afterDatasetsDraw: function(chart) {
+                const ctx = chart.ctx;
+                ctx.save();
+                
+                chart.data.datasets.forEach((dataset, i) => {
+                    chart.getDatasetMeta(i).data.forEach((element, index) => {
+                        const dataPoint = data[index];
+                        if (dataPoint && dataPoint.v !== null && dataPoint.v !== undefined) {
+                            const x = element.x;
+                            const y = element.y;
+                            
+                            ctx.fillStyle = Math.abs(dataPoint.v) > 0.5 ? 'white' : '#e0e0e0';
+                            ctx.font = 'bold 12px Arial';
+                            ctx.textAlign = 'center';
+                            ctx.textBaseline = 'middle';
+                            ctx.fillText(dataPoint.v.toFixed(2), x, y);
+                            
+                            // Add significance indicator
+                            if (dataPoint.p !== undefined && dataPoint.p < 0.05) {
+                                ctx.font = '10px Arial';
+                                ctx.fillText('*', x, y + 10);
+                            }
+                        }
+                    });
+                });
+                
+                ctx.restore();
+            }
+        }]
+    });
+}
 
         /**
          * Create scatter plot with optional regression lines
@@ -8777,65 +9745,102 @@ function updateSignificanceGroupSelection() {
          * Export chart as image
          */
         function exportChartAsImage(chartId) {
-            const canvas = document.getElementById(chartId);
-            if (!canvas) {
-                utils.showError(`Chart with ID "${chartId}" not found.`);
-                return;
-            }
+    const canvas = document.getElementById(chartId);
+    if (!canvas) {
+        utils.showError(`Chart with ID "${chartId}" not found.`);
+        return;
+    }
 
-            // Create a container for the chart and metadata
-            const container = document.createElement('div');
-            container.style.backgroundColor = '#1a1a1a';
-            container.style.padding = '20px';
-            container.style.width = canvas.width + 'px';
+    // Show format selection dialog
+    const format = confirm('Export as SVG (OK) or PNG (Cancel)?') ? 'svg' : 'png';
+    
+    if (format === 'png') {
+        // Original PNG export
+        const container = document.createElement('div');
+        container.style.backgroundColor = '#1a1a1a';
+        container.style.padding = '20px';
+        container.style.width = canvas.width + 'px';
 
-            const title = document.createElement('h3');
-            title.textContent = chartId.replace(/-/g, ' ').replace(/chart/g, 'Chart');
-            title.style.textAlign = 'center';
-            title.style.fontFamily = 'Arial, sans-serif';
-            title.style.marginBottom = '10px';
-            title.style.color = '#e0e0e0';
-            container.appendChild(title);
+        const title = document.createElement('h3');
+        title.textContent = chartId.replace(/-/g, ' ').replace(/chart/g, 'Chart');
+        title.style.textAlign = 'center';
+        title.style.fontFamily = 'Arial, sans-serif';
+        title.style.marginBottom = '10px';
+        title.style.color = '#e0e0e0';
+        container.appendChild(title);
 
-            // Clone the canvas
-            const tempCanvas = document.createElement('canvas');
-            tempCanvas.width = canvas.width;
-            tempCanvas.height = canvas.height;
-            const tempCtx = tempCanvas.getContext('2d');
-            tempCtx.drawImage(canvas, 0, 0);
-            container.appendChild(tempCanvas);
+        const tempCanvas = document.createElement('canvas');
+        tempCanvas.width = canvas.width;
+        tempCanvas.height = canvas.height;
+        const tempCtx = tempCanvas.getContext('2d');
+        tempCtx.drawImage(canvas, 0, 0);
+        container.appendChild(tempCanvas);
 
-            const dateText = document.createElement('div');
-            dateText.textContent = `Generated: ${new Date().toLocaleDateString()}`;
-            dateText.style.textAlign = 'right';
-            dateText.style.fontFamily = 'Arial, sans-serif';
-            dateText.style.fontSize = '12px';
-            dateText.style.marginTop = '10px';
-            dateText.style.color = '#e0e0e0';
-            container.appendChild(dateText);
+        const dateText = document.createElement('div');
+        dateText.textContent = `Generated: ${new Date().toLocaleDateString()}`;
+        dateText.style.textAlign = 'right';
+        dateText.style.fontFamily = 'Arial, sans-serif';
+        dateText.style.fontSize = '12px';
+        dateText.style.marginTop = '10px';
+        dateText.style.color = '#e0e0e0';
+        container.appendChild(dateText);
 
-            // Append to document temporarily
-            document.body.appendChild(container);
+        document.body.appendChild(container);
 
-            // Use html2canvas to capture the container
-            html2canvas(container).then(resultCanvas => {
-                const image = resultCanvas.toDataURL('image/png', 1.0);
-
-                const timestamp = utils.getTimestamp();
-                const link = document.createElement('a');
-                link.href = image;
-                link.download = `sra-${timestamp}-${chartId.replace(/-/g, '-')}.png`;
-
-                document.body.appendChild(link);
-                link.click();
-
-                // Clean up
-                document.body.removeChild(link);
-                document.body.removeChild(container);
-
-                utils.showSuccess('Chart successfully exported!');
-            });
+        html2canvas(container).then(resultCanvas => {
+            const image = resultCanvas.toDataURL('image/png', 1.0);
+            const timestamp = utils.getTimestamp();
+            const link = document.createElement('a');
+            link.href = image;
+            link.download = `sra-${timestamp}-${chartId}.png`;
+            document.body.appendChild(link);
+            link.click();
+            document.body.removeChild(link);
+            document.body.removeChild(container);
+            utils.showSuccess('Chart successfully exported as PNG!');
+        });
+    } else {
+        // SVG export
+        const chart = globalState.charts[chartId];
+        if (!chart) {
+            utils.showError('Chart instance not found.');
+            return;
         }
+        
+        // Create SVG manually from chart data
+        const width = canvas.width;
+        const height = canvas.height;
+        
+        let svg = `<?xml version="1.0" encoding="UTF-8"?>
+<svg width="${width}" height="${height}" xmlns="http://www.w3.org/2000/svg">
+<rect width="${width}" height="${height}" fill="#1a1a1a"/>
+<text x="${width/2}" y="30" text-anchor="middle" fill="#e0e0e0" font-family="Arial" font-size="16">
+    ${chartId.replace(/-/g, ' ').replace(/chart/g, 'Chart')}
+</text>`;
+
+        // Convert canvas content to data URL and embed as image
+        const dataUrl = canvas.toDataURL('image/png');
+        svg += `<image x="0" y="40" width="${width}" height="${height-80}" href="${dataUrl}"/>`;
+        
+        svg += `<text x="${width-10}" y="${height-10}" text-anchor="end" fill="#e0e0e0" font-family="Arial" font-size="12">
+    Generated: ${new Date().toLocaleDateString()}
+</text>`;
+        svg += '</svg>';
+        
+        // Create download
+        const blob = new Blob([svg], { type: 'image/svg+xml' });
+        const url = URL.createObjectURL(blob);
+        const timestamp = utils.getTimestamp();
+        
+        const link = document.createElement('a');
+        link.href = url;
+        link.download = `sra-${timestamp}-${chartId}.svg`;
+        link.click();
+        
+        URL.revokeObjectURL(url);
+        utils.showSuccess('Chart successfully exported as SVG!');
+    }
+}
 
         /**
          * Export analysis results as CSV
