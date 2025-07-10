@@ -2512,56 +2512,40 @@
              * Display success message to the user
              */
             showSuccess(message) {
-    // Create modal overlay
-    const modal = document.createElement('div');
-    modal.style.cssText = `
+    // Create a full-screen overlay for the flash effect
+    const flash = document.createElement('div');
+    flash.style.cssText = `
         position: fixed;
         top: 0;
         left: 0;
         width: 100%;
         height: 100%;
-        background-color: rgba(0, 0, 0, 0.8);
-        display: flex;
-        align-items: center;
-        justify-content: center;
-        z-index: 10000;
+        background-color: var(--success-color);
+        opacity: 0;
+        pointer-events: none;
+        z-index: 9999;
+        transition: opacity 0.2s ease-in-out;
     `;
     
-    // Create modal content
-    const modalContent = document.createElement('div');
-    modalContent.style.cssText = `
-        background-color: var(--card-background);
-        padding: 30px;
-        border-radius: 12px;
-        box-shadow: 0 8px 32px rgba(0, 0, 0, 0.5);
-        max-width: 500px;
-        width: 90%;
-        border: 2px solid var(--success-color);
-    `;
+    document.body.appendChild(flash);
     
-    modalContent.innerHTML = `
-        <h3 style="color: var(--success-color); margin-bottom: 15px;">Success</h3>
-        <p style="color: var(--text-color); margin-bottom: 20px;">${message}</p>
-        <button onclick="this.closest('div').parentElement.remove()" 
-                style="background-color: var(--success-color); 
-                       color: white; 
-                       border: none; 
-                       padding: 10px 20px; 
-                       border-radius: 6px; 
-                       cursor: pointer;">
-            OK
-        </button>
-    `;
-    
-    modal.appendChild(modalContent);
-    document.body.appendChild(modal);
-    
-    // Auto-close after 3 seconds
+    // Trigger the flash
     setTimeout(() => {
-        if (document.body.contains(modal)) {
-            modal.remove();
-        }
-    }, 3000);
+        flash.style.opacity = '0.3';
+    }, 10);
+    
+    // Fade out
+    setTimeout(() => {
+        flash.style.opacity = '0';
+    }, 300);
+    
+    // Remove element
+    setTimeout(() => {
+        flash.remove();
+    }, 600);
+    
+    // Still log to console for debugging
+    console.log('Success:', message);
 },
 
             /**
@@ -2801,7 +2785,7 @@
                 this.testDefinitions = {
                     'ttest': {
                         name: 'Student t-Test',
-                        indication: 'Vergleicht Mittelwerte zweier Gruppen bei normalverteilten Daten mit gleichen Varianzen',
+                        indication: 'Compares means of two groups with normally distributed data and equal variances',
                         requirements: ['normal_distribution', 'equal_variances'],
                         groups: { min: 2, max: 2 },
                         scaleTypes: ['i', 'r'],
@@ -2809,7 +2793,7 @@
                     },
                     'welch': {
                         name: 'Welch t-Test',
-                        indication: 'Vergleicht Mittelwerte zweier Gruppen bei normalverteilten Daten mit ungleichen Varianzen',
+                        indication: 'Compares means of two groups with normally distributed data and unequal variances',
                         requirements: ['normal_distribution'],
                         groups: { min: 2, max: 2 },
                         scaleTypes: ['i', 'r'],
@@ -2817,7 +2801,7 @@
                     },
                     'anova': {
                         name: 'Einfaktorielle ANOVA',
-                        indication: 'Vergleicht Mittelwerte von drei oder mehr Gruppen bei normalverteilten Daten',
+                        indication: 'Compares means of three or more groups with normally distributed data',
                         requirements: ['normal_distribution', 'equal_variances'],
                         groups: { min: 2, max: Infinity },
                         scaleTypes: ['i', 'r'],
@@ -2825,7 +2809,7 @@
                     },
                     'mann-whitney': {
                         name: 'Mann-Whitney U Test',
-                        indication: 'Vergleicht Verteilungen zweier unabhängiger Gruppen (rangbasiert, keine Normalverteilung nötig)',
+                        indication: 'Compares distributions of two independent groups (rank-based, no normal distribution required)',
                         requirements: [],
                         groups: { min: 2, max: 2 },
                         scaleTypes: ['o', 'i', 'r'],
@@ -2833,7 +2817,7 @@
                     },
                     'kruskal-wallis': {
                         name: 'Kruskal-Wallis Test',
-                        indication: 'Vergleicht Verteilungen von drei oder mehr unabhängigen Gruppen (rangbasiert)',
+                        indication: 'Compares distributions of three or more independent groups (rank-based)',
                         requirements: [],
                         groups: { min: 2, max: Infinity },
                         scaleTypes: ['o', 'i', 'r'],
@@ -2841,7 +2825,7 @@
                     },
                     'chi-square': {
                         name: 'Chi-Quadrat Test',
-                        indication: 'Prüft Unabhängigkeit zwischen kategorialer Variable und Gruppenzugehörigkeit',
+                        indication: 'Tests independence between categorical variable and group membership',
                         requirements: ['expected_frequency_5'],
                         groups: { min: 1, max: Infinity },
                         scaleTypes: ['k'],
@@ -2849,7 +2833,7 @@
                     },
                     'fisher': {
                         name: 'Fisher Exakter Test',
-                        indication: 'Exakter Test für 2×2 Tabellen, besonders bei kleinen Stichproben',
+                        indication: 'Exact test for 2×2 tables, especially for small samples',
                         requirements: [],
                         groups: { min: 2, max: 2 },
                         scaleTypes: ['k'],
@@ -4269,7 +4253,7 @@ solveLinearSystem(A, b) {
 
                     const eligibleTests = this.filterEligibleTests(basicCriteria);
                     if (eligibleTests.length === 0) {
-                        return { error: 'Keine passenden Tests für diese Datenkombination verfügbar' };
+                        return { error: 'No suitable tests available for this data combination' };
                     }
 
                     const prerequisiteResults = this.runPrerequisiteTests(parameterName, selectedGroups);
@@ -4285,7 +4269,7 @@ solveLinearSystem(A, b) {
                         canProceed: recommendation.canProceed || forceTest
                     };
                 } catch (error) {
-                    return { error: `Testauswahl fehlgeschlagen: ${error.message}` };
+                    return { error: Test selection failed: ${error.message}` };
                 }
             }
 
@@ -4295,10 +4279,10 @@ solveLinearSystem(A, b) {
                 const groupCount = selectedGroups.length;
 
                 if (!parameterType) {
-                    return { error: 'Unbekannter Parametertyp' };
+                    return { error: 'Unknown parameter type' };
                 }
                 if (groupCount < 1) {
-                    return { error: 'Mindestens eine Gruppe erforderlich' };
+                    return { error: 'At least one group required' };
                 }
 
                 const groupSizes = selectedGroups.map(groupId => {
@@ -4310,7 +4294,7 @@ solveLinearSystem(A, b) {
 
                 const minGroupSize = Math.min(...groupSizes.map(g => g.size));
                 if (minGroupSize < 2) {
-                    return { error: 'Mindestens 2 gültige Beobachtungen pro Gruppe erforderlich' };
+                    return { error: 'At least 2 valid observations per group required' };
                 }
 
                 return {
@@ -4413,7 +4397,7 @@ if (globalState.assumptionOverrides.homogeneity[parameterName]) {
                     });
 
                 } catch (error) {
-console.warn('Fehler bei Voraussetzungstests:', error);
+console.warn('Error in prerequisite tests:', error);
 utils.showError(`Error checking prerequisites: ${error.message}`);
                 }
 
@@ -4507,8 +4491,6 @@ if (globalState.assumptionOverrides.normality[parameterName]) {
                 if (primary.warnings.length > 0) {
                     explanation += `• ⚠️ Hinweise: ${primary.warnings.join(', ')}\n`;
                 }
-
-                explanation += `\n**Empfehlungsstärke:** ${primary.confidence}%`;
 
                 return {
                     primary: primary,
@@ -4958,13 +4940,6 @@ document.getElementById('get-test-recommendation').addEventListener('click', get
         <div class="recommendation-card confidence-${getConfidenceClass(primary.confidence)}">
             <div class="recommended-test-header">
                 <h5>🎯 Empfohlener Test: ${primary.test.name}</h5>
-                <div class="confidence-indicator">
-                    <span class="confidence-label">Empfehlungsstärke:</span>
-                    <div class="confidence-bar">
-                        <div class="confidence-fill" style="width: ${primary.confidence}%"></div>
-                    </div>
-                    <span class="confidence-text">${primary.confidence}%</span>
-                </div>
             </div>
             
             <div class="test-indication">
@@ -5381,23 +5356,25 @@ function runRecommendedTest() {
             html += '<br>';
         }
         
-        // Overall assessment
-        const testsNormal = [shapiroResult.normal, ksResult.normal, adResult.normal].filter(n => n !== undefined);
-        const consensusNormal = testsNormal.filter(n => n).length >= Math.ceil(testsNormal.length / 2);
-        
-        if (isOverridden) {
-            html += '<br><strong style="color: var(--warning-color);">⚠️ Normality assumption manually overridden</strong>';
-            resultDiv.className = 'prerequisite-result pass';
-        } else if (consensusNormal) {
-            html += '<br><strong style="color: var(--success-color);">✓ Normal distribution (majority consensus)</strong>';
-            resultDiv.className = 'prerequisite-result pass';
-        } else {
-            html += '<br><strong style="color: var(--danger-color);">✗ Not normally distributed</strong>';
-            resultDiv.className = 'prerequisite-result fail';
-        }
-        
-        resultDiv.innerHTML = html;
-        resultsContainer.appendChild(resultDiv);
+        // Overall assessment - use Shapiro-Wilk as primary test
+const shapiroNormal = shapiroResult.normal && !shapiroResult.error;
+const overallNormal = isOverridden || shapiroNormal;
+
+if (isOverridden) {
+    html += '<br><strong style="color: var(--warning-color);">⚠️ Normality assumption manually overridden</strong>';
+    resultDiv.className = 'prerequisite-result pass';
+} else if (overallNormal) {
+    html += '<br><strong style="color: var(--success-color);">✓ Normal distribution (Shapiro-Wilk test passed)</strong>';
+    resultDiv.className = 'prerequisite-result pass';
+} else {
+    html += '<br><strong style="color: var(--danger-color);">✗ Not normally distributed (Shapiro-Wilk test failed)</strong>';
+    resultDiv.className = 'prerequisite-result fail';
+}
+
+// Update the stored result to use Shapiro-Wilk as primary
+if (globalState.prerequisiteResults[paramName][groupId]) {
+    globalState.prerequisiteResults[paramName][groupId].normality.normal = overallNormal;
+}
     });
 }
 
@@ -5405,6 +5382,11 @@ function runRecommendedTest() {
          * Check variance homogeneity between groups
          */
         function checkVarianceHomogeneity() {
+            // Clear any existing variance test results
+const resultsContainer = document.getElementById('prerequisite-results');
+const existingVarianceResults = resultsContainer.querySelectorAll('.variance-test-result');
+existingVarianceResults.forEach(el => el.remove());
+            
             const paramName = document.getElementById('sig-parameter-select').value;
             if (!paramName) {
                 utils.showError("Please select a parameter first.");
@@ -5476,7 +5458,7 @@ globalState.assumptionOverrides.homogeneity[paramName] = isOverridden;
 
 if (isOverridden) {
     resultDiv.innerHTML += '<br><strong style="color: var(--warning-color);">⚠️ Variance homogeneity assumption manually overridden</strong>';
-    resultDiv.className = 'prerequisite-result pass';
+    resultDiv.className = `prerequisite-result variance-test-result`;
 }
 
             resultsContainer.appendChild(resultDiv);
@@ -9875,95 +9857,50 @@ function updateSignificanceGroupSelection() {
         return;
     }
 
-    // Show format selection dialog
-    const format = confirm('Export as SVG (OK) or PNG (Cancel)?') ? 'svg' : 'png';
-    
-    if (format === 'png') {
-        // Original PNG export
-        const container = document.createElement('div');
-        container.style.backgroundColor = '#1a1a1a';
-        container.style.padding = '20px';
-        container.style.width = canvas.width + 'px';
+    // Create container with styling
+    const container = document.createElement('div');
+    container.style.backgroundColor = '#1a1a1a';
+    container.style.padding = '20px';
+    container.style.width = canvas.width + 'px';
 
-        const title = document.createElement('h3');
-        title.textContent = chartId.replace(/-/g, ' ').replace(/chart/g, 'Chart');
-        title.style.textAlign = 'center';
-        title.style.fontFamily = 'Arial, sans-serif';
-        title.style.marginBottom = '10px';
-        title.style.color = '#e0e0e0';
-        container.appendChild(title);
+    const title = document.createElement('h3');
+    title.textContent = chartId.replace(/-/g, ' ').replace(/chart/g, 'Chart');
+    title.style.textAlign = 'center';
+    title.style.fontFamily = 'Arial, sans-serif';
+    title.style.marginBottom = '10px';
+    title.style.color = '#e0e0e0';
+    container.appendChild(title);
 
-        const tempCanvas = document.createElement('canvas');
-        tempCanvas.width = canvas.width;
-        tempCanvas.height = canvas.height;
-        const tempCtx = tempCanvas.getContext('2d');
-        tempCtx.drawImage(canvas, 0, 0);
-        container.appendChild(tempCanvas);
+    const tempCanvas = document.createElement('canvas');
+    tempCanvas.width = canvas.width;
+    tempCanvas.height = canvas.height;
+    const tempCtx = tempCanvas.getContext('2d');
+    tempCtx.drawImage(canvas, 0, 0);
+    container.appendChild(tempCanvas);
 
-        const dateText = document.createElement('div');
-        dateText.textContent = `Generated: ${new Date().toLocaleDateString()}`;
-        dateText.style.textAlign = 'right';
-        dateText.style.fontFamily = 'Arial, sans-serif';
-        dateText.style.fontSize = '12px';
-        dateText.style.marginTop = '10px';
-        dateText.style.color = '#e0e0e0';
-        container.appendChild(dateText);
+    const dateText = document.createElement('div');
+    dateText.textContent = `Generated: ${new Date().toLocaleDateString()}`;
+    dateText.style.textAlign = 'right';
+    dateText.style.fontFamily = 'Arial, sans-serif';
+    dateText.style.fontSize = '12px';
+    dateText.style.marginTop = '10px';
+    dateText.style.color = '#e0e0e0';
+    container.appendChild(dateText);
 
-        document.body.appendChild(container);
+    document.body.appendChild(container);
 
-        html2canvas(container).then(resultCanvas => {
-            const image = resultCanvas.toDataURL('image/png', 1.0);
-            const timestamp = utils.getTimestamp();
-            const link = document.createElement('a');
-            link.href = image;
-            link.download = `sra-${timestamp}-${chartId}.png`;
-            document.body.appendChild(link);
-            link.click();
-            document.body.removeChild(link);
-            document.body.removeChild(container);
-            utils.showSuccess('Chart successfully exported as PNG!');
-        });
-    } else {
-        // SVG export
-        const chart = globalState.charts[chartId];
-        if (!chart) {
-            utils.showError('Chart instance not found.');
-            return;
-        }
-        
-        // Create SVG manually from chart data
-        const width = canvas.width;
-        const height = canvas.height;
-        
-        let svg = `<?xml version="1.0" encoding="UTF-8"?>
-<svg width="${width}" height="${height}" xmlns="http://www.w3.org/2000/svg">
-<rect width="${width}" height="${height}" fill="#1a1a1a"/>
-<text x="${width/2}" y="30" text-anchor="middle" fill="#e0e0e0" font-family="Arial" font-size="16">
-    ${chartId.replace(/-/g, ' ').replace(/chart/g, 'Chart')}
-</text>`;
-
-        // Convert canvas content to data URL and embed as image
-        const dataUrl = canvas.toDataURL('image/png');
-        svg += `<image x="0" y="40" width="${width}" height="${height-80}" href="${dataUrl}"/>`;
-        
-        svg += `<text x="${width-10}" y="${height-10}" text-anchor="end" fill="#e0e0e0" font-family="Arial" font-size="12">
-    Generated: ${new Date().toLocaleDateString()}
-</text>`;
-        svg += '</svg>';
-        
-        // Create download
-        const blob = new Blob([svg], { type: 'image/svg+xml' });
-        const url = URL.createObjectURL(blob);
+    html2canvas(container).then(resultCanvas => {
+        const image = resultCanvas.toDataURL('image/png', 1.0);
         const timestamp = utils.getTimestamp();
-        
         const link = document.createElement('a');
-        link.href = url;
-        link.download = `sra-${timestamp}-${chartId}.svg`;
+        link.href = image;
+        link.download = `sra-${timestamp}-${chartId}.png`;
+        document.body.appendChild(link);
         link.click();
-        
-        URL.revokeObjectURL(url);
-        utils.showSuccess('Chart successfully exported as SVG!');
-    }
+        document.body.removeChild(link);
+        document.body.removeChild(container);
+        utils.showSuccess('Chart successfully exported as PNG!');
+    });
 }
 
         /**
