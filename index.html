@@ -5140,19 +5140,19 @@ document.getElementById('get-test-recommendation').addEventListener('click', get
         }
 
         function getConfidenceClass(confidence) {
-            if (confidence >= 80) return 'high';
-            if (confidence >= 60) return 'medium';
-            return 'low';
-        }
+    if (confidence >= 80) return 'high';
+    if (confidence >= 60) return 'medium';
+    return 'low';
+}
 
-        getTestCategoryName(category) {
+function getTestCategoryName(category) {
     const names = {
         'parametric': 'Parametric',
         'nonparametric': 'Non-parametric',
         'categorical': 'Categorical'
     };
     return names[category] || category;
-},
+}
 
         /**
  * Update test recommendation based on parameter and group selection
