@@ -4909,45 +4909,43 @@ document.getElementById('regression-custom-alpha').addEventListener('change', up
 }
 
         function displayTestRecommendation(recommendation, paramName, selectedGroups) {
-// Display inline recommendation
-const inlineDisplay = document.getElementById('test-recommendation-inline');
-if (inlineDisplay) {
-    const primary = recommendation.recommended;
-    let inlineHtml = `
-        <div style="display: flex; align-items: center; justify-content: space-between;">
-            <div>
-                <strong style="color: var(--primary-color);">🎯 Recommended Test: ${primary.test.name}</strong>
-                <div style="font-size: 14px; color: var(--text-light); margin-top: 5px;">
-                    ${primary.test.indication}
+    // Display inline recommendation
+    const inlineDisplay = document.getElementById('test-recommendation-inline');
+    if (inlineDisplay) {
+        const primary = recommendation.recommended;
+        let inlineHtml = `
+            <div style="display: flex; align-items: center; justify-content: space-between;">
+                <div>
+                    <strong style="color: var(--primary-color);">🎯 Recommended Test: ${primary.test.name}</strong>
+                    <div style="font-size: 14px; color: var(--text-light); margin-top: 5px;">
+                        ${primary.test.indication}
+                    </div>
                 </div>
-            </div>
-            <div style="text-align: right;">
-                <div class="confidence-indicator">
-                    <span style="font-size: 12px; color: var(--text-light);">Confidence:</span>
-                    <span style="font-weight: bold; color: ${primary.confidence >= 80 ? 'var(--success-color)' : primary.confidence >= 60 ? 'var(--warning-color)' : 'var(--danger-color)'};">
-                        ${primary.confidence}%
-                    </span>
+                <div style="text-align: right;">
+                    <div class="confidence-indicator">
+                        <span style="font-size: 12px; color: var(--text-light);">Confidence:</span>
+                        <span style="font-weight: bold; color: ${primary.confidence >= 80 ? 'var(--success-color)' : primary.confidence >= 60 ? 'var(--warning-color)' : 'var(--danger-color)'};">
+                            ${primary.confidence}%
+                        </span>
+                    </div>
                 </div>
-            </div>
-        </div>
-    `;
-    
-    if (primary.violations.length > 0) {
-        inlineHtml += `
-            <div style="margin-top: 10px; padding: 10px; background-color: rgba(212, 162, 90, 0.1); border-radius: 6px;">
-                <strong style="color: var(--warning-color);">⚠️ Violations:</strong>
-                <ul style="margin: 5px 0 0 20px; font-size: 14px;">
-                    ${primary.violations.map(v => `<li>${v}</li>`).join('')}
-                </ul>
             </div>
         `;
+        
+        if (primary.violations.length > 0) {
+            inlineHtml += `
+                <div style="margin-top: 10px; padding: 10px; background-color: rgba(212, 162, 90, 0.1); border-radius: 6px;">
+                    <strong style="color: var(--warning-color);">⚠️ Violations:</strong>
+                    <ul style="margin: 5px 0 0 20px; font-size: 14px;">
+                        ${primary.violations.map(v => `<li>${v}</li>`).join('')}
+                    </ul>
+                </div>
+            `;
+        }
+        
+        inlineDisplay.innerHTML = inlineHtml;
+        inlineDisplay.style.display = 'block';
     }
-    
-    inlineDisplay.innerHTML = inlineHtml;
-    inlineDisplay.style.display = 'block';
-}
-            
-    const displayDiv = document.getElementById('test-recommendation-display');
 
     const primary = recommendation.recommended;
     const groupNames = selectedGroups.map(id => globalState.currentGroups[id].name);
@@ -5036,7 +5034,7 @@ if (inlineDisplay) {
                 html += `
                     <div class="prerequisite-item ${status}">
                         ${icon} <strong>${groupName}:</strong> 
-                        ${result.error || `Shapiro-Wilk (p = ${result.pValue?.toFixed(4) || 'N/A'})`}
+                        ${result.error || `${result.test || 'Shapiro-Wilk'} (p = ${result.pValue?.toFixed(4) || 'N/A'})`}
                     </div>
                 `;
             });
@@ -5079,36 +5077,20 @@ if (inlineDisplay) {
     }
 
     // Find or create the display div
-let displayDiv = document.getElementById('test-recommendation-display');
-if (!displayDiv) {
-    // If it doesn't exist, create it after the prerequisite results
-    displayDiv = document.createElement('div');
-    displayDiv.id = 'test-recommendation-display';
-    displayDiv.className = 'recommendation-display';
-    const prereqResults = document.getElementById('prerequisite-results');
-    if (prereqResults && prereqResults.parentNode) {
-        prereqResults.parentNode.insertBefore(displayDiv, prereqResults.nextSibling);
+    let displayDiv = document.getElementById('test-recommendation-display');
+    if (!displayDiv) {
+        // If it doesn't exist, create it after the prerequisite results
+        displayDiv = document.createElement('div');
+        displayDiv.id = 'test-recommendation-display';
+        displayDiv.className = 'recommendation-display';
+        const prereqResults = document.getElementById('prerequisite-results');
+        if (prereqResults && prereqResults.parentNode) {
+            prereqResults.parentNode.insertBefore(displayDiv, prereqResults.nextSibling);
+        }
     }
-}
 
-displayDiv.innerHTML = html;
-displayDiv.style.display = 'block';
-
-    // Update buttons
-    const runRecommendedBtn = document.getElementById('run-recommended-test');
-    if (recommendation.canProceed && primary.test.key) {
-        runRecommendedBtn.style.display = 'inline-block';
-        runRecommendedBtn.dataset.recommendedTest = primary.test.key;
-        runRecommendedBtn.textContent = `Run ${primary.test.name}`;
-        
-        // Also update the manual dropdown
-        document.getElementById('sig-test-type').value = primary.test.key;
-        
-        // Enable the run test button
-        document.getElementById('run-significance-test').disabled = false;
-    } else {
-        runRecommendedBtn.style.display = 'none';
-    }
+    displayDiv.innerHTML = html;
+    displayDiv.style.display = 'block';
 }
 
         function displayPrerequisiteOverview(prerequisites, container) {
