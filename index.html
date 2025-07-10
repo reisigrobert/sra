@@ -1858,10 +1858,6 @@
                             <option value="chi-square">Chi-Square (categorical data)</option>
                             <option value="fisher">Fisher's Exact (2x2 tables, small samples)</option>
                         </optgroup>
-                        <optgroup label="Correlation Tests">
-                            <option value="pearson">Pearson Correlation (linear, normal)</option>
-                            <option value="spearman">Spearman Correlation (monotonic, non-normal)</option>
-                        </optgroup>
                     </select>
                 </div>
             </div>
@@ -2779,7 +2775,7 @@
                         scaleTypes: ['k'],
                         category: 'categorical'
                     },
-                    'fisher-exact': {
+                    'fisher': {
                         name: 'Fisher Exakter Test',
                         indication: 'Exakter Test für 2×2 Tabellen, besonders bei kleinen Stichproben',
                         requirements: [],
@@ -3456,9 +3452,9 @@ if (tieCorrection > 0) {
                     const cramersV = Math.sqrt(chiSquare / (totalCount * minDim));
 
                     // Calculate power for chi-square test
-const ncp = totalCount * cramersV * cramersV; // non-centrality parameter
+const ncp = totalCount * cramersV * cramersV * minDim; // non-centrality parameter
 const criticalValue = this.jstat.chisquare.inv(1 - alpha, df);
-const power = 1 - this.jstat.chisquare.cdf(criticalValue, df, ncp);
+const power = 1 - this.jstat.chisquare.cdf(criticalValue - ncp, df);
 
                     return {
                         test: 'Chi-Square',
@@ -4878,13 +4874,12 @@ document.getElementById('get-test-recommendation').addEventListener('click', get
 }
 
         function displayTestRecommendation(recommendation, paramName, selectedGroups) {
-            const displayDiv = document.getElementById('test-recommendation-display');
-            const prerequisiteDiv = document.getElementById('prerequisite-overview-display');
+    const displayDiv = document.getElementById('test-recommendation-display');
 
-            const primary = recommendation.recommended;
-            const groupNames = selectedGroups.map(id => globalState.currentGroups[id].name);
+    const primary = recommendation.recommended;
+    const groupNames = selectedGroups.map(id => globalState.currentGroups[id].name);
 
-            let html = `
+    let html = `
         <div class="recommendation-card confidence-${getConfidenceClass(primary.confidence)}">
             <div class="recommended-test-header">
                 <h5>🎯 Empfohlener Test: ${primary.test.name}</h5>
@@ -4908,8 +4903,8 @@ document.getElementById('get-test-recommendation').addEventListener('click', get
             </div>
     `;
 
-            if (primary.violations.length > 0) {
-                html += `
+    if (primary.violations.length > 0) {
+        html += `
             <div class="test-violations">
                 <h6>⚠️ Voraussetzungsverletzungen:</h6>
                 <ul>
@@ -4917,10 +4912,10 @@ document.getElementById('get-test-recommendation').addEventListener('click', get
                 </ul>
             </div>
         `;
-            }
+    }
 
-            if (primary.warnings.length > 0) {
-                html += `
+    if (primary.warnings.length > 0) {
+        html += `
             <div class="test-warnings">
                 <h6>💡 Hinweise:</h6>
                 <ul>
@@ -4928,31 +4923,31 @@ document.getElementById('get-test-recommendation').addEventListener('click', get
                 </ul>
             </div>
         `;
-            }
+    }
 
-            if (recommendation.alternatives.length > 0) {
-                html += `
+    if (recommendation.alternatives.length > 0) {
+        html += `
             <div class="alternative-tests">
                 <h6>🔄 Alternative Tests:</h6>
                 <ul>
         `;
 
-                recommendation.alternatives.forEach(alt => {
-                    html += `
+        recommendation.alternatives.forEach(alt => {
+            html += `
                 <li>
                     <strong>${alt.test.name}</strong> (${alt.confidence}% Empfehlung)
                     <br><small>${alt.test.indication}</small>
                 </li>
             `;
-                });
+        });
 
-                html += `
+        html += `
                 </ul>
             </div>
         `;
-            }
+    }
 
-            html += `
+    html += `
             <div class="recommendation-explanation">
                 <h6>📝 Begründung:</h6>
                 <div class="explanation-text">${recommendation.explanation.replace(/\n/g, '<br>')}</div>
@@ -4960,19 +4955,82 @@ document.getElementById('get-test-recommendation').addEventListener('click', get
         </div>
     `;
 
-            displayDiv.innerHTML = html;
-            displayDiv.style.display = 'block';
+    // Add prerequisite overview
+    if (recommendation.prerequisites) {
+        html += '<div class="prerequisite-summary" style="margin-top: 20px;">';
+        
+        if (recommendation.prerequisites.normality.tested) {
+            html += '<div class="prerequisite-section">';
+            html += '<h6>📊 Normalitätstests:</h6>';
 
-            displayPrerequisiteOverview(recommendation.prerequisites, prerequisiteDiv);
+            Object.entries(recommendation.prerequisites.normality.results).forEach(([groupName, result]) => {
+                const status = result.error ? 'error' : (result.normal ? 'pass' : 'fail');
+                const icon = status === 'pass' ? '✅' : (status === 'fail' ? '❌' : '⚠️');
 
-            const autoRunBtn = document.getElementById('auto-run-test');
-            autoRunBtn.disabled = !recommendation.canProceed;
+                html += `
+                    <div class="prerequisite-item ${status}">
+                        ${icon} <strong>${groupName}:</strong> 
+                        ${result.error || `Shapiro-Wilk (p = ${result.pValue?.toFixed(4) || 'N/A'})`}
+                    </div>
+                `;
+            });
 
-            if (recommendation.canProceed) {
-                autoRunBtn.textContent = `🚀 ${primary.test.name} ausführen`;
-                autoRunBtn.dataset.recommendedTest = primary.test.key;
-            }
+            html += '</div>';
         }
+
+        if (recommendation.prerequisites.variance.tested) {
+            const result = recommendation.prerequisites.variance.result;
+            const status = result.error ? 'error' : (result.equalVariances ? 'pass' : 'fail');
+            const icon = status === 'pass' ? '✅' : (status === 'fail' ? '❌' : '⚠️');
+
+            html += '<div class="prerequisite-section">';
+            html += '<h6>📏 Varianzhomogenität:</h6>';
+            html += `
+                <div class="prerequisite-item ${status}">
+                    ${icon} <strong>F-Test:</strong> 
+                    ${result.error || `p = ${result.pValue?.toFixed(4) || 'N/A'}`}
+                </div>
+            `;
+            html += '</div>';
+        }
+
+        if (recommendation.prerequisites.sampleSize.warnings.length > 0) {
+            html += '<div class="prerequisite-section">';
+            html += '<h6>👥 Stichprobengröße:</h6>';
+
+            recommendation.prerequisites.sampleSize.warnings.forEach(warning => {
+                html += `
+                    <div class="prerequisite-item warning">
+                        ⚠️ ${warning}
+                    </div>
+                `;
+            });
+
+            html += '</div>';
+        }
+
+        html += '</div>';
+    }
+
+    displayDiv.innerHTML = html;
+    displayDiv.style.display = 'block';
+
+    // Update buttons
+    const runRecommendedBtn = document.getElementById('run-recommended-test');
+    if (recommendation.canProceed && primary.test.key) {
+        runRecommendedBtn.style.display = 'inline-block';
+        runRecommendedBtn.dataset.recommendedTest = primary.test.key;
+        runRecommendedBtn.textContent = `Run ${primary.test.name}`;
+        
+        // Also update the manual dropdown
+        document.getElementById('sig-test-type').value = primary.test.key;
+        
+        // Enable the run test button
+        document.getElementById('run-significance-test').disabled = false;
+    } else {
+        runRecommendedBtn.style.display = 'none';
+    }
+}
 
         function displayPrerequisiteOverview(prerequisites, container) {
             let html = '<div class="prerequisite-summary">';
@@ -5060,18 +5118,6 @@ document.getElementById('get-test-recommendation').addEventListener('click', get
                 }, 500);
             }
         }
-
-        function runRecommendedTest() {
-    const recommendedTest = document.getElementById('auto-run-test').dataset.recommendedTest;
-    if (!recommendedTest) return;
-
-    // Map test keys if needed
-    const testKeyMap = {
-        'mann_whitney': 'mann-whitney',
-        'chi_square': 'chi-square',
-        'fisher_exact': 'fisher',
-        'kruskal_wallis': 'kruskal-wallis'
-    };
 
     const mappedTest = testKeyMap[recommendedTest] || recommendedTest;
     document.getElementById('sig-test-type').value = mappedTest;
@@ -8332,12 +8378,6 @@ function updateSignificanceGroupSelection() {
                         break;
                     case 'fisher':
                         result = runFisherExact(paramName, selectedGroups, testOptions);
-                        break;
-                    case 'pearson':
-                        result = runPearsonCorrelation(paramName, selectedGroups, testOptions);
-                        break;
-                    case 'spearman':
-                        result = runSpearmanCorrelation(paramName, selectedGroups, testOptions);
                         break;
                     default:
                         utils.showError("Unknown test type selected.");
