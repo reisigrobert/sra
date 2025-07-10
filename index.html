@@ -2690,7 +2690,7 @@
                         scaleTypes: ['i', 'r'],
                         category: 'parametric'
                     },
-                    'mann_whitney': {
+                    'mann-whitney': {
                         name: 'Mann-Whitney U Test',
                         indication: 'Vergleicht Verteilungen zweier unabhängiger Gruppen (rangbasiert, keine Normalverteilung nötig)',
                         requirements: [],
@@ -2698,7 +2698,7 @@
                         scaleTypes: ['o', 'i', 'r'],
                         category: 'nonparametric'
                     },
-                    'kruskal_wallis': {
+                    'kruskal-wallis': {
                         name: 'Kruskal-Wallis Test',
                         indication: 'Vergleicht Verteilungen von drei oder mehr unabhängigen Gruppen (rangbasiert)',
                         requirements: [],
@@ -2706,7 +2706,7 @@
                         scaleTypes: ['o', 'i', 'r'],
                         category: 'nonparametric'
                     },
-                    'chi_square': {
+                    'chi-square': {
                         name: 'Chi-Quadrat Test',
                         indication: 'Prüft Unabhängigkeit zwischen kategorialer Variable und Gruppenzugehörigkeit',
                         requirements: ['expected_frequency_5'],
@@ -2714,7 +2714,7 @@
                         scaleTypes: ['k'],
                         category: 'categorical'
                     },
-                    'fisher_exact': {
+                    'fisher-exact': {
                         name: 'Fisher Exakter Test',
                         indication: 'Exakter Test für 2×2 Tabellen, besonders bei kleinen Stichproben',
                         requirements: [],
@@ -3441,6 +3441,129 @@
                 return `${strength} ${direction} correlation`;
             }
 
+            // Add these methods after interpretCorrelation function
+
+calculateFourfoldStatistics(table) {
+    const [[a, b], [c, d]] = table;
+    const n = a + b + c + d;
+    
+    return {
+        n: n,
+        odds: {
+            oddsRatio: (a * d) / (b * c),
+            oddsRatioCI: this.calculateOddsRatioCI(a, b, c, d)
+        },
+        risk: {
+            riskDifference: (a / (a + b)) - (c / (c + d)),
+            riskDifferenceCI: this.calculateRiskDifferenceCI(a, b, c, d),
+            riskRatio: (a / (a + b)) / (c / (c + d)),
+            nnt: Math.abs(1 / ((a / (a + b)) - (c / (c + d))))
+        },
+        chiSquare: this.calculateChiSquareForTable(table),
+        fisherExact: this.fisherExactTest(table),
+        phi: this.calculatePhiCoefficient(a, b, c, d)
+    };
+}
+
+calculateDiagnosticMetrics(table) {
+    const [[tp, fp], [fn, tn]] = table;
+    const total = tp + fp + fn + tn;
+    
+    const sensitivity = tp / (tp + fn);
+    const specificity = tn / (tn + fp);
+    const ppv = tp / (tp + fp);
+    const npv = tn / (tn + fn);
+    const accuracy = (tp + tn) / total;
+    const prevalence = (tp + fn) / total;
+    
+    return {
+        sensitivity,
+        specificity,
+        ppv,
+        npv,
+        accuracy,
+        prevalence,
+        lrPositive: sensitivity / (1 - specificity),
+        lrNegative: (1 - sensitivity) / specificity,
+        youdenIndex: sensitivity + specificity - 1,
+        f1Score: 2 * tp / (2 * tp + fp + fn),
+        dor: (tp * tn) / (fp * fn),
+        mcc: (tp * tn - fp * fn) / Math.sqrt((tp + fp) * (tp + fn) * (tn + fp) * (tn + fn)),
+        sensitivityCI: this.calculateProportionCI(sensitivity, tp + fn),
+        specificityCI: this.calculateProportionCI(specificity, tn + fp),
+        ppvCI: this.calculateProportionCI(ppv, tp + fp),
+        npvCI: this.calculateProportionCI(npv, tn + fn)
+    };
+}
+
+validateDiagnosticTestData(table) {
+    const [[a, b], [c, d]] = table;
+    const errors = [];
+    const warnings = [];
+    
+    if (a + c === 0) errors.push("No positive cases in true condition");
+    if (b + d === 0) errors.push("No negative cases in true condition");
+    if (a + b === 0) errors.push("No positive test results");
+    if (c + d === 0) errors.push("No negative test results");
+    
+    if (a < 5 || b < 5 || c < 5 || d < 5) {
+        warnings.push("Some cells have counts < 5, results may be unreliable");
+    }
+    
+    return {
+        isValid: errors.length === 0,
+        errors,
+        warnings
+    };
+}
+
+calculateProportionCI(proportion, n, alpha = 0.05) {
+    const z = 1.96;
+    const se = Math.sqrt(proportion * (1 - proportion) / n);
+    return [
+        Math.max(0, proportion - z * se),
+        Math.min(1, proportion + z * se)
+    ];
+}
+
+calculateOddsRatioCI(a, b, c, d) {
+    const logOR = Math.log((a * d) / (b * c));
+    const se = Math.sqrt(1/a + 1/b + 1/c + 1/d);
+    const z = 1.96;
+    return [
+        Math.exp(logOR - z * se),
+        Math.exp(logOR + z * se)
+    ];
+}
+
+calculateRiskDifferenceCI(a, b, c, d) {
+    const p1 = a / (a + b);
+    const p2 = c / (c + d);
+    const rd = p1 - p2;
+    const se = Math.sqrt(p1 * (1 - p1) / (a + b) + p2 * (1 - p2) / (c + d));
+    const z = 1.96;
+    return [rd - z * se, rd + z * se];
+}
+
+calculateChiSquareForTable(table) {
+    const [[a, b], [c, d]] = table;
+    const n = a + b + c + d;
+    const chiSquare = n * Math.pow(a * d - b * c, 2) / ((a + b) * (c + d) * (a + c) * (b + d));
+    const chiSquareYates = n * Math.pow(Math.abs(a * d - b * c) - n/2, 2) / ((a + b) * (c + d) * (a + c) * (b + d));
+    
+    return {
+        statistic: chiSquare,
+        pValue: 1 - this.jstat.chisquare.cdf(chiSquare, 1),
+        statisticYates: chiSquareYates,
+        pValueYates: 1 - this.jstat.chisquare.cdf(chiSquareYates, 1)
+    };
+}
+
+calculatePhiCoefficient(a, b, c, d) {
+    const n = a + b + c + d;
+    return (a * d - b * c) / Math.sqrt((a + b) * (c + d) * (a + c) * (b + d));
+}
+
             // Regression
             linearRegression(points) {
                 const validPoints = points.filter(p => !isNaN(p.x) && !isNaN(p.y) && isFinite(p.x) && isFinite(p.y));
@@ -3469,11 +3592,19 @@
                 }
             }
 
-            // Weitere Regressionstypen (vereinfacht)
             polynomialRegression(points, order) {
-                // Placeholder - complex implementation needed
-                return null;
-            }
+    if (points.length < order + 1) return null;
+    
+    // For now, return linear regression for polynomial orders
+    // A full implementation would require matrix operations
+    const linear = this.linearRegression(points);
+    if (!linear) return null;
+    
+    return {
+        ...linear,
+        equation: `Polynomial regression of order ${order} (simplified to linear)`
+    };
+}
 
             logarithmicRegression(points) {
                 const validPoints = points.filter(p => !isNaN(p.x) && !isNaN(p.y) && isFinite(p.x) && isFinite(p.y) && p.x > 0);
@@ -4249,12 +4380,21 @@
         }
 
         function runRecommendedTest() {
-            const recommendedTest = document.getElementById('auto-run-test').dataset.recommendedTest;
-            if (!recommendedTest) return;
+    const recommendedTest = document.getElementById('auto-run-test').dataset.recommendedTest;
+    if (!recommendedTest) return;
 
-            document.getElementById('sig-test-type').value = recommendedTest;
-            runSignificanceTest();
-        }
+    // Map test keys if needed
+    const testKeyMap = {
+        'mann_whitney': 'mann-whitney',
+        'chi_square': 'chi-square',
+        'fisher_exact': 'fisher',
+        'kruskal_wallis': 'kruskal-wallis'
+    };
+
+    const mappedTest = testKeyMap[recommendedTest] || recommendedTest;
+    document.getElementById('sig-test-type').value = mappedTest;
+    runSignificanceTest();
+}
 
         /**
          * Update visualization controls based on chart type and selected parameters
