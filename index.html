@@ -9188,7 +9188,8 @@ function updateSignificanceGroupSelection() {
                 </table>
             </div>
         `;
-    } else if (result.test === 'Chi-Square') {
+    } 
+} else if (result.test === 'Chi-Square') {
     html += `
         <div style="margin: 15px 0;">
             <p><strong>Chi-Square (χ²):</strong> ${utils.formatNumber(result.statistic, 4)}</p>
