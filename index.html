@@ -3454,6 +3454,12 @@ if (tieCorrection > 0) {
                     const pValue = 1 - this.jstat.chisquare.cdf(H, df);
                     const etaSquared = (H - df) / (N - df);
 
+                    // Perform post-hoc tests if significant and more than 2 groups
+let postHocResults = null;
+if (pValue < alpha && validGroups.length > 2) {
+    postHocResults = this.dunnTest(validGroups, H, N, alpha);
+}
+
                     return {
                         test: 'Kruskal-Wallis',
                         H: H,
@@ -3465,7 +3471,8 @@ if (tieCorrection > 0) {
                         groupRankSums: groupRankSums,
                         etaSquared: etaSquared > 0 ? etaSquared : 0,
                         N: N,
-                        tieCorrection: false
+                        tieCorrection: false,
+                        postHoc: postHocResults
                     };
                 } catch (error) {
                     return {
@@ -3473,6 +3480,85 @@ if (tieCorrection > 0) {
                     };
                 }
             }
+
+            // Dunn's post-hoc test for Kruskal-Wallis
+dunnTest(groups, H, N, alpha = 0.05) {
+    const k = groups.length;
+    const comparisons = [];
+    
+    // Calculate average ranks for each group
+    const combined = [];
+    groups.forEach((group, groupIndex) => {
+        group.forEach(val => {
+            combined.push({ value: val, group: groupIndex });
+        });
+    });
+    
+    combined.sort((a, b) => a.value - b.value);
+    
+    // Assign ranks
+    const ranks = new Array(combined.length);
+    let i = 0;
+    while (i < combined.length) {
+        let j = i;
+        let sumRanks = 0;
+        while (j < combined.length && combined[j].value === combined[i].value) {
+            sumRanks += j + 1;
+            j++;
+        }
+        const avgRank = sumRanks / (j - i);
+        for (let k = i; k < j; k++) {
+            ranks[k] = avgRank;
+        }
+        i = j;
+    }
+    
+    // Calculate mean ranks for each group
+    const meanRanks = new Array(k).fill(0);
+    const groupSizes = groups.map(g => g.length);
+    
+    combined.forEach((item, index) => {
+        meanRanks[item.group] += ranks[index];
+    });
+    
+    meanRanks.forEach((sum, i) => {
+        meanRanks[i] = sum / groupSizes[i];
+    });
+    
+    // Perform pairwise comparisons
+    for (let i = 0; i < k - 1; i++) {
+        for (let j = i + 1; j < k; j++) {
+            const rankDiff = Math.abs(meanRanks[i] - meanRanks[j]);
+            const se = Math.sqrt((N * (N + 1) / 12) * (1/groupSizes[i] + 1/groupSizes[j]));
+            const z = rankDiff / se;
+            
+            // Two-tailed p-value
+            const pValue = 2 * (1 - this.jstat.normal.cdf(Math.abs(z), 0, 1));
+            
+            // Bonferroni correction
+            const adjustedAlpha = alpha / (k * (k - 1) / 2);
+            
+            comparisons.push({
+                group1: i + 1,
+                group2: j + 1,
+                meanRank1: meanRanks[i],
+                meanRank2: meanRanks[j],
+                rankDiff: rankDiff,
+                z: z,
+                pValue: pValue,
+                adjustedPValue: Math.min(1, pValue * (k * (k - 1) / 2)),
+                significant: pValue < adjustedAlpha
+            });
+        }
+    }
+    
+    return {
+        method: "Dunn's Test (Bonferroni)",
+        comparisons: comparisons,
+        alpha: alpha,
+        adjustedAlpha: alpha / (k * (k - 1) / 2)
+    };
+}
 
             // Chi-Square Test
             chiSquareTest(paramName, groupData, options = {}) {
@@ -3538,6 +3624,76 @@ if (tieCorrection > 0) {
                     const minDim = Math.min(categories.length - 1, groupIds.length - 1);
                     const cramersV = Math.sqrt(chiSquare / (totalCount * minDim));
 
+                    // Perform post-hoc pairwise comparisons if significant and more than 2 groups
+let postHocResults = null;
+if (pValue < alpha && groupIds.length > 2) {
+    const pairwiseComparisons = [];
+    
+    for (let i = 0; i < groupIds.length - 1; i++) {
+        for (let j = i + 1; j < groupIds.length; j++) {
+            // Create 2x2 table for this pair
+            const pairwiseTable = [];
+            const pairwiseRowTotals = [];
+            const pairwiseColTotals = [0, 0];
+            let pairwiseTotalCount = 0;
+            
+            categories.forEach(category => {
+                const row = [];
+                let rowTotal = 0;
+                
+                [i, j].forEach((groupIndex, colIndex) => {
+                    const count = groupData[groupIds[groupIndex]].filter(record =>
+                        String(record[paramName]) === String(category)
+                    ).length;
+                    
+                    row.push(count);
+                    rowTotal += count;
+                    pairwiseColTotals[colIndex] += count;
+                    pairwiseTotalCount += count;
+                });
+                
+                pairwiseTable.push(row);
+                pairwiseRowTotals.push(rowTotal);
+            });
+            
+            // Calculate chi-square for this pair
+            let pairwiseChiSquare = 0;
+            for (let row = 0; row < categories.length; row++) {
+                for (let col = 0; col < 2; col++) {
+                    const o = pairwiseTable[row][col];
+                    const e = (pairwiseRowTotals[row] * pairwiseColTotals[col]) / pairwiseTotalCount;
+                    if (e > 0) {
+                        pairwiseChiSquare += Math.pow(o - e, 2) / e;
+                    }
+                }
+            }
+            
+            const pairwiseDf = (categories.length - 1);
+            const pairwisePValue = 1 - this.jstat.chisquare.cdf(pairwiseChiSquare, pairwiseDf);
+            
+            // Bonferroni correction
+            const adjustedAlpha = alpha / (groupIds.length * (groupIds.length - 1) / 2);
+            
+            pairwiseComparisons.push({
+                group1: globalState.currentGroups[groupIds[i]].name,
+                group2: globalState.currentGroups[groupIds[j]].name,
+                chiSquare: pairwiseChiSquare,
+                df: pairwiseDf,
+                pValue: pairwisePValue,
+                adjustedPValue: Math.min(1, pairwisePValue * (groupIds.length * (groupIds.length - 1) / 2)),
+                significant: pairwisePValue < adjustedAlpha
+            });
+        }
+    }
+    
+    postHocResults = {
+        method: "Pairwise Chi-Square (Bonferroni)",
+        comparisons: pairwiseComparisons,
+        alpha: alpha,
+        adjustedAlpha: alpha / (groupIds.length * (groupIds.length - 1) / 2)
+    };
+}
+
                     // Calculate power for chi-square test
 const ncp = totalCount * cramersV * cramersV * minDim; // non-centrality parameter
 const criticalValue = this.jstat.chisquare.inv(1 - alpha, df);
@@ -3556,7 +3712,8 @@ const power = 1 - this.jstat.chisquare.cdf(criticalValue - ncp, df);
                         categories: categories,
                         groups: groupIds.map(id => globalState.currentGroups[id].name),
                         warning: hasLowExpected ? 'Some expected frequencies are less than 5, consider using Fisher\'s exact test.' : null,
-                        power: power
+                        power: power,
+                        postHoc: postHocResults
                     };
                 } catch (error) {
                     return {
@@ -8981,80 +9138,158 @@ function updateSignificanceGroupSelection() {
             </div>
         `;
     } else if (result.test === 'Kruskal-Wallis') {
+    html += `
+        <div style="margin: 15px 0;">
+            <p><strong>H Statistic:</strong> H = ${utils.formatNumber(result.H, 4)}</p>
+            <p><strong>Degrees of Freedom:</strong> df = ${result.df}</p>
+            <p><strong>p-value:</strong> ${utils.formatNumber(result.pValue, 6)} (α = ${result.alpha})</p>
+            <p><strong>Effect Size (η²):</strong> ${utils.formatNumber(result.etaSquared, 3)}</p>
+    `;
+    
+    // Add effect size interpretation
+    const effectInterp = interpretationEngine.effectSize.eta_squared(result.etaSquared);
+    html += `<p><strong>Effect Size Interpretation:</strong> ${effectInterp.description}</p>`;
+    
+    html += `
+            <p><strong>Total N:</strong> ${result.N}</p>
+            ${result.tieCorrection ? '<p><em>Note: Tie correction was applied</em></p>' : ''}
+        </div>
+    `;
+    
+    // Add post-hoc results if available
+    if (result.postHoc) {
         html += `
-            <div style="margin: 15px 0;">
-                <p><strong>H Statistic:</strong> H = ${utils.formatNumber(result.H, 4)}</p>
-                <p><strong>Degrees of Freedom:</strong> df = ${result.df}</p>
-                <p><strong>p-value:</strong> ${utils.formatNumber(result.pValue, 6)} (α = ${result.alpha})</p>
-                <p><strong>Effect Size (η²):</strong> ${utils.formatNumber(result.etaSquared, 3)}</p>
+            <div style="margin-top: 20px; padding: 15px; background-color: var(--background-medium); border-radius: 6px;">
+                <h5>Post-hoc Analysis (${result.postHoc.method})</h5>
+                <p style="font-size: 12px; color: var(--text-light);">Adjusted α = ${result.postHoc.adjustedAlpha.toFixed(4)}</p>
+                <table style="width: 100%; margin-top: 10px;">
+                    <thead>
+                        <tr>
+                            <th>Comparison</th>
+                            <th>Mean Rank Diff</th>
+                            <th>Z</th>
+                            <th>p-value</th>
+                            <th>Adjusted p</th>
+                            <th>Significant</th>
+                        </tr>
+                    </thead>
+                    <tbody>
         `;
         
-        // Add effect size interpretation
-        const effectInterp = interpretationEngine.effectSize.eta_squared(result.etaSquared);
-        html += `<p><strong>Effect Size Interpretation:</strong> ${effectInterp.description}</p>`;
+        result.postHoc.comparisons.forEach(comp => {
+            html += `
+                <tr>
+                    <td>Group ${comp.group1} vs ${comp.group2}</td>
+                    <td>${utils.formatNumber(comp.rankDiff, 2)}</td>
+                    <td>${utils.formatNumber(comp.z, 3)}</td>
+                    <td>${utils.formatNumber(comp.pValue, 4)}</td>
+                    <td>${utils.formatNumber(comp.adjustedPValue, 4)}</td>
+                    <td>${comp.significant ? '✓ Yes' : '✗ No'}</td>
+                </tr>
+            `;
+        });
         
         html += `
-                <p><strong>Total N:</strong> ${result.N}</p>
-                ${result.tieCorrection ? '<p><em>Note: Tie correction was applied</em></p>' : ''}
+                    </tbody>
+                </table>
             </div>
         `;
     } else if (result.test === 'Chi-Square') {
+    html += `
+        <div style="margin: 15px 0;">
+            <p><strong>Chi-Square (χ²):</strong> ${utils.formatNumber(result.statistic, 4)}</p>
+            <p><strong>Degrees of Freedom:</strong> df = ${result.df}</p>
+            <p><strong>p-value:</strong> ${utils.formatNumber(result.pValue, 6)} (α = ${result.alpha})</p>
+            <p><strong>Effect Size (Cramer's V):</strong> ${utils.formatNumber(result.cramersV, 3)}</p>
+    `;
+    
+    // Add effect size interpretation (using correlation scale for Cramer's V)
+    const effectInterp = interpretationEngine.effectSize.correlation(result.cramersV);
+    html += `<p><strong>Effect Size Interpretation:</strong> ${effectInterp.description}</p>`;
+    
+    html += `<p><strong>Statistical Power:</strong> ${utils.formatNumber(result.power, 3)}</p>`;
+    
+    // Add power interpretation
+    const powerInterp = interpretationEngine.power(result.power);
+    html += `<p><strong>Power Analysis:</strong> ${powerInterp.description}</p>`;
+    
+    html += `</div>`;
+
+    // Display contingency table
+    if (result.observed && result.categories && result.groups) {
         html += `
             <div style="margin: 15px 0;">
-                <p><strong>Chi-Square (χ²):</strong> ${utils.formatNumber(result.statistic, 4)}</p>
-                <p><strong>Degrees of Freedom:</strong> df = ${result.df}</p>
-                <p><strong>p-value:</strong> ${utils.formatNumber(result.pValue, 6)} (α = ${result.alpha})</p>
-                <p><strong>Effect Size (Cramer's V):</strong> ${utils.formatNumber(result.cramersV, 3)}</p>
+                <p><strong>Contingency Table (Observed Frequencies):</strong></p>
+                <div style="overflow-x: auto; margin-top: 10px;">
+                    <table style="width: auto;">
+                        <thead>
+                            <tr>
+                                <th>${paramName}</th>
+                                ${result.groups.map(group => `<th>${group}</th>`).join('')}
+                            </tr>
+                        </thead>
+                        <tbody>
+        `;
+
+        result.categories.forEach((category, i) => {
+            html += `<tr><td>${category}</td>`;
+            result.observed[i].forEach(count => {
+                html += `<td>${count}</td>`;
+            });
+            html += `</tr>`;
+        });
+
+        html += `
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        `;
+    }
+    
+    // Add post-hoc results if available
+    if (result.postHoc) {
+        html += `
+            <div style="margin-top: 20px; padding: 15px; background-color: var(--background-medium); border-radius: 6px;">
+                <h5>Post-hoc Analysis (${result.postHoc.method})</h5>
+                <p style="font-size: 12px; color: var(--text-light);">Adjusted α = ${result.postHoc.adjustedAlpha.toFixed(4)}</p>
+                <table style="width: 100%; margin-top: 10px;">
+                    <thead>
+                        <tr>
+                            <th>Comparison</th>
+                            <th>χ²</th>
+                            <th>df</th>
+                            <th>p-value</th>
+                            <th>Adjusted p</th>
+                            <th>Significant</th>
+                        </tr>
+                    </thead>
+                    <tbody>
         `;
         
-        // Add effect size interpretation (using correlation scale for Cramer's V)
-        const effectInterp = interpretationEngine.effectSize.correlation(result.cramersV);
-        html += `<p><strong>Effect Size Interpretation:</strong> ${effectInterp.description}</p>`;
-        
-        html += `<p><strong>Statistical Power:</strong> ${utils.formatNumber(result.power, 3)}</p>`;
-        
-        // Add power interpretation
-        const powerInterp = interpretationEngine.power(result.power);
-        html += `<p><strong>Power Analysis:</strong> ${powerInterp.description}</p>`;
-        
-        html += `</div>`;
-
-        // Display contingency table
-        if (result.observed && result.categories && result.groups) {
+        result.postHoc.comparisons.forEach(comp => {
             html += `
-                <div style="margin: 15px 0;">
-                    <p><strong>Contingency Table (Observed Frequencies):</strong></p>
-                    <div style="overflow-x: auto; margin-top: 10px;">
-                        <table style="width: auto;">
-                            <thead>
-                                <tr>
-                                    <th>${paramName}</th>
-                                    ${result.groups.map(group => `<th>${group}</th>`).join('')}
-                                </tr>
-                            </thead>
-                            <tbody>
+                <tr>
+                    <td>${comp.group1} vs ${comp.group2}</td>
+                    <td>${utils.formatNumber(comp.chiSquare, 3)}</td>
+                    <td>${comp.df}</td>
+                    <td>${utils.formatNumber(comp.pValue, 4)}</td>
+                    <td>${utils.formatNumber(comp.adjustedPValue, 4)}</td>
+                    <td>${comp.significant ? '✓ Yes' : '✗ No'}</td>
+                </tr>
             `;
+        });
+        
+        html += `
+                    </tbody>
+                </table>
+            </div>
+        `;
+    }
 
-            result.categories.forEach((category, i) => {
-                html += `<tr><td>${category}</td>`;
-                result.observed[i].forEach(count => {
-                    html += `<td>${count}</td>`;
-                });
-                html += `</tr>`;
-            });
-
-            html += `
-                            </tbody>
-                        </table>
-                    </div>
-                </div>
-            `;
-        }
-
-        // Show warning if present
-        if (result.warning) {
-            html += `<p style="color: #e74c3c;"><strong>Warning:</strong> ${result.warning}</p>`;
-        }
+    // Show warning if present
+    if (result.warning) {
+        html += `<p style="color: #e74c3c;"><strong>Warning:</strong> ${result.warning}</p>`;
     } else if (result.test === "Fisher's Exact Test") {
         html += `
             <div style="margin: 15px 0;">
