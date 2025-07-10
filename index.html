@@ -1798,7 +1798,7 @@
 
             <!-- Add normality override option -->
 <div class="checkbox-container" style="margin-top: 15px; padding: 12px; background-color: var(--background-dark); border-radius: 6px;">
-    <input type="checkbox" id="override-normality">onchange="updateRecommendationBasedOnOverrides()"
+    <input type="checkbox" id="override-normality" onchange="updateRecommendationBasedOnOverrides()">
     <label for="override-normality">Assume normal distribution (override test results)</label>
     <span class="tooltip">ⓘ
         <span class="tooltip-text">Check this if histogram/Q-Q plot suggests normality despite failed statistical tests. Use with caution!</span>
@@ -1807,7 +1807,7 @@
 
 <!-- Add variance homogeneity override option -->
 <div class="checkbox-container" style="margin-top: 10px; padding: 12px; background-color: var(--background-dark); border-radius: 6px;">
-    <input type="checkbox" id="override-homogeneity">onchange="updateRecommendationBasedOnOverrides()"
+    <input type="checkbox" id="override-homogeneity" onchange="updateRecommendationBasedOnOverrides()">
     <label for="override-homogeneity">Assume equal variances (override test results)</label>
     <span class="tooltip">ⓘ
         <span class="tooltip-text">Check this if you want to assume equal variances despite failed F-test. Use with caution!</span>
@@ -5078,15 +5078,21 @@ if (inlineDisplay) {
         html += '</div>';
     }
 
-    displayDiv.innerHTML = html;
-
-            // Remove any existing recommendation display
-const existingDisplay = document.getElementById('test-recommendation-display');
-if (existingDisplay) {
-    existingDisplay.innerHTML = '';
+    // Find or create the display div
+let displayDiv = document.getElementById('test-recommendation-display');
+if (!displayDiv) {
+    // If it doesn't exist, create it after the prerequisite results
+    displayDiv = document.createElement('div');
+    displayDiv.id = 'test-recommendation-display';
+    displayDiv.className = 'recommendation-display';
+    const prereqResults = document.getElementById('prerequisite-results');
+    if (prereqResults && prereqResults.parentNode) {
+        prereqResults.parentNode.insertBefore(displayDiv, prereqResults.nextSibling);
+    }
 }
-            
-    displayDiv.style.display = 'block';
+
+displayDiv.innerHTML = html;
+displayDiv.style.display = 'block';
 
     // Update buttons
     const runRecommendedBtn = document.getElementById('run-recommended-test');
@@ -5247,45 +5253,45 @@ function updateTestSelectionUI() {
         if (recommendation.recommended && recommendation.recommended.test) {
             document.getElementById('sig-test-type').value = recommendation.recommended.test.key;
         }
-    }
-
-            // Update inline display
-const inlineDisplay = document.getElementById('test-recommendation-inline');
-if (inlineDisplay && recommendation.recommended) {
-    const primary = recommendation.recommended;
-    let inlineHtml = `
-        <div style="display: flex; align-items: center; justify-content: space-between;">
-            <div>
-                <strong style="color: var(--primary-color);">🎯 Recommended Test: ${primary.test.name}</strong>
-                <div style="font-size: 14px; color: var(--text-light); margin-top: 5px;">
-                    ${primary.test.indication}
+        
+        // Update inline display
+        const inlineDisplay = document.getElementById('test-recommendation-inline');
+        if (inlineDisplay && recommendation.recommended) {
+            const primary = recommendation.recommended;
+            let inlineHtml = `
+                <div style="display: flex; align-items: center; justify-content: space-between;">
+                    <div>
+                        <strong style="color: var(--primary-color);">🎯 Recommended Test: ${primary.test.name}</strong>
+                        <div style="font-size: 14px; color: var(--text-light); margin-top: 5px;">
+                            ${primary.test.indication}
+                        </div>
+                    </div>
+                    <div style="text-align: right;">
+                        <div class="confidence-indicator">
+                            <span style="font-size: 12px; color: var(--text-light);">Confidence:</span>
+                            <span style="font-weight: bold; color: ${primary.confidence >= 80 ? 'var(--success-color)' : primary.confidence >= 60 ? 'var(--warning-color)' : 'var(--danger-color)'};">
+                                ${primary.confidence}%
+                            </span>
+                        </div>
+                    </div>
                 </div>
-            </div>
-            <div style="text-align: right;">
-                <div class="confidence-indicator">
-                    <span style="font-size: 12px; color: var(--text-light);">Confidence:</span>
-                    <span style="font-weight: bold; color: ${primary.confidence >= 80 ? 'var(--success-color)' : primary.confidence >= 60 ? 'var(--warning-color)' : 'var(--danger-color)'};">
-                        ${primary.confidence}%
-                    </span>
-                </div>
-            </div>
-        </div>
-    `;
-    
-    if (primary.violations.length > 0) {
-        inlineHtml += `
-            <div style="margin-top: 10px; padding: 10px; background-color: rgba(212, 162, 90, 0.1); border-radius: 6px;">
-                <strong style="color: var(--warning-color);">⚠️ Violations:</strong>
-                <ul style="margin: 5px 0 0 20px; font-size: 14px;">
-                    ${primary.violations.map(v => `<li>${v}</li>`).join('')}
-                </ul>
-            </div>
-        `;
+            `;
+            
+            if (primary.violations.length > 0) {
+                inlineHtml += `
+                    <div style="margin-top: 10px; padding: 10px; background-color: rgba(212, 162, 90, 0.1); border-radius: 6px;">
+                        <strong style="color: var(--warning-color);">⚠️ Violations:</strong>
+                        <ul style="margin: 5px 0 0 20px; font-size: 14px;">
+                            ${primary.violations.map(v => `<li>${v}</li>`).join('')}
+                        </ul>
+                    </div>
+                `;
+            }
+            
+            inlineDisplay.innerHTML = inlineHtml;
+            inlineDisplay.style.display = 'block';
+        }
     }
-    
-    inlineDisplay.innerHTML = inlineHtml;
-    inlineDisplay.style.display = 'block';
-}
 }
 
         /**
