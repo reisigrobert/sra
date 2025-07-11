@@ -1737,12 +1737,6 @@ body:not(.significance-tab-active) #significance-results {
                             onclick="exportTableAsCSV('overview-stats-table', 'overview-statistics')">Export Statistics
                         </button>
                     </div>
-
-                    <div class="export-section">
-                        <h5>Export Group Overview</h5>
-                        <button class="btn btn-accent btn-small" onclick="exportGroupOverview()">Export Overview Report
-                        </button>
-                    </div>
                 </div>
 
                 <!-- Detailed Analysis Tab -->
@@ -5729,11 +5723,63 @@ function checkAllPrerequisites() {
     checkNormality();
     
     // Check variance homogeneity if exactly 2 groups
+    // Check variance homogeneity if exactly 2 groups
     if (selectedGroups.length === 2) {
-        const varianceHeader = document.createElement('div');
-        varianceHeader.innerHTML = '<h5 style="margin-top: 20px;">Variance Homogeneity Test:</h5>';
-        resultsContainer.appendChild(varianceHeader);
-        checkVarianceHomogeneity();
+        // Get data for both groups
+        const group1Data = globalState.processedData[selectedGroups[0]]
+            .map(row => utils.parseNumericValue(row[paramName]))
+            .filter(val => !isNaN(val));
+        
+        const group2Data = globalState.processedData[selectedGroups[1]]
+            .map(row => utils.parseNumericValue(row[paramName]))
+            .filter(val => !isNaN(val));
+        
+        const varianceResult = statistics.fTest(group1Data, group2Data);
+        
+        // Store result
+        if (!globalState.prerequisiteResults[paramName]) {
+            globalState.prerequisiteResults[paramName] = {};
+        }
+        globalState.prerequisiteResults[paramName].varianceTest = varianceResult;
+        
+        // Display result
+        const varianceDiv = document.createElement('div');
+        varianceDiv.innerHTML = '<h5 style="margin-top: 20px;">Variance Homogeneity Test:</h5>';
+        resultsContainer.appendChild(varianceDiv);
+        
+        const resultDiv = document.createElement('div');
+        resultDiv.className = `prerequisite-result ${varianceResult.equalVariances ? 'pass' : 'fail'}`;
+        resultDiv.style.marginBottom = '15px';
+        resultDiv.style.padding = '15px';
+        resultDiv.style.backgroundColor = 'var(--background-light)';
+        resultDiv.style.borderRadius = '6px';
+        
+        if (varianceResult.error) {
+            resultDiv.innerHTML = `<strong>F-Test:</strong> ${varianceResult.error}`;
+        } else {
+            const group1Name = globalState.currentGroups[selectedGroups[0]].name;
+            const group2Name = globalState.currentGroups[selectedGroups[1]].name;
+            
+            let html = `<strong>F-Test for Equal Variances:</strong><br>`;
+            html += `${group1Name} variance: ${utils.formatNumber(varianceResult.variance1, 4)}<br>`;
+            html += `${group2Name} variance: ${utils.formatNumber(varianceResult.variance2, 4)}<br>`;
+            html += `F = ${utils.formatNumber(varianceResult.F, 4)}, p = ${utils.formatNumber(varianceResult.pValue, 4)}<br>`;
+            html += varianceResult.equalVariances ? 
+                '<strong style="color: var(--success-color);">✓ Equal variances (p > 0.05)</strong>' : 
+                '<strong style="color: var(--danger-color);">✗ Unequal variances (p ≤ 0.05) - Consider Welch\'s t-test</strong>';
+            
+            // Check if override is active
+            const overrideCheckbox = document.getElementById('override-homogeneity');
+            const isOverridden = overrideCheckbox && overrideCheckbox.checked;
+            
+            if (isOverridden) {
+                html += '<br><strong style="color: var(--warning-color);">⚠️ Variance homogeneity assumption manually overridden</strong>';
+            }
+            
+            resultDiv.innerHTML = html;
+        }
+        
+        resultsContainer.appendChild(resultDiv);
     }
     
     // Automatically get test recommendation
@@ -7636,6 +7682,19 @@ utils.showError(`Group "${group.name}" references non-existent constellation "${
             const table = document.getElementById('overview-stats-table');
             let html = '<thead><tr><th>Parameter</th><th>Scale</th><th>Group</th><th>N</th><th>Mean/Median</th><th>SD/IQR</th><th>Min</th><th>Max</th></tr></thead><tbody>';
 
+// Add explanation about statistics used
+            const explanationDiv = document.createElement('div');
+            explanationDiv.style.cssText = 'margin-bottom: 15px; padding: 15px; background-color: var(--background-light); border-radius: 8px; border: 1px solid var(--border-color);';
+            explanationDiv.innerHTML = `
+                <p style="font-size: 14px; color: var(--text-light);">
+                    <strong>📊 Statistical Measures Used:</strong><br>
+                    • <strong>Ordinal data (o):</strong> Median and IQR (Interquartile Range) - appropriate for ranked data without equal intervals<br>
+                    • <strong>Interval/Ratio data (i/r):</strong> Mean and SD (Standard Deviation) - appropriate for continuous data with meaningful intervals<br>
+                    • <strong>Categorical data (k):</strong> Mode and frequency counts - appropriate for nominal categories
+                </p>
+            `;
+            document.getElementById('overview-stats-table').parentNode.insertBefore(explanationDiv, document.getElementById('overview-stats-table'));
+            
             // All parameters
             globalState.columnNames.forEach(paramName => {
                 const paramType = globalState.columnTypes[paramName];
@@ -11498,18 +11557,30 @@ utils.showError(`Invalid numeric value for parameter '${parameter}': ${condition
         lines.push('DIAGNOSTIC TEST METRICS:');
         lines.push('-'.repeat(40));
         
-        // Performance metrics
+         // Performance metrics
         lines.push('Test Performance:');
-        lines.push(`  Sensitivity: ${(dm.sensitivity * 100).toFixed(1)}% [95% CI: ${(dm.sensitivityCI[0] * 100).toFixed(1)}%-${(dm.sensitivityCI[1] * 100).toFixed(1)}%]`);
-        lines.push(`  Specificity: ${(dm.specificity * 100).toFixed(1)}% [95% CI: ${(dm.specificityCI[0] * 100).toFixed(1)}%-${(dm.specificityCI[1] * 100).toFixed(1)}%]`);
-        lines.push(`  Accuracy: ${(dm.accuracy * 100).toFixed(1)}%`);
+        if (dm.sensitivity !== undefined && dm.sensitivityCI) {
+            lines.push(`  Sensitivity: ${(dm.sensitivity * 100).toFixed(1)}% [95% CI: ${(dm.sensitivityCI[0] * 100).toFixed(1)}%-${(dm.sensitivityCI[1] * 100).toFixed(1)}%]`);
+        }
+        if (dm.specificity !== undefined && dm.specificityCI) {
+            lines.push(`  Specificity: ${(dm.specificity * 100).toFixed(1)}% [95% CI: ${(dm.specificityCI[0] * 100).toFixed(1)}%-${(dm.specificityCI[1] * 100).toFixed(1)}%]`);
+        }
+        if (dm.accuracy !== undefined) {
+            lines.push(`  Accuracy: ${(dm.accuracy * 100).toFixed(1)}%`);
+        }
         lines.push('');
         
         // Predictive values
         lines.push('Predictive Values:');
-        lines.push(`  Positive Predictive Value (PPV): ${(dm.ppv * 100).toFixed(1)}% [95% CI: ${(dm.ppvCI[0] * 100).toFixed(1)}%-${(dm.ppvCI[1] * 100).toFixed(1)}%]`);
-        lines.push(`  Negative Predictive Value (NPV): ${(dm.npv * 100).toFixed(1)}% [95% CI: ${(dm.npvCI[0] * 100).toFixed(1)}%-${(dm.npvCI[1] * 100).toFixed(1)}%]`);
-        lines.push(`  Prevalence: ${(dm.prevalence * 100).toFixed(1)}%`);
+        if (dm.ppv !== undefined && dm.ppvCI) {
+            lines.push(`  Positive Predictive Value (PPV): ${(dm.ppv * 100).toFixed(1)}% [95% CI: ${(dm.ppvCI[0] * 100).toFixed(1)}%-${(dm.ppvCI[1] * 100).toFixed(1)}%]`);
+        }
+        if (dm.npv !== undefined && dm.npvCI) {
+            lines.push(`  Negative Predictive Value (NPV): ${(dm.npv * 100).toFixed(1)}% [95% CI: ${(dm.npvCI[0] * 100).toFixed(1)}%-${(dm.npvCI[1] * 100).toFixed(1)}%]`);
+        }
+        if (dm.prevalence !== undefined) {
+            lines.push(`  Prevalence: ${(dm.prevalence * 100).toFixed(1)}%`);
+        }
         lines.push('');
         
         // Likelihood ratios
