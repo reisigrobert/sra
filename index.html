@@ -7803,11 +7803,17 @@ globalState.recordAssignments = new Array(globalState.rawData.length).fill(null)
             let html = '<thead><tr><th>Parameter</th><th>Scale</th><th>Group</th><th>N</th><th>Mean/Median</th><th>SD/IQR</th><th>Min</th><th>Max</th></tr></thead><tbody>';
 
             // All parameters
-            globalState.columnNames.forEach(paramName => {
-                const paramType = globalState.columnTypes[paramName];
-                const scaleInfo = utils.getScaleInfo(paramType);
+globalState.columnNames.forEach(paramName => {
+    const paramType = globalState.columnTypes[paramName];
+    const scaleInfo = utils.getScaleInfo(paramType);
 
-                Object.entries(globalState.currentGroups).forEach(([groupId, group]) => {
+    // DEBUG SINGLE GROUP ISSUE
+    console.log("Processing parameter:", paramName);
+    const groups = Object.entries(globalState.currentGroups);
+    console.log("Groups to process:", groups.length);
+    
+    groups.forEach(([groupId, group]) => {
+        console.log("Group details:", groupId, group);
                     const color = group.customColor || groupColors[group.colorIndex % groupColors.length];
                     const bgColor = typeof color === 'string' ? color : color.bg;
 
