@@ -1,3 +1,4 @@
+
 <!DOCTYPE html>
 <html lang="en">
 
@@ -2562,17 +2563,12 @@ body:not(.significance-tab-active) #significance-results {
              * Format a number with thousands separators and fixed decimals
              */
             formatNumber(value, decimals = 2) {
-    if (value === null || value === undefined || isNaN(value) || !isFinite(value)) {
-        return '-';
-    }
+                if (value === null || value === undefined || isNaN(value)) {
+                    return '-';
+                }
 
-    try {
-        return value.toFixed(decimals);
-    } catch (e) {
-        console.warn('Error formatting number:', value, e);
-        return '-';
-    }
-},
+                return value.toFixed(decimals);
+            },
 
             /**
              * Format number for CSV export using detected decimal separator
@@ -4143,9 +4139,6 @@ calculateProportionCI(proportion, n, alpha = 0.05) {
 }
 
 calculateOddsRatioCI(a, b, c, d) {
-    if (a === 0 || b === 0 || c === 0 || d === 0) {
-        return [NaN, NaN];
-    }
     const logOR = Math.log((a * d) / (b * c));
     const se = Math.sqrt(1/a + 1/b + 1/c + 1/d);
     const z = 1.96;
@@ -4156,9 +4149,6 @@ calculateOddsRatioCI(a, b, c, d) {
 }
 
 calculateRiskDifferenceCI(a, b, c, d) {
-    if ((a + b) === 0 || (c + d) === 0) {
-        return [NaN, NaN];
-    }
     const p1 = a / (a + b);
     const p2 = c / (c + d);
     const rd = p1 - p2;
@@ -5515,6 +5505,7 @@ function updateTestSelectionUI() {
 
     // Clear previous results
     const resultsContainer = document.getElementById('prerequisite-results');
+    resultsContainer.innerHTML = '';
 
     // Store results
     if (!globalState.prerequisiteResults[paramName]) {
@@ -5695,11 +5686,6 @@ if (isOverridden) {
             resultsContainer.appendChild(resultDiv);
         }
 
-            // Force a reflow to ensure the variance test is visible
-    resultsContainer.style.display = 'none';
-    resultsContainer.offsetHeight; // Force reflow
-    resultsContainer.style.display = 'block';
-
         /**
  * Check all prerequisites at once
  */
@@ -5738,71 +5724,13 @@ function checkAllPrerequisites() {
     headerDiv.innerHTML = '<h5>Normality Test Results:</h5>';
     resultsContainer.appendChild(headerDiv);
     checkNormality();
-
-    // Ensure the variance test results are displayed if they exist
-if (selectedGroups.length === 2) {
-    const varianceHeaderDiv = document.createElement('div');
-    varianceHeaderDiv.innerHTML = '<h5 style="margin-top: 20px;">Variance Homogeneity Test:</h5>';
-    resultsContainer.appendChild(varianceHeaderDiv);
-}
     
-    // Check variance homogeneity if exactly 2 groups
+// Check variance homogeneity if exactly 2 groups are selected
     if (selectedGroups.length === 2) {
-        // Get data for both groups
-        const group1Data = globalState.processedData[selectedGroups[0]]
-            .map(row => utils.parseNumericValue(row[paramName]))
-            .filter(val => !isNaN(val));
-        
-        const group2Data = globalState.processedData[selectedGroups[1]]
-            .map(row => utils.parseNumericValue(row[paramName]))
-            .filter(val => !isNaN(val));
-        
-        const varianceResult = statistics.fTest(group1Data, group2Data);
-        
-        // Store result
-        if (!globalState.prerequisiteResults[paramName]) {
-            globalState.prerequisiteResults[paramName] = {};
-        }
-        globalState.prerequisiteResults[paramName].varianceTest = varianceResult;
-        
-        // Display result
-        const varianceDiv = document.createElement('div');
-        varianceDiv.innerHTML = '<h5 style="margin-top: 20px;">Variance Homogeneity Test:</h5>';
-        resultsContainer.appendChild(varianceDiv);
-        
-        const resultDiv = document.createElement('div');
-        resultDiv.className = `prerequisite-result ${varianceResult.equalVariances ? 'pass' : 'fail'}`;
-        resultDiv.style.marginBottom = '15px';
-        resultDiv.style.padding = '15px';
-        resultDiv.style.backgroundColor = 'var(--background-light)';
-        resultDiv.style.borderRadius = '6px';
-        
-        if (varianceResult.error) {
-            resultDiv.innerHTML = `<strong>F-Test:</strong> ${varianceResult.error}`;
-        } else {
-            const group1Name = globalState.currentGroups[selectedGroups[0]].name;
-            const group2Name = globalState.currentGroups[selectedGroups[1]].name;
-            
-            let html = `<strong>F-Test for Equal Variances:</strong><br>`;
-            html += `${group1Name} variance: ${utils.formatNumber(varianceResult.variance1, 4)}<br>`;
-            html += `${group2Name} variance: ${utils.formatNumber(varianceResult.variance2, 4)}<br>`;
-            html += `F = ${utils.formatNumber(varianceResult.F, 4)}, p = ${utils.formatNumber(varianceResult.pValue, 4)}<br>`;
-            html += varianceResult.equalVariances ? 
-                '<strong style="color: var(--success-color);">✓ Equal variances (p > 0.05)</strong>' : 
-                '<strong style="color: var(--danger-color);">✗ Unequal variances (p ≤ 0.05) - Consider Welch\'s t-test</strong>';
-            
-            // Check if override is active
-            const overrideCheckbox = document.getElementById('override-homogeneity');
-            const isOverridden = overrideCheckbox && overrideCheckbox.checked;
-            
-            if (isOverridden) {
-                html += '<br><strong style="color: var(--warning-color);">⚠️ Variance homogeneity assumption manually overridden</strong>';
-            }
-            
-            resultDiv.innerHTML = html;
-        }
-        
-        resultsContainer.appendChild(resultDiv);
+        const varianceHeaderDiv = document.createElement('div');
+        varianceHeaderDiv.innerHTML = '<h5 style="margin-top: 20px;">Variance Homogeneity Test (F-Test):</h5>';
+        resultsContainer.appendChild(varianceHeaderDiv);
+        checkVarianceHomogeneity(); // This will now append the results
     }
     
     // Automatically get test recommendation
@@ -7731,7 +7659,7 @@ utils.showError(`Group "${group.name}" references non-existent constellation "${
                         // Numeric parameters
                         const groupData = globalState.processedData[groupId]
                             .map(row => utils.parseNumericValue(row[paramName]))
-                            .filter(val => !isNaN(val) && isFinite(val));
+                            .filter(val => !isNaN(val));
 
                         const stats = statistics.calculate(groupData);
 
@@ -7741,39 +7669,31 @@ utils.showError(`Group "${group.name}" references non-existent constellation "${
                         if (stats.count > 0) {
                             if (paramType === 'o') {
                                 // Ordinal: use median and IQR
-                                if (stats.median !== null && stats.median !== undefined && !isNaN(stats.median) && isFinite(stats.median)) {
-                                    centralTendency = utils.formatNumber(stats.median, 2);
-                                }
-                                if (stats.iqr !== null && stats.iqr !== undefined && !isNaN(stats.iqr) && isFinite(stats.iqr)) {
-                                    dispersion = utils.formatNumber(stats.iqr, 2);
-                                }
+                                centralTendency = stats.median !== null ? utils.formatNumber(stats.median, 2) : '-';
+                                dispersion = stats.iqr !== null ? utils.formatNumber(stats.iqr, 2) : '-';
                             } else {
                                 // Interval/Ratio: use mean and SD
-                                if (stats.mean !== null && stats.mean !== undefined && !isNaN(stats.mean) && isFinite(stats.mean)) {
-                                    centralTendency = utils.formatNumber(stats.mean, 2);
-                                }
-                                if (stats.stdDev !== null && stats.stdDev !== undefined && !isNaN(stats.stdDev) && isFinite(stats.stdDev)) {
-                                    dispersion = utils.formatNumber(stats.stdDev, 2);
-                                }
+                                centralTendency = stats.mean !== null ? utils.formatNumber(stats.mean, 2) : '-';
+                                dispersion = stats.stdDev !== null ? utils.formatNumber(stats.stdDev, 2) : '-';
                             }
                         }
 
                         html += `
-    <tr>
-        <td><strong>${paramName}</strong></td>
-        <td><span class="scale-badge ${scaleInfo.class}">${paramType.toUpperCase()}</span></td>
-        <td>
-            <span class="group-badge" style="background-color: ${bgColor};">
-                ${group.name}
-            </span>
-        </td>
-        <td>${stats.count}</td>
-        <td>${centralTendency}</td>
-        <td>${dispersion}</td>
-        <td>${(stats.min !== null && stats.min !== undefined && !isNaN(stats.min) && isFinite(stats.min)) ? utils.formatNumber(stats.min, 2) : '-'}</td>
-                            <td>${(stats.max !== null && stats.max !== undefined && !isNaN(stats.max) && isFinite(stats.max)) ? utils.formatNumber(stats.max, 2) : '-'}</td>
-    </tr>
-`;
+                            <tr>
+                                <td><strong>${paramName}</strong></td>
+                                <td><span class="scale-badge ${scaleInfo.class}">${paramType.toUpperCase()}</span></td>
+                                <td>
+                                    <span class="group-badge" style="background-color: ${bgColor};">
+                                        ${group.name}
+                                    </span>
+                                </td>
+                                <td>${stats.count}</td>
+                                <td>${centralTendency}</td>
+                                <td>${dispersion}</td>
+                                <td>${stats.min !== null ? utils.formatNumber(stats.min, 2) : '-'}</td>
+                                <td>${stats.max !== null ? utils.formatNumber(stats.max, 2) : '-'}</td>
+                            </tr>
+                        `;
                     } else {
                         // Categorical parameters
                         const groupData = globalState.processedData[groupId]
@@ -11516,6 +11436,42 @@ utils.showError(`Invalid numeric value for parameter '${parameter}': ${condition
                 lines.push('');
             });
         }
+
+        // Prerequisite test results if available
+        if (globalState.prerequisiteResults[testResult.paramName]) {
+            const prereqs = globalState.prerequisiteResults[testResult.paramName];
+            lines.push('');
+            lines.push('PREREQUISITE CHECKS:');
+
+            // Normality
+            let normalityOutput = false;
+            testResult.groupNames.forEach(groupName => {
+                const groupPrereq = Object.values(prereqs).find(p => p.normality && globalState.currentGroups[Object.keys(globalState.currentGroups).find(key => globalState.currentGroups[key].name === groupName)]);
+                if (groupPrereq && groupPrereq.normality) {
+                    if (!normalityOutput) {
+                        lines.push('Normality (Shapiro-Wilk):');
+                        normalityOutput = true;
+                    }
+                    const normResult = groupPrereq.normality;
+                    let normText = `  - ${groupName}: p=${normResult.pValue?.toFixed(4)}, ${normResult.normal ? 'Normal' : 'Not Normal'}`;
+                    if (groupPrereq.overridden) {
+                        normText += ' (Overridden)';
+                    }
+                    lines.push(normText);
+                }
+            });
+
+            // Variance Homogeneity
+            if (prereqs.varianceTest && testResult.groupNames.length === 2) {
+                const varianceResult = prereqs.varianceTest;
+                lines.push('Variance Homogeneity (F-Test):');
+                let varianceText = `  - p=${varianceResult.pValue?.toFixed(4)}, ${varianceResult.equalVariances ? 'Equal Variances' : 'Unequal Variances'}`;
+                if (prereqs.varianceTest.overridden) {
+                    varianceText += ' (Overridden)';
+                }
+                lines.push(varianceText);
+            }
+        }
         
         // Test violations if any
         if (result.violations && result.violations.length > 0) {
@@ -11692,41 +11648,31 @@ utils.showError(`Invalid numeric value for parameter '${parameter}': ${condition
     lines.push('ASSOCIATION MEASURES:');
     lines.push('-'.repeat(40));
     
-   if (results.stats && results.stats.odds && results.stats.odds.oddsRatio !== undefined && isFinite(results.stats.odds.oddsRatio)) {
-        let line = `Odds Ratio: ${results.stats.odds.oddsRatio.toFixed(3)}`;
-        if (results.stats.odds.oddsRatioCI && 
-            results.stats.odds.oddsRatioCI[0] !== undefined && 
-            results.stats.odds.oddsRatioCI[1] !== undefined &&
-            isFinite(results.stats.odds.oddsRatioCI[0]) &&
-            isFinite(results.stats.odds.oddsRatioCI[1])) {
-            line += ` [95% CI: ${results.stats.odds.oddsRatioCI[0].toFixed(3)}-${results.stats.odds.oddsRatioCI[1].toFixed(3)}]`;
+  if (results.stats.odds.oddsRatio !== undefined && isFinite(results.stats.odds.oddsRatio)) {
+        let oddsRatioCI_text = 'N/A';
+        if (results.stats.odds.oddsRatioCI && isFinite(results.stats.odds.oddsRatioCI[0]) && isFinite(results.stats.odds.oddsRatioCI[1])) {
+            oddsRatioCI_text = `${results.stats.odds.oddsRatioCI[0].toFixed(3)}-${results.stats.odds.oddsRatioCI[1].toFixed(3)}`;
         }
-        lines.push(line);
+        lines.push(`Odds Ratio: ${results.stats.odds.oddsRatio.toFixed(3)} [95% CI: ${oddsRatioCI_text}]`);
     }
     
-    if (results.stats && results.stats.risk && results.stats.risk.riskDifference !== undefined && isFinite(results.stats.risk.riskDifference)) {
-        let line = `Risk Difference: ${results.stats.risk.riskDifference.toFixed(3)}`;
-        if (results.stats.risk.riskDifferenceCI && 
-            results.stats.risk.riskDifferenceCI[0] !== undefined && 
-            results.stats.risk.riskDifferenceCI[1] !== undefined &&
-            isFinite(results.stats.risk.riskDifferenceCI[0]) &&
-            isFinite(results.stats.risk.riskDifferenceCI[1])) {
-            line += ` [95% CI: ${results.stats.risk.riskDifferenceCI[0].toFixed(3)}-${results.stats.risk.riskDifferenceCI[1].toFixed(3)}]`;
+    if (results.stats.risk.riskDifference !== undefined && isFinite(results.stats.risk.riskDifference)) {
+        let riskDifferenceCI_text = 'N/A';
+        if (results.stats.risk.riskDifferenceCI && isFinite(results.stats.risk.riskDifferenceCI[0]) && isFinite(results.stats.risk.riskDifferenceCI[1])) {
+            riskDifferenceCI_text = `${results.stats.risk.riskDifferenceCI[0].toFixed(3)}-${results.stats.risk.riskDifferenceCI[1].toFixed(3)}`;
         }
-        lines.push(line);
+        lines.push(`Risk Difference: ${results.stats.risk.riskDifference.toFixed(3)} [95% CI: ${riskDifferenceCI_text}]`);
     }
     
-    if (results.stats && results.stats.risk && results.stats.risk.riskRatio !== undefined && isFinite(results.stats.risk.riskRatio)) {
+    if (results.stats.risk.riskRatio !== undefined && isFinite(results.stats.risk.riskRatio)) {
         lines.push(`Risk Ratio: ${results.stats.risk.riskRatio.toFixed(3)}`);
     }
     
-    if (results.stats && results.stats.risk && results.stats.risk.nnt !== undefined && isFinite(results.stats.risk.nnt)) {
+    if (results.stats.risk.nnt !== undefined && isFinite(results.stats.risk.nnt)) {
         lines.push(`Number Needed to Treat (NNT): ${Math.abs(results.stats.risk.nnt).toFixed(1)}`);
     }
     
-    if (results.stats && results.stats.phi !== undefined && isFinite(results.stats.phi)) {
-        lines.push(`Phi Coefficient: ${results.stats.phi.toFixed(3)}`);
-    }
+    lines.push(`Phi Coefficient: ${results.stats.phi.toFixed(3)}`);
     lines.push('');
     
     // Statistical tests
