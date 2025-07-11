@@ -1848,30 +1848,31 @@ body:not(.significance-tab-active) #significance-results {
     
     <!-- Step 2: Optional Prerequisites (completely independent) -->
     <div class="card" style="background-color: var(--background-medium); margin-bottom: 30px;">
-        <h4>📋 Step 2: Check Prerequisites (Optional)</h4>
-        
-        <div style="text-align: center; margin-bottom: 20px;">
-            <button id="check-prerequisites" class="btn btn-primary">Check Prerequisites & Get Recommendation</button>
+    <h4>📋 Step 2: Check Prerequisites (Optional)</h4>
+    
+    <div style="text-align: center; margin-bottom: 20px;">
+        <button id="check-prerequisites" class="btn btn-primary">Check Prerequisites & Get Recommendation</button>
+    </div>
+    
+    <!-- Override checkboxes moved to top -->
+    <div style="margin-bottom: 20px;">
+        <div class="checkbox-container" style="padding: 12px; background-color: var(--background-dark); border-radius: 6px; margin-bottom: 10px;">
+            <input type="checkbox" id="override-normality" onchange="updateRecommendationBasedOnOverrides()">
+            <label for="override-normality">Override normality assumption</label>
         </div>
-        
-        <div id="prerequisite-results" style="margin-bottom: 20px;"></div>
-        
-        <div id="test-recommendation-display" style="display: none; margin-bottom: 20px; padding: 15px; background-color: var(--background-light); border-radius: 8px; border: 1px solid var(--primary-color);">
-            <h5 style="color: var(--primary-color); margin-bottom: 10px;">🎯 Recommended Test</h5>
-            <div id="recommendation-content"></div>
-        </div>
-        
-        <div style="margin-top: 20px;">
-            <div class="checkbox-container" style="padding: 12px; background-color: var(--background-dark); border-radius: 6px; margin-bottom: 10px;">
-                <input type="checkbox" id="override-normality">
-                <label for="override-normality">Override normality assumption</label>
-            </div>
-            <div class="checkbox-container" style="padding: 12px; background-color: var(--background-dark); border-radius: 6px;">
-                <input type="checkbox" id="override-homogeneity">
-                <label for="override-homogeneity">Override variance homogeneity assumption</label>
-            </div>
+        <div class="checkbox-container" style="padding: 12px; background-color: var(--background-dark); border-radius: 6px;">
+            <input type="checkbox" id="override-homogeneity" onchange="updateRecommendationBasedOnOverrides()">
+            <label for="override-homogeneity">Override variance homogeneity assumption</label>
         </div>
     </div>
+    
+    <div id="prerequisite-results" style="margin-bottom: 20px;"></div>
+    
+    <div id="test-recommendation-display" style="display: none; margin-bottom: 20px; padding: 15px; background-color: var(--background-light); border-radius: 8px; border: 1px solid var(--primary-color);">
+        <h5 style="color: var(--primary-color); margin-bottom: 10px;">🎯 Recommended Test</h5>
+        <div id="recommendation-content"></div>
+    </div>
+</div>
     
     <!-- Step 3: Test Execution (completely independent) -->
     <div class="card" style="background-color: var(--background-medium); margin-bottom: 30px;">
@@ -1897,6 +1898,7 @@ body:not(.significance-tab-active) #significance-results {
                         <option value="fisher">Fisher's Exact (2x2 tables, small samples)</option>
                     </optgroup>
                 </select>
+                <div id="test-info" class="test-info" style="display: none; margin-top: 10px;"></div>
             </div>
             <div class="flex-item">
                 <label for="sig-alpha">Significance Level (α):</label>
@@ -4921,6 +4923,10 @@ document.addEventListener('DOMContentLoaded', function() {
 
             // Prerequisite tests
             document.getElementById('check-prerequisites').addEventListener('click', checkAllPrerequisites);
+
+            // Override checkboxes
+document.getElementById('override-normality').addEventListener('change', updateRecommendationBasedOnOverrides);
+document.getElementById('override-homogeneity').addEventListener('change', updateRecommendationBasedOnOverrides);
             
             // Visualization controls
             document.getElementById('viz-chart-type').addEventListener('change', updateVisualizationControls);
@@ -5167,74 +5173,28 @@ document.getElementById('regression-custom-alpha').addEventListener('change', up
     const primary = recommendation.recommended;
     const groupNames = selectedGroups.map(id => globalState.currentGroups[id].name);
 
-    let html = `
-        <div class="recommendation-card confidence-${getConfidenceClass(primary.confidence)}">
-            <div class="recommended-test-header">
-                <h5>🎯 Recommended Test: ${primary.test.name}</h5>
-            </div>
-            
-            <div class="test-indication">
-                <p><strong>Application:</strong> ${primary.test.indication}</p>
-            </div>
-            
-            <div class="test-details">
-                <p><strong>Parameter:</strong> ${paramName}</p>
-                <p><strong>Group:</strong> ${groupNames.join(', ')}</p>
-                <p><strong>Test Category:</strong> ${getTestCategoryName(primary.test.category)}</p>
-            </div>
+    // Simple recommendation display
+const displayDiv = document.getElementById('test-recommendation-display');
+const contentDiv = document.getElementById('recommendation-content');
+
+if (displayDiv && contentDiv) {
+    contentDiv.innerHTML = `
+        <p><strong>${primary.test.name}</strong></p>
+        <p style="margin: 10px 0; color: var(--text-light);">${primary.test.indication}</p>
+        <p><strong>Confidence:</strong> ${primary.confidence}%</p>
+        ${primary.violations.length > 0 ? 
+            `<p style="color: var(--warning-color);"><strong>Note:</strong> ${primary.violations.join(', ')}</p>` : 
+            '<p style="color: var(--success-color);"><strong>✓ All prerequisites met</strong></p>'
+        }
     `;
+    displayDiv.style.display = 'block';
+    
+    // Auto-select the recommended test
+    document.getElementById('sig-test-type').value = primary.test.key;
+}
 
-    if (primary.violations.length > 0) {
-        html += `
-            <div class="test-violations">
-                <h6>⚠️ Prerequisite Violations:</h6>
-                <ul>
-                    ${primary.violations.map(v => `<li>${v}</li>`).join('')}
-                </ul>
-            </div>
-        `;
-    }
-
-    if (primary.warnings.length > 0) {
-        html += `
-            <div class="test-warnings">
-                <h6>💡 Notes:</h6>
-                <ul>
-                    ${primary.warnings.map(w => `<li>${w}</li>`).join('')}
-                </ul>
-            </div>
-        `;
-    }
-
-    if (recommendation.alternatives.length > 0) {
-        html += `
-            <div class="alternative-tests">
-                <h6>🔄 Alternative Tests:</h6>
-                <ul>
-        `;
-
-        recommendation.alternatives.forEach(alt => {
-            html += `
-                <li>
-                    <strong>${alt.test.name}</strong>
-                    <br><small>${alt.test.indication}</small>
-                </li>
-            `;
-        });
-
-        html += `
-                </ul>
-            </div>
-        `;
-    }
-
-    html += `
-            <div class="recommendation-explanation">
-                <h6>📝 Reasoning:</h6>
-                <div class="explanation-text">${recommendation.explanation.replace(/\n/g, '<br>')}</div>
-            </div>
-        </div>
-    `;
+// Don't display prerequisites again - they're already shown above
+return;
 
     // Add prerequisite overview
     if (recommendation.prerequisites) {
@@ -11287,256 +11247,349 @@ utils.showError(`Invalid numeric value for parameter '${parameter}': ${condition
         /**
          * Export significance test results
          */
-        function exportSignificanceTests() {
-            if (globalState.significanceResults.length === 0) {
-                utils.showError("No significance test results to export.");
-                return;
-            }
+        Copyfunction exportSignificanceTests() {
+    if (globalState.significanceResults.length === 0) {
+        utils.showError("No significance test results to export.");
+        return;
+    }
 
-            // Build content efficiently
-            const lines = ['SIGNIFICANCE TEST RESULTS'];
-            lines.push(`Generated: ${new Date().toLocaleDateString()}`);
+    const lines = ['STATISTICAL SIGNIFICANCE TEST RESULTS'];
+    lines.push('=' .repeat(60));
+    lines.push(`Generated: ${new Date().toLocaleDateString()} ${new Date().toLocaleTimeString()}`);
+    lines.push(`Total Tests Performed: ${globalState.significanceResults.length}`);
+    lines.push('');
+
+    globalState.significanceResults.forEach((testResult, index) => {
+        const result = testResult.result;
+        
+        // Test header with test type
+        lines.push('-'.repeat(60));
+        lines.push(`${result.test.toUpperCase()}`);
+        lines.push('-'.repeat(60));
+        
+        // Basic information
+        lines.push(`Parameter: ${testResult.paramName}`);
+        lines.push(`Groups Compared: ${testResult.groupNames.join(' vs ')}`);
+        lines.push(`Test Performed: ${new Date(testResult.timestamp).toLocaleString()}`);
+        lines.push('');
+        
+        // Main result
+        lines.push('RESULT:');
+        lines.push(`Status: ${result.significant ? 'STATISTICALLY SIGNIFICANT' : 'NOT STATISTICALLY SIGNIFICANT'}`);
+        lines.push(`p-value: ${result.pValue?.toFixed(6) || 'N/A'}`);
+        lines.push(`Significance Level (α): ${result.alpha}`);
+        lines.push('');
+        
+        // Test-specific statistics
+        lines.push('TEST STATISTICS:');
+        
+        if (result.test === 't-Test' || result.test === "Welch's t-Test") {
+            lines.push(`t-statistic: ${result.statistic?.toFixed(4)}`);
+            lines.push(`Degrees of Freedom: ${result.df?.toFixed(2)}`);
+            lines.push(`Effect Size (Cohen's d): ${result.effectSize?.toFixed(3)}`);
+            lines.push(`Mean Difference: ${result.meanDifference?.toFixed(3)}`);
+            lines.push(`${(1 - result.alpha) * 100}% Confidence Interval: [${result.confidenceInterval[0].toFixed(3)}, ${result.confidenceInterval[1].toFixed(3)}]`);
+            lines.push(`Statistical Power: ${result.power?.toFixed(3)}`);
             lines.push('');
-
-            globalState.significanceResults.forEach((testResult, index) => {
-                lines.push(`TEST ${index + 1}`);
-                lines.push(`Parameter: ${testResult.paramName}`);
-                lines.push(`Groups: ${testResult.groupNames.join(', ')}`);
-                lines.push(`Test: ${testResult.result.test}`);
-                lines.push(`p-value: ${testResult.result.pValue?.toFixed(6) || 'N/A'}`);
-                lines.push(`Significant: ${testResult.result.significant ? 'Yes' : 'No'}`);
-                lines.push(`Alpha: ${testResult.result.alpha}`);
-
-                if (testResult.result.statistic !== undefined) {
-                    lines.push(`Test Statistic: ${testResult.result.statistic.toFixed(4)}`);
+            lines.push('GROUP STATISTICS:');
+            lines.push(`Group 1 (${testResult.groupNames[0]}): n=${result.group1Stats.count}, Mean=${result.group1Stats.mean?.toFixed(3)}, SD=${result.group1Stats.stdDev?.toFixed(3)}`);
+            lines.push(`Group 2 (${testResult.groupNames[1]}): n=${result.group2Stats.count}, Mean=${result.group2Stats.mean?.toFixed(3)}, SD=${result.group2Stats.stdDev?.toFixed(3)}`);
+            
+        } else if (result.test === 'ANOVA') {
+            lines.push(`F-statistic: F(${result.dfBetween}, ${result.dfWithin}) = ${result.statistic?.toFixed(4)}`);
+            lines.push(`Effect Size (η²): ${result.etaSquared?.toFixed(3)}`);
+            lines.push(`Statistical Power: ${result.power?.toFixed(3)}`);
+            lines.push('');
+            lines.push('SUM OF SQUARES:');
+            lines.push(`Between Groups: ${result.ssb?.toFixed(3)}`);
+            lines.push(`Within Groups: ${result.ssw?.toFixed(3)}`);
+            lines.push(`Mean Square Between: ${result.msb?.toFixed(3)}`);
+            lines.push(`Mean Square Within: ${result.msw?.toFixed(3)}`);
+            
+            if (result.groupStats) {
+                lines.push('');
+                lines.push('GROUP STATISTICS:');
+                result.groupStats.forEach((stat, idx) => {
+                    lines.push(`${testResult.groupNames[idx]}: n=${stat.n}, Mean=${stat.mean?.toFixed(3)}, SD=${stat.stdDev?.toFixed(3)}`);
+                });
+            }
+            
+        } else if (result.test === 'Mann-Whitney U') {
+            lines.push(`U Statistic: ${result.U}`);
+            lines.push(`Effect Size (r): ${result.effectSize?.toFixed(3)}`);
+            lines.push(`Sample Sizes: n₁=${result.n1}, n₂=${result.n2}`);
+            lines.push(`Rank Sums: R₁=${result.rankSum1?.toFixed(1)}, R₂=${result.rankSum2?.toFixed(1)}`);
+            lines.push(`Mean U: ${result.meanU?.toFixed(2)}`);
+            lines.push(`Standard Deviation U: ${result.sdU?.toFixed(2)}`);
+            if (result.tieCorrection) {
+                lines.push('Note: Tie correction was applied');
+            }
+            
+        } else if (result.test === 'Kruskal-Wallis') {
+            lines.push(`H Statistic: ${result.H?.toFixed(4)}`);
+            lines.push(`Degrees of Freedom: ${result.df}`);
+            lines.push(`Effect Size (η²): ${result.etaSquared?.toFixed(3)}`);
+            lines.push(`Total Sample Size: ${result.N}`);
+            if (result.groupSizes) {
+                lines.push(`Group Sizes: ${result.groupSizes.join(', ')}`);
+            }
+            if (result.groupRankSums) {
+                lines.push(`Group Rank Sums: ${result.groupRankSums.map(r => r.toFixed(1)).join(', ')}`);
+            }
+            if (result.tieCorrection) {
+                lines.push('Note: Tie correction was applied');
+            }
+            
+        } else if (result.test === 'Chi-Square') {
+            lines.push(`Chi-Square (χ²): ${result.statistic?.toFixed(4)}`);
+            lines.push(`Degrees of Freedom: ${result.df}`);
+            lines.push(`Effect Size (Cramer's V): ${result.cramersV?.toFixed(3)}`);
+            lines.push(`Statistical Power: ${result.power?.toFixed(3)}`);
+            
+            if (result.observed && result.categories && result.groups) {
+                lines.push('');
+                lines.push('CONTINGENCY TABLE:');
+                // Header
+                lines.push(`\t${result.groups.join('\t')}`);
+                // Data rows
+                result.categories.forEach((cat, i) => {
+                    lines.push(`${cat}\t${result.observed[i].join('\t')}`);
+                });
+            }
+            
+            if (result.warning) {
+                lines.push('');
+                lines.push(`Warning: ${result.warning}`);
+            }
+            
+        } else if (result.test === "Fisher's Exact Test") {
+            lines.push(`Odds Ratio: ${result.oddsRatio?.toFixed(3)}`);
+            
+            if (result.table && result.categories && result.groups) {
+                lines.push('');
+                lines.push('2x2 CONTINGENCY TABLE:');
+                lines.push(`\t${result.groups[0]}\t${result.groups[1]}`);
+                lines.push(`${result.categories[0]}\t${result.table[0][0]}\t${result.table[1][0]}`);
+                lines.push(`${result.categories[1]}\t${result.table[0][1]}\t${result.table[1][1]}`);
+            }
+        }
+        
+        // Post-hoc analysis if present
+        if (result.postHoc && result.postHoc.comparisons) {
+            lines.push('');
+            lines.push(`POST-HOC ANALYSIS (${result.postHoc.method}):`);
+            if (result.postHoc.adjustedAlpha) {
+                lines.push(`Adjusted Alpha: ${result.postHoc.adjustedAlpha.toFixed(4)}`);
+            }
+            lines.push('');
+            
+            result.postHoc.comparisons.forEach(comp => {
+                lines.push(`${testResult.groupNames[comp.group1 - 1]} vs ${testResult.groupNames[comp.group2 - 1]}:`);
+                
+                if (comp.meanDiff !== undefined) {
+                    lines.push(`  Mean Difference: ${comp.meanDiff.toFixed(3)}`);
                 }
-
-                if (testResult.result.effectSize !== undefined) {
-                    lines.push(`Effect Size: ${testResult.result.effectSize.toFixed(3)}`);
+                if (comp.rankDiff !== undefined) {
+                    lines.push(`  Mean Rank Difference: ${comp.rankDiff.toFixed(2)}`);
                 }
-
-               if (testResult.result.power !== undefined) {
-    lines.push(`Power: ${testResult.result.power.toFixed(3)}`);
-}
-
-if (testResult.result.confidenceInterval) {
-    lines.push(`Confidence Interval: [${testResult.result.confidenceInterval[0].toFixed(3)}, ${testResult.result.confidenceInterval[1].toFixed(3)}]`);
-}
-
-if (testResult.result.group1Stats && testResult.result.group2Stats) {
-    lines.push(`Group 1: n=${testResult.result.group1Stats.count}, Mean=${testResult.result.group1Stats.mean?.toFixed(3)}, SD=${testResult.result.group1Stats.stdDev?.toFixed(3)}`);
-    lines.push(`Group 2: n=${testResult.result.group2Stats.count}, Mean=${testResult.result.group2Stats.mean?.toFixed(3)}, SD=${testResult.result.group2Stats.stdDev?.toFixed(3)}`);
-}
-
-if (testResult.result.violations) {
-                    lines.push('Violations: ' + testResult.result.violations.join('; '));
+                if (comp.z !== undefined) {
+                    lines.push(`  Z-statistic: ${comp.z.toFixed(3)}`);
                 }
-
-                // ADD HERE - Post-hoc results
-                if (testResult.result.postHoc && testResult.result.postHoc.comparisons) {
-                    lines.push('Post-hoc Analysis (' + testResult.result.postHoc.method + '):');
-                    testResult.result.postHoc.comparisons.forEach(comp => {
-                        const pVal = comp.adjustedPValue || comp.pValue;
-                        lines.push(`  Group ${comp.group1} vs ${comp.group2}: p=${pVal?.toFixed(4)}, Significant=${comp.significant ? 'Yes' : 'No'}`);
-                    });
+                if (comp.chiSquare !== undefined) {
+                    lines.push(`  Chi-Square: ${comp.chiSquare.toFixed(3)}`);
                 }
-
-                //ANOVA details
-                if (testResult.result.test === 'ANOVA') {
-                    lines.push(`F-statistic: F(${testResult.result.dfBetween}, ${testResult.result.dfWithin}) = ${testResult.result.statistic.toFixed(4)}`);
-                    lines.push(`Sum of Squares Between: ${testResult.result.ssb?.toFixed(3)}`);
-                    lines.push(`Sum of Squares Within: ${testResult.result.ssw?.toFixed(3)}`);
-                    lines.push(`Eta Squared: ${testResult.result.etaSquared?.toFixed(3)}`);
+                
+                const pVal = comp.adjustedPValue || comp.pValue;
+                lines.push(`  p-value: ${pVal?.toFixed(4)}`);
+                lines.push(`  Significant: ${comp.significant ? 'Yes' : 'No'}`);
+                
+                if (comp.lowerCI !== undefined && comp.upperCI !== undefined) {
+                    lines.push(`  95% CI: [${comp.lowerCI.toFixed(3)}, ${comp.upperCI.toFixed(3)}]`);
                 }
-
                 lines.push('');
             });
-
-            // Create and trigger download immediately
-            const content = lines.join('\n');
-            const timestamp = utils.getTimestamp();
-
-            // Use a data URL for small files (more efficient)
-            const dataUrl = 'data:text/plain;charset=utf-8,' + encodeURIComponent(content);
-
-            const link = document.createElement('a');
-            link.href = dataUrl;
-            link.download = `sra-${timestamp}-significance-tests.txt`;
-            link.click();
-
-            utils.showSuccess('Significance test results exported successfully!');
         }
+        
+        // Test violations if any
+        if (result.violations && result.violations.length > 0) {
+            lines.push('');
+            lines.push('TEST REQUIREMENT VIOLATIONS:');
+            result.violations.forEach(v => lines.push(`- ${v}`));
+        }
+        
+        lines.push('');
+    });
+
+    // Create and download file
+    const content = lines.join('\n');
+    const timestamp = utils.getTimestamp();
+    const blob = new Blob([content], { type: 'text/plain;charset=utf-8;' });
+    const link = document.createElement('a');
+    const url = URL.createObjectURL(blob);
+
+    link.setAttribute('href', url);
+    link.setAttribute('download', `sra-${timestamp}-significance-tests.txt`);
+    link.click();
+
+    URL.revokeObjectURL(url);
+    utils.showSuccess('Significance test results exported successfully!');
+}
+
 
         /**
          * Export fourfold table results
          */
         function exportFourfoldTable() {
-            if (!globalState.fourfoldResults) {
-                utils.showError("No fourfold table results to export.");
-                return;
-            }
+    if (!globalState.fourfoldResults) {
+        utils.showError("No fourfold table results to export.");
+        return;
+    }
 
-            const results = globalState.fourfoldResults;
-            const lines = [];
+    const results = globalState.fourfoldResults;
+    const lines = [];
 
-            lines.push('DIAGNOSTIC TEST ANALYSIS');
-            lines.push(`Generated: ${new Date().toLocaleDateString()}`);
-            lines.push('');
-
-            const testName = results.not1 ? `NOT ${results.testConstellation}` : results.testConstellation;
-            const conditionName = results.not2 ? `NOT ${results.trueConditionConstellation}` : results.trueConditionConstellation;
-
-            lines.push(`Test: ${testName}`);
-            lines.push(`True Condition (Gold Standard): ${conditionName}`);
-            lines.push('');
-
-            // Add validation information if present
-            if (results.validation && (!results.validation.isValid || results.validation.warnings.length > 0)) {
-                lines.push('DATA VALIDATION ISSUES');
-                lines.push('-'.repeat(40));
-
-                if (results.validation.errors.length > 0) {
-                    lines.push('Errors:');
-                    results.validation.errors.forEach(error => {
-                        lines.push(`  - ${error}`);
-                    });
-                    lines.push('');
-                }
-
-                if (results.validation.warnings.length > 0) {
-                    lines.push('Warnings:');
-                    results.validation.warnings.forEach(warning => {
-                        lines.push(`  - ${warning}`);
-                    });
-                    lines.push('');
-                }
-            }
-
-            lines.push('CONTINGENCY TABLE');
-            lines.push(`\t${conditionName} (+)\t${conditionName} (−)`);
-            lines.push(`${testName} (+)\t${results.table[0][0]} (TP)\t${results.table[0][1]} (FP)`);
-            lines.push(`${testName} (−)\t${results.table[1][0]} (FN)\t${results.table[1][1]} (TN)`);
-            lines.push('');
-
-            // Only export diagnostic metrics if validation passed
-            if (results.validation.isValid) {
-                lines.push('DIAGNOSTIC TEST METRICS');
-                const dm = results.diagnosticMetrics;
-
-                // Helper function to format metric with CI
-                const formatMetric = (name, value, ci = null, isPercentage = true) => {
-                    if (!isNaN(value) && isFinite(value)) {
-                        let line = `${name}: `;
-                        if (isPercentage) {
-                            line += `${(value * 100).toFixed(1)}%`;
-                            if (ci && !isNaN(ci[0]) && !isNaN(ci[1])) {
-                                line += ` [95% CI: ${(ci[0] * 100).toFixed(1)}%-${(ci[1] * 100).toFixed(1)}%]`;
-                            }
-                        } else {
-                            line += value.toFixed(3);
-                        }
-                        return line;
-                    } else if (value === Infinity) {
-                        return `${name}: ∞ (Infinity)`;
-                    } else {
-                        return `${name}: Cannot be calculated`;
-                    }
-                };
-
-                lines.push(formatMetric('Sensitivity', dm.sensitivity, dm.sensitivityCI));
-                lines.push(formatMetric('Specificity', dm.specificity, dm.specificityCI));
-                lines.push(formatMetric('Positive Predictive Value (PPV)', dm.ppv, dm.ppvCI));
-                lines.push(formatMetric('Negative Predictive Value (NPV)', dm.npv, dm.npvCI));
-                lines.push(formatMetric('Accuracy', dm.accuracy));
-                lines.push(formatMetric('Prevalence', dm.prevalence));
-                lines.push('');
-
-                lines.push('LIKELIHOOD RATIOS');
-                if (!isNaN(dm.lrPositive) && isFinite(dm.lrPositive)) {
-                    lines.push(`Positive Likelihood Ratio (LR+): ${dm.lrPositive.toFixed(2)}`);
-                } else if (dm.lrPositive === Infinity) {
-                    lines.push('Positive Likelihood Ratio (LR+): ∞ (Perfect specificity)');
-                } else {
-                    lines.push('Positive Likelihood Ratio (LR+): Cannot be calculated');
-                }
-
-                if (!isNaN(dm.lrNegative) && isFinite(dm.lrNegative)) {
-                    lines.push(`Negative Likelihood Ratio (LR−): ${dm.lrNegative.toFixed(2)}`);
-                } else if (dm.lrNegative === Infinity) {
-                    lines.push('Negative Likelihood Ratio (LR−): ∞');
-                } else {
-                    lines.push('Negative Likelihood Ratio (LR−): Cannot be calculated');
-                }
-
-                if (!isNaN(dm.dor) && isFinite(dm.dor)) {
-                    lines.push(`Diagnostic Odds Ratio (DOR): ${dm.dor.toFixed(2)}`);
-                } else if (dm.dor === Infinity) {
-                    lines.push('Diagnostic Odds Ratio (DOR): ∞ (Perfect test)');
-                } else {
-                    lines.push('Diagnostic Odds Ratio (DOR): Cannot be calculated');
-                }
-                lines.push('');
-
-                lines.push('ADDITIONAL METRICS');
-                lines.push(formatMetric("Youden's Index", dm.youdenIndex, null, false));
-                lines.push(formatMetric('Matthews Correlation Coefficient', dm.mcc, null, false));
-                lines.push(formatMetric('F1 Score', dm.f1Score, null, false));
-                lines.push('');
-            } else {
-                lines.push('DIAGNOSTIC TEST METRICS');
-    lines.push('Cannot be calculated due to validation errors.');
+    lines.push('DIAGNOSTIC TEST ANALYSIS - FOURFOLD TABLE');
+    lines.push('=' .repeat(60));
+    lines.push(`Generated: ${new Date().toLocaleDateString()} ${new Date().toLocaleTimeString()}`);
     lines.push('');
+
+    // Test configuration
+    const testName = results.not1 ? `NOT ${results.testConstellation}` : results.testConstellation;
+    const conditionName = results.not2 ? `NOT ${results.trueConditionConstellation}` : results.trueConditionConstellation;
+
+    lines.push('TEST CONFIGURATION:');
+    lines.push(`Test (What is being tested): ${testName}`);
+    lines.push(`True Condition (Gold Standard): ${conditionName}`);
+    lines.push('');
+
+    // Validation status
+    if (results.validation) {
+        lines.push('DATA VALIDATION:');
+        if (results.validation.isValid) {
+            lines.push('Status: ✓ Valid - All requirements met');
+        } else {
+            lines.push('Status: ✗ Invalid - Critical errors present');
+            if (results.validation.errors.length > 0) {
+                lines.push('Errors:');
+                results.validation.errors.forEach(error => lines.push(`  - ${error}`));
             }
-
-            lines.push('ASSOCIATION MEASURES');
-            lines.push(`Sample Size: ${results.stats.n}`);
-
-            if (results.stats.odds.oddsRatio !== undefined && !isNaN(results.stats.odds.oddsRatio)) {
-                lines.push(`Odds Ratio: ${results.stats.odds.oddsRatio.toFixed(3)}`);
-                lines.push(`Odds Ratio 95% CI: [${results.stats.odds.oddsRatioCI[0].toFixed(3)}, ${results.stats.odds.oddsRatioCI[1].toFixed(3)}]`);
-            }
-
-            if (results.stats.risk.riskDifference !== undefined && !isNaN(results.stats.risk.riskDifference)) {
-                lines.push(`Risk Difference: ${results.stats.risk.riskDifference.toFixed(3)}`);
-                lines.push(`Risk Difference 95% CI: [${results.stats.risk.riskDifferenceCI[0].toFixed(3)}, ${results.stats.risk.riskDifferenceCI[1].toFixed(3)}]`);
-            }
-
-            if (results.stats.risk.riskRatio !== undefined && !isNaN(results.stats.risk.riskRatio)) {
-                lines.push(`Risk Ratio: ${results.stats.risk.riskRatio.toFixed(3)}`);
-            }
-
-            if (results.stats.risk.nnt !== undefined && !isNaN(results.stats.risk.nnt)) {
-                lines.push(`Number Needed to Treat: ${results.stats.risk.nnt.toFixed(1)}`);
-            }
-
-            if (results.stats.chiSquare.statistic !== undefined) {
-                lines.push(`Chi-Square: ${results.stats.chiSquare.statistic.toFixed(3)}`);
-                lines.push(`Chi-Square p-value: ${results.stats.chiSquare.pValue.toFixed(4)}`);
-                lines.push(`Chi-Square with Yates correction: ${results.stats.chiSquare.statisticYates.toFixed(3)}`);
-                lines.push(`Chi-Square with Yates p-value: ${results.stats.chiSquare.pValueYates.toFixed(4)}`);
-            }
-
-            if (results.stats.fisherExact.pValue !== undefined) {
-                lines.push(`Fisher's Exact p-value: ${results.stats.fisherExact.pValue.toFixed(4)}`);
-            }
-
-            if (results.stats.phi !== undefined) {
-                lines.push(`Phi Coefficient: ${results.stats.phi.toFixed(3)}`);
-            }
-
-            const content = lines.join('\n');
-            const timestamp = utils.getTimestamp();
-
-            // Use data URL
-            const dataUrl = 'data:text/plain;charset=utf-8,' + encodeURIComponent(content);
-
-            const link = document.createElement('a');
-            link.href = dataUrl;
-            link.download = `sra-${timestamp}-diagnostic-test-analysis.txt`;
-            link.click();
-
-            utils.showSuccess('Diagnostic test analysis exported successfully!');
         }
+        
+        if (results.validation.warnings.length > 0) {
+            lines.push('Warnings:');
+            results.validation.warnings.forEach(warning => lines.push(`  - ${warning}`));
+        }
+        lines.push('');
+    }
+
+    // Contingency table
+    lines.push('CONTINGENCY TABLE:');
+    lines.push('-'.repeat(40));
+    lines.push(`\t\t${conditionName} (+)\t${conditionName} (−)`);
+    lines.push(`${testName} (+)\t${results.table[0][0]} (TP)\t\t${results.table[0][1]} (FP)`);
+    lines.push(`${testName} (−)\t${results.table[1][0]} (FN)\t\t${results.table[1][1]} (TN)`);
+    lines.push('-'.repeat(40));
+    lines.push(`Total Sample Size: ${results.stats.n}`);
+    lines.push('');
+
+    // Diagnostic metrics (if valid)
+    if (results.validation.isValid && results.diagnosticMetrics) {
+        const dm = results.diagnosticMetrics;
+        lines.push('DIAGNOSTIC TEST METRICS:');
+        lines.push('-'.repeat(40));
+        
+        // Performance metrics
+        lines.push('Test Performance:');
+        lines.push(`  Sensitivity: ${(dm.sensitivity * 100).toFixed(1)}% [95% CI: ${(dm.sensitivityCI[0] * 100).toFixed(1)}%-${(dm.sensitivityCI[1] * 100).toFixed(1)}%]`);
+        lines.push(`  Specificity: ${(dm.specificity * 100).toFixed(1)}% [95% CI: ${(dm.specificityCI[0] * 100).toFixed(1)}%-${(dm.specificityCI[1] * 100).toFixed(1)}%]`);
+        lines.push(`  Accuracy: ${(dm.accuracy * 100).toFixed(1)}%`);
+        lines.push('');
+        
+        // Predictive values
+        lines.push('Predictive Values:');
+        lines.push(`  Positive Predictive Value (PPV): ${(dm.ppv * 100).toFixed(1)}% [95% CI: ${(dm.ppvCI[0] * 100).toFixed(1)}%-${(dm.ppvCI[1] * 100).toFixed(1)}%]`);
+        lines.push(`  Negative Predictive Value (NPV): ${(dm.npv * 100).toFixed(1)}% [95% CI: ${(dm.npvCI[0] * 100).toFixed(1)}%-${(dm.npvCI[1] * 100).toFixed(1)}%]`);
+        lines.push(`  Prevalence: ${(dm.prevalence * 100).toFixed(1)}%`);
+        lines.push('');
+        
+        // Likelihood ratios
+        lines.push('Likelihood Ratios:');
+        if (isFinite(dm.lrPositive)) {
+            lines.push(`  Positive Likelihood Ratio (LR+): ${dm.lrPositive.toFixed(2)}`);
+        } else {
+            lines.push(`  Positive Likelihood Ratio (LR+): ∞ (Perfect specificity)`);
+        }
+        
+        if (isFinite(dm.lrNegative)) {
+            lines.push(`  Negative Likelihood Ratio (LR−): ${dm.lrNegative.toFixed(2)}`);
+        } else {
+            lines.push(`  Negative Likelihood Ratio (LR−): 0 (Perfect sensitivity)`);
+        }
+        
+        if (isFinite(dm.dor)) {
+            lines.push(`  Diagnostic Odds Ratio (DOR): ${dm.dor.toFixed(2)}`);
+        } else {
+            lines.push(`  Diagnostic Odds Ratio (DOR): ∞ (Perfect test)`);
+        }
+        lines.push('');
+        
+        // Additional metrics
+        lines.push('Additional Metrics:');
+        lines.push(`  Youden's Index: ${dm.youdenIndex.toFixed(3)}`);
+        lines.push(`  F1 Score: ${dm.f1Score.toFixed(3)}`);
+        lines.push(`  Matthews Correlation Coefficient (MCC): ${dm.mcc.toFixed(3)}`);
+        lines.push('');
+    }
+
+    // Association measures (always available)
+    lines.push('ASSOCIATION MEASURES:');
+    lines.push('-'.repeat(40));
+    
+    if (results.stats.odds.oddsRatio !== undefined && isFinite(results.stats.odds.oddsRatio)) {
+        lines.push(`Odds Ratio: ${results.stats.odds.oddsRatio.toFixed(3)} [95% CI: ${results.stats.odds.oddsRatioCI[0].toFixed(3)}-${results.stats.odds.oddsRatioCI[1].toFixed(3)}]`);
+    }
+    
+    if (results.stats.risk.riskDifference !== undefined && isFinite(results.stats.risk.riskDifference)) {
+        lines.push(`Risk Difference: ${results.stats.risk.riskDifference.toFixed(3)} [95% CI: ${results.stats.risk.riskDifferenceCI[0].toFixed(3)}-${results.stats.risk.riskDifferenceCI[1].toFixed(3)}]`);
+    }
+    
+    if (results.stats.risk.riskRatio !== undefined && isFinite(results.stats.risk.riskRatio)) {
+        lines.push(`Risk Ratio: ${results.stats.risk.riskRatio.toFixed(3)}`);
+    }
+    
+    if (results.stats.risk.nnt !== undefined && isFinite(results.stats.risk.nnt)) {
+        lines.push(`Number Needed to Treat (NNT): ${Math.abs(results.stats.risk.nnt).toFixed(1)}`);
+    }
+    
+    lines.push(`Phi Coefficient: ${results.stats.phi.toFixed(3)}`);
+    lines.push('');
+    
+    // Statistical tests
+    lines.push('STATISTICAL TESTS:');
+    lines.push('-'.repeat(40));
+    lines.push(`Chi-Square Test:`);
+    lines.push(`  χ² = ${results.stats.chiSquare.statistic.toFixed(3)}`);
+    lines.push(`  p-value = ${results.stats.chiSquare.pValue.toFixed(4)} ${results.stats.chiSquare.pValue < 0.05 ? '(Significant)' : '(Not significant)'}`);
+    lines.push(`  With Yates correction: χ² = ${results.stats.chiSquare.statisticYates.toFixed(3)}, p = ${results.stats.chiSquare.pValueYates.toFixed(4)}`);
+    lines.push('');
+    
+    lines.push(`Fisher's Exact Test:`);
+    lines.push(`  p-value = ${results.stats.fisherExact.pValue.toFixed(4)} ${results.stats.fisherExact.pValue < 0.05 ? '(Significant)' : '(Not significant)'}`);
+    
+    // Create and download file
+    const content = lines.join('\n');
+    const timestamp = utils.getTimestamp();
+    const blob = new Blob([content], { type: 'text/plain;charset=utf-8;' });
+    const link = document.createElement('a');
+    const url = URL.createObjectURL(blob);
+
+    link.setAttribute('href', url);
+    link.setAttribute('download', `sra-${timestamp}-fourfold-table-analysis.txt`);
+    link.click();
+
+    URL.revokeObjectURL(url);
+    utils.showSuccess('Fourfold table analysis exported successfully!');
+}
     </script>
 </body>
 
