@@ -538,15 +538,23 @@
         }
 
         .tab-content {
-            display: none;
-            animation: fadeIn var(--transition-speed) ease-in;
-        }
+    display: none;
+    animation: fadeIn var(--transition-speed) ease-in;
+}
 
-        .tab-content.active {
-            display: block;
-        }
+.tab-content.active {
+    display: block;
+}
 
-        .tab-content:not(.active) {
+/* Force hide all significance test elements outside significance tab */
+body:not(.significance-tab-active) #sig-parameter-select,
+body:not(.significance-tab-active) #sig-group-selection,
+body:not(.significance-tab-active) #check-prerequisites,
+body:not(.significance-tab-active) #run-significance-test,
+body:not(.significance-tab-active) #clear-significance-results,
+body:not(.significance-tab-active) #test-recommendation-inline,
+body:not(.significance-tab-active) #prerequisite-results,
+body:not(.significance-tab-active) #significance-results {
     display: none !important;
 }
 
@@ -617,16 +625,69 @@
         /* Buttons */
         .btn {
             padding: 8px 20px;
-            border: 1px solid transparent;
-            border-radius: 8px;
-            color: white;
-            font-weight: 500;
-            cursor: pointer;
-            transition: all var(--transition-speed) ease;
-            margin: 4px;
-            font-size: 14px;
-            background-color: transparent;
+    border: 1px solid transparent;
+    border-radius: 8px;
+    color: white;
+    font-weight: 500;
+    cursor: pointer;
+    transition: all var(--transition-speed) ease;
+    margin: 8px;
+    font-size: 14px;
+    background-color: transparent;
         }
+
+        /* Specific spacing for export buttons */
+.text-center .btn {
+    margin-top: 20px;
+    margin-bottom: 10px;
+}
+
+/* Card spacing */
+.card {
+    background: var(--card-background);
+    border-radius: 12px;
+    box-shadow: var(--box-shadow);
+    padding: 24px;
+    margin-bottom: 30px;
+    border: 1px solid var(--border-color);
+}
+
+/* Export section spacing */
+.export-section {
+    margin-top: 30px;
+    padding: 20px;
+    background-color: var(--background-medium);
+    border-radius: 8px;
+    border: 1px solid var(--border-color);
+}
+
+.export-section h5 {
+    margin-bottom: 15px;
+    color: var(--text-color);
+    font-size: 14px;
+}
+
+/* Button container spacing */
+.flex-container {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 25px;
+}
+
+/* Tab button spacing */
+.tab-button {
+    padding: 10px 20px;
+    background-color: transparent;
+    border: none;
+    cursor: pointer;
+    font-weight: 500;
+    border-radius: 8px;
+    margin-right: 8px;
+    white-space: nowrap;
+    transition: all var(--transition-speed) ease;
+    color: var(--text-light);
+    font-size: 14px;
+}
 
         .btn:hover {
             transform: translateY(-1px);
@@ -1762,14 +1823,12 @@
                     </div>
                 </div>
 
-               <!-- Significance Tests Tab -->
+              <!-- Significance Tests Tab -->
 <div class="tab-content" id="significance">
     <h3>Statistical Significance Tests</h3>
-    <div id="test-recommendation-inline" style="margin-bottom: 15px; padding: 15px; background-color: var(--background-light); border-radius: 8px; border: 1px solid var(--border-color); display: none;">
-    <!-- Recommendation will be displayed here -->
-</div>
+    
     <!-- Step 1: Parameter and Group Selection -->
-    <div class="card" style="background-color: var(--background-medium); margin-bottom: 20px;">
+    <div class="card" style="background-color: var(--background-medium); margin-bottom: 30px;">
         <h4>📊 Step 1: Select Parameter and Groups</h4>
         
         <div class="flex-container" style="margin-bottom: 20px;">
@@ -1787,73 +1846,58 @@
         </div>
     </div>
     
-    <!-- Step 2: Test Configuration -->
-    <div class="card" style="background-color: var(--background-medium); margin-bottom: 20px;">
-        <h4>⚙️ Step 2: Test Configuration</h4>
+    <!-- Step 2: Optional Prerequisites (completely independent) -->
+    <div class="card" style="background-color: var(--background-medium); margin-bottom: 30px;">
+        <h4>📋 Step 2: Check Prerequisites (Optional)</h4>
         
-        <!-- Test Prerequisites Section -->
-        <div class="test-prerequisites" style="margin-bottom: 20px;">
-            <h5>Check Prerequisites</h5>
-            <div style="text-align: center;">
-    <button id="check-prerequisites" class="btn btn-primary">Check Prerequisites</button>
-    <span class="tooltip">ⓘ
-        <span class="tooltip-text">Performs normality tests (Shapiro-Wilk) for all groups and variance homogeneity test (F-test) for 2 groups if applicable.</span>
-    </span>
-</div>
-            <div id="prerequisite-results"></div>
-
-            <!-- Add normality override option -->
-<div class="checkbox-container" style="margin-top: 15px; padding: 12px; background-color: var(--background-dark); border-radius: 6px;">
-    <input type="checkbox" id="override-normality" onchange="updateRecommendationBasedOnOverrides()">
-    <label for="override-normality">Assume normal distribution (override test results)</label>
-    <span class="tooltip">ⓘ
-        <span class="tooltip-text">Check this if histogram/Q-Q plot suggests normality despite failed statistical tests. Use with caution!</span>
-    </span>
-</div>
-
-<!-- Add variance homogeneity override option -->
-<div class="checkbox-container" style="margin-top: 10px; padding: 12px; background-color: var(--background-dark); border-radius: 6px;">
-    <input type="checkbox" id="override-homogeneity" onchange="updateRecommendationBasedOnOverrides()">
-    <label for="override-homogeneity">Assume equal variances (override test results)</label>
-    <span class="tooltip">ⓘ
-        <span class="tooltip-text">Check this if you want to assume equal variances despite failed F-test. Use with caution!</span>
-    </span>
-</div>
+        <div style="text-align: center; margin-bottom: 20px;">
+            <button id="check-prerequisites" class="btn btn-primary">Check Prerequisites & Get Recommendation</button>
         </div>
         
-        <!-- Manual Test Selection -->
-<div style="margin-bottom: 20px;">
-    <h5>Test Selection</h5>
-    <div class="flex-container">
-        <div class="flex-item">
-            <label for="sig-test-type">Test Method:</label>
-            <select id="sig-test-type" style="width: 100%; margin-top: 5px;">
-                <option value="">Select test manually...</option>
-                <optgroup label="Parametric Tests">
-                    <option value="ttest">t-Test (2 groups, normal distribution)</option>
-                    <option value="welch">Welch's t-Test (2 groups, unequal variances)</option>
-                    <option value="anova">ANOVA (>2 groups, normal distribution)</option>
-                </optgroup>
-                <optgroup label="Non-Parametric Tests">
-                    <option value="mann-whitney">Mann-Whitney U (2 groups, non-normal)</option>
-                    <option value="wilcoxon">Wilcoxon Signed-Rank (paired samples)</option>
-                    <option value="kruskal-wallis">Kruskal-Wallis (>2 groups, non-normal)</option>
-                </optgroup>
-                <optgroup label="Categorical Tests">
-                    <option value="chi-square">Chi-Square (categorical data)</option>
-                    <option value="fisher">Fisher's Exact (2x2 tables, small samples)</option>
-                </optgroup>
-            </select>
+        <div id="prerequisite-results" style="margin-bottom: 20px;"></div>
+        
+        <div id="test-recommendation-display" style="display: none; margin-bottom: 20px; padding: 15px; background-color: var(--background-light); border-radius: 8px; border: 1px solid var(--primary-color);">
+            <h5 style="color: var(--primary-color); margin-bottom: 10px;">🎯 Recommended Test</h5>
+            <div id="recommendation-content"></div>
+        </div>
+        
+        <div style="margin-top: 20px;">
+            <div class="checkbox-container" style="padding: 12px; background-color: var(--background-dark); border-radius: 6px; margin-bottom: 10px;">
+                <input type="checkbox" id="override-normality">
+                <label for="override-normality">Override normality assumption</label>
+            </div>
+            <div class="checkbox-container" style="padding: 12px; background-color: var(--background-dark); border-radius: 6px;">
+                <input type="checkbox" id="override-homogeneity">
+                <label for="override-homogeneity">Override variance homogeneity assumption</label>
+            </div>
         </div>
     </div>
-    <!-- ADD THIS DIV -->
-    <div id="test-info" class="test-info" style="display: none; margin-top: 10px;"></div>
-</div>
-            
-</div>
+    
+    <!-- Step 3: Test Execution (completely independent) -->
+    <div class="card" style="background-color: var(--background-medium); margin-bottom: 30px;">
+        <h4>🧪 Step 3: Run Statistical Test</h4>
         
-        <!-- Test Parameters -->
         <div class="flex-container" style="margin-bottom: 20px;">
+            <div class="flex-item">
+                <label for="sig-test-type">Test Method:</label>
+                <select id="sig-test-type" style="width: 100%; margin-top: 5px;">
+                    <option value="">Select test manually...</option>
+                    <optgroup label="Parametric Tests">
+                        <option value="ttest">t-Test (2 groups, normal distribution)</option>
+                        <option value="welch">Welch's t-Test (2 groups, unequal variances)</option>
+                        <option value="anova">ANOVA (>2 groups, normal distribution)</option>
+                    </optgroup>
+                    <optgroup label="Non-Parametric Tests">
+                        <option value="mann-whitney">Mann-Whitney U (2 groups, non-normal)</option>
+                        <option value="wilcoxon">Wilcoxon Signed-Rank (paired samples)</option>
+                        <option value="kruskal-wallis">Kruskal-Wallis (>2 groups, non-normal)</option>
+                    </optgroup>
+                    <optgroup label="Categorical Tests">
+                        <option value="chi-square">Chi-Square (categorical data)</option>
+                        <option value="fisher">Fisher's Exact (2x2 tables, small samples)</option>
+                    </optgroup>
+                </select>
+            </div>
             <div class="flex-item">
                 <label for="sig-alpha">Significance Level (α):</label>
                 <select id="sig-alpha" style="width: 100%; margin-top: 5px;">
@@ -1863,8 +1907,7 @@
                     <option value="custom">Custom</option>
                 </select>
                 <input type="number" id="sig-custom-alpha" style="width: 100%; margin-top: 5px; display: none;" 
-                       min="0.001" max="0.5" step="0.001" value="0.05" 
-                       placeholder="Enter custom alpha (0.001-0.5)">
+                       min="0.001" max="0.5" step="0.001" value="0.05">
             </div>
             <div class="flex-item">
                 <label for="sig-direction">Test Direction:</label>
@@ -1873,29 +1916,14 @@
                     <option value="left">Left-sided (<)</option>
                     <option value="right">Right-sided (>)</option>
                 </select>
-                <div style="margin-top: 5px;">
-                    <span class="tooltip">ⓘ
-                        <span class="tooltip-text">
-                            Two-sided: Tests if groups are different<br>
-                            Left-sided: Tests if Group 1 < Group 2<br>
-                            Right-sided: Tests if Group 1 > Group 2<br>
-                            Note: Only applicable for certain tests
-                        </span>
-                    </span>
-                </div>
             </div>
         </div>
-    </div>
-    
-    <!-- Step 3: Run Test -->
-    <div class="card" style="background-color: var(--background-medium); margin-bottom: 20px;">
-        <h4>🚀 Step 3: Run Test</h4>
         
-        <div style="text-align: center; margin: 20px 0;">
-            <button id="run-significance-test" class="btn btn-primary" style="padding: 12px 40px; font-size: 16px;" disabled>
-                Run Significance Test
+        <div style="text-align: center; margin: 30px 0;">
+            <button id="run-significance-test" class="btn btn-primary" style="padding: 12px 40px; font-size: 16px;">
+                Run Statistical Test
             </button>
-            <button id="clear-significance-results" class="btn btn-danger" style="margin-left: 10px;">
+            <button id="clear-significance-results" class="btn btn-danger" style="margin-left: 15px;">
                 Clear Results
             </button>
         </div>
@@ -1905,9 +1933,9 @@
     <div id="significance-results"></div>
     
     <!-- Export Section -->
-    <div class="export-section">
+    <div class="export-section" style="margin-top: 30px;">
         <h5>Export Test Results</h5>
-        <button class="btn btn-accent btn-small" onclick="exportSignificanceTests()">
+        <button class="btn btn-accent btn-small" onclick="exportSignificanceTests()" style="margin-top: 15px;">
             Export All Test Results
         </button>
     </div>
@@ -4971,14 +4999,20 @@ document.getElementById('regression-custom-alpha').addEventListener('change', up
 
             tabButtons.forEach(button => {
                 button.addEventListener('click', () => {
-                    // Deactivate all tabs
-                    tabButtons.forEach(btn => btn.classList.remove('active'));
-                    document.querySelectorAll('.tab-content').forEach(content => content.classList.remove('active'));
+    // Deactivate all tabs
+    tabButtons.forEach(btn => btn.classList.remove('active'));
+    document.querySelectorAll('.tab-content').forEach(content => content.classList.remove('active'));
+    document.body.classList.remove('significance-tab-active');
 
-                    // Activate selected tab
-                    button.classList.add('active');
-                    const tabId = button.getAttribute('data-tab');
-                    document.getElementById(tabId).classList.add('active');
+    // Activate selected tab
+    button.classList.add('active');
+    const tabId = button.getAttribute('data-tab');
+    document.getElementById(tabId).classList.add('active');
+    
+    // Add special class for significance tab
+    if (tabId === 'significance') {
+        document.body.classList.add('significance-tab-active');
+    }
 
                     // Resize charts in active tab
                     setTimeout(() => {
@@ -8976,45 +9010,21 @@ function updateSignificanceGroupSelection() {
         /**
          * Display significance test results
          */
-        function displaySignificanceResults(result, paramName, groupNames, violations = []) {
+       function displaySignificanceResults(result, paramName, groupNames, violations = []) {
     const container = document.getElementById('significance-results');
 
     const resultDiv = document.createElement('div');
     resultDiv.className = `significance-result ${result.significant ? 'significant' : 'not-significant'}`;
+    resultDiv.style.marginBottom = '30px';
+    resultDiv.style.padding = '20px';
+    resultDiv.style.borderRadius = '8px';
+    resultDiv.style.border = result.significant ? '2px solid var(--success-color)' : '2px solid var(--danger-color)';
 
-    // Initialize html variable here!
     let html = `
         <h4>${result.test} Results</h4>
         <p><strong>Parameter:</strong> ${paramName}</p>
+        <p><strong>Groups:</strong> ${groupNames.join(', ')}</p>
     `;
-
-    // Add multiple comparison warning if applicable
-    if (globalState.significanceResults.length > 1) {
-        html += `
-            <div class="warning-box" style="margin: 10px 0;">
-                <strong>⚠️ Multiple Testing Warning:</strong> 
-                You have performed ${globalState.significanceResults.length} statistical tests. 
-                Consider adjusting your significance level (currently α=${result.alpha}) to account for multiple comparisons 
-                (e.g., Bonferroni correction: α/${globalState.significanceResults.length} = ${(result.alpha / globalState.significanceResults.length).toFixed(4)}).
-            </div>
-        `;
-    }
-
-    html += `<p><strong>Compared Groups:</strong> ${groupNames.join(', ')}</p>`;
-
-    // Display violations if test was forced
-    if (violations.length > 0) {
-        html += `
-            <div class="test-violation-warning">
-                <h5>⚠️ Test Requirement Violations</h5>
-                <p>The following test requirements were not met:</p>
-                <ul>
-                    ${violations.map(v => `<li>${v}</li>`).join('')}
-                </ul>
-                <p><strong>Results should be interpreted with extreme caution!</strong></p>
-            </div>
-        `;
-    }
 
     // Test-specific results
     if (result.test === 't-Test' || result.test === "Welch's t-Test") {
@@ -9022,25 +9032,10 @@ function updateSignificanceGroupSelection() {
             <div style="margin: 15px 0;">
                 <p><strong>Test Statistic:</strong> t = ${utils.formatNumber(result.statistic, 4)}</p>
                 <p><strong>Degrees of Freedom:</strong> df = ${utils.formatNumber(result.df, 2)}</p>
-                <p><strong>p-value:</strong> ${utils.formatNumber(result.pValue, 6)} (${result.direction} test, α = ${result.alpha})</p>
+                <p><strong>p-value:</strong> ${utils.formatNumber(result.pValue, 6)}</p>
                 <p><strong>Effect Size (Cohen's d):</strong> ${utils.formatNumber(result.effectSize, 3)}</p>
-        `;
-        
-        // Add effect size interpretation
-        const effectInterp = interpretationEngine.effectSize.cohen_d(result.effectSize);
-        html += `<p><strong>Effect Size Interpretation:</strong> ${effectInterp.description}</p>`;
-        
-        html += `
                 <p><strong>Mean Difference:</strong> ${utils.formatNumber(result.meanDifference, 3)}</p>
                 <p><strong>${(1 - result.alpha) * 100}% Confidence Interval:</strong> [${utils.formatNumber(result.confidenceInterval[0], 3)}, ${utils.formatNumber(result.confidenceInterval[1], 3)}]</p>
-                <p><strong>Statistical Power:</strong> ${utils.formatNumber(result.power, 3)}</p>
-        `;
-        
-        // Add power interpretation
-        const powerInterp = interpretationEngine.power(result.power);
-        html += `<p><strong>Power Analysis:</strong> ${powerInterp.description}</p>`;
-        
-        html += `
             </div>
             <div style="margin: 15px 0;">
                 <p><strong>Group 1:</strong> n=${result.group1Stats.count}, Mean=${utils.formatNumber(result.group1Stats.mean, 2)}, SD=${utils.formatNumber(result.group1Stats.stdDev, 2)}</p>
@@ -9051,21 +9046,8 @@ function updateSignificanceGroupSelection() {
         html += `
             <div style="margin: 15px 0;">
                 <p><strong>F-value:</strong> F(${result.dfBetween}, ${result.dfWithin}) = ${utils.formatNumber(result.statistic, 4)}</p>
-                <p><strong>p-value:</strong> ${utils.formatNumber(result.pValue, 6)} (α = ${result.alpha})</p>
+                <p><strong>p-value:</strong> ${utils.formatNumber(result.pValue, 6)}</p>
                 <p><strong>Effect Size (η²):</strong> ${utils.formatNumber(result.etaSquared, 3)}</p>
-        `;
-        
-        // Add effect size interpretation
-        const effectInterp = interpretationEngine.effectSize.eta_squared(result.etaSquared);
-        html += `<p><strong>Effect Size Interpretation:</strong> ${effectInterp.description}</p>`;
-        
-        html += `<p><strong>Statistical Power:</strong> ${utils.formatNumber(result.power, 3)}</p>`;
-        
-        // Add power interpretation
-        const powerInterp = interpretationEngine.power(result.power);
-        html += `<p><strong>Power Analysis:</strong> ${powerInterp.description}</p>`;
-        
-        html += `
             </div>
             <div style="background-color: rgba(255,255,255,0.05); padding: 10px; border-radius: 5px; margin: 10px 0;">
                 <p><strong>Sum of Squares:</strong></p>
@@ -9075,7 +9057,6 @@ function updateSignificanceGroupSelection() {
             </div>
         `;
         
-        // Add post-hoc results if available
         if (result.postHoc) {
             html += `
                 <div style="margin-top: 20px; padding: 15px; background-color: var(--background-medium); border-radius: 6px;">
@@ -9113,179 +9094,150 @@ function updateSignificanceGroupSelection() {
         html += `
             <div style="margin: 15px 0;">
                 <p><strong>U Statistic:</strong> U = ${utils.formatNumber(result.U, 0)}</p>
-                <p><strong>p-value:</strong> ${utils.formatNumber(result.pValue, 6)} (${result.direction} test, α = ${result.alpha})</p>
+                <p><strong>p-value:</strong> ${utils.formatNumber(result.pValue, 6)}</p>
                 <p><strong>Effect Size (r):</strong> ${utils.formatNumber(result.effectSize, 3)}</p>
-        `;
-        
-        // Add effect size interpretation (using correlation interpretation for rank-biserial)
-        const effectInterp = interpretationEngine.effectSize.correlation(result.effectSize);
-        html += `<p><strong>Effect Size Interpretation:</strong> ${effectInterp.description}</p>`;
-        
-        html += `
                 <p><strong>Sample Sizes:</strong> n₁ = ${result.n1}, n₂ = ${result.n2}</p>
                 <p><strong>Rank Sums:</strong> R₁ = ${utils.formatNumber(result.rankSum1, 1)}, R₂ = ${utils.formatNumber(result.rankSum2, 1)}</p>
                 ${result.tieCorrection ? '<p><em>Note: Tie correction was applied</em></p>' : ''}
             </div>
         `;
     } else if (result.test === 'Kruskal-Wallis') {
-    html += `
-        <div style="margin: 15px 0;">
-            <p><strong>H Statistic:</strong> H = ${utils.formatNumber(result.H, 4)}</p>
-            <p><strong>Degrees of Freedom:</strong> df = ${result.df}</p>
-            <p><strong>p-value:</strong> ${utils.formatNumber(result.pValue, 6)} (α = ${result.alpha})</p>
-            <p><strong>Effect Size (η²):</strong> ${utils.formatNumber(result.etaSquared, 3)}</p>
-    `;
-    
-    // Add effect size interpretation
-    const effectInterp = interpretationEngine.effectSize.eta_squared(result.etaSquared);
-    html += `<p><strong>Effect Size Interpretation:</strong> ${effectInterp.description}</p>`;
-    
-    html += `
-            <p><strong>Total N:</strong> ${result.N}</p>
-            ${result.tieCorrection ? '<p><em>Note: Tie correction was applied</em></p>' : ''}
-        </div>
-    `;
-    
-    // Add post-hoc results if available
-    if (result.postHoc) {
-        html += `
-            <div style="margin-top: 20px; padding: 15px; background-color: var(--background-medium); border-radius: 6px;">
-                <h5>Post-hoc Analysis (${result.postHoc.method})</h5>
-                <p style="font-size: 12px; color: var(--text-light);">Adjusted α = ${result.postHoc.adjustedAlpha.toFixed(4)}</p>
-                <table style="width: 100%; margin-top: 10px;">
-                    <thead>
-                        <tr>
-                            <th>Comparison</th>
-                            <th>Mean Rank Diff</th>
-                            <th>Z</th>
-                            <th>p-value</th>
-                            <th>Adjusted p</th>
-                            <th>Significant</th>
-                        </tr>
-                    </thead>
-                    <tbody>
-        `;
-        
-        result.postHoc.comparisons.forEach(comp => {
-            html += `
-                <tr>
-                    <td>Group ${comp.group1} vs ${comp.group2}</td>
-                    <td>${utils.formatNumber(comp.rankDiff, 2)}</td>
-                    <td>${utils.formatNumber(comp.z, 3)}</td>
-                    <td>${utils.formatNumber(comp.pValue, 4)}</td>
-                    <td>${utils.formatNumber(comp.adjustedPValue, 4)}</td>
-                    <td>${comp.significant ? '✓ Yes' : '✗ No'}</td>
-                </tr>
-            `;
-        });
-        
-        html += `
-                    </tbody>
-                </table>
-            </div>
-        `;
-    }
-} else if (result.test === 'Chi-Square') {
-    html += `
-        <div style="margin: 15px 0;">
-            <p><strong>Chi-Square (χ²):</strong> ${utils.formatNumber(result.statistic, 4)}</p>
-            <p><strong>Degrees of Freedom:</strong> df = ${result.df}</p>
-            <p><strong>p-value:</strong> ${utils.formatNumber(result.pValue, 6)} (α = ${result.alpha})</p>
-            <p><strong>Effect Size (Cramer's V):</strong> ${utils.formatNumber(result.cramersV, 3)}</p>
-    `;
-    
-    // Add effect size interpretation (using correlation scale for Cramer's V)
-    const effectInterp = interpretationEngine.effectSize.correlation(result.cramersV);
-    html += `<p><strong>Effect Size Interpretation:</strong> ${effectInterp.description}</p>`;
-    
-    html += `<p><strong>Statistical Power:</strong> ${utils.formatNumber(result.power, 3)}</p>`;
-    
-    // Add power interpretation
-    const powerInterp = interpretationEngine.power(result.power);
-    html += `<p><strong>Power Analysis:</strong> ${powerInterp.description}</p>`;
-    
-    html += `</div>`;
-
-    // Display contingency table
-    if (result.observed && result.categories && result.groups) {
         html += `
             <div style="margin: 15px 0;">
-                <p><strong>Contingency Table (Observed Frequencies):</strong></p>
-                <div style="overflow-x: auto; margin-top: 10px;">
-                    <table style="width: auto;">
+                <p><strong>H Statistic:</strong> H = ${utils.formatNumber(result.H, 4)}</p>
+                <p><strong>Degrees of Freedom:</strong> df = ${result.df}</p>
+                <p><strong>p-value:</strong> ${utils.formatNumber(result.pValue, 6)}</p>
+                <p><strong>Effect Size (η²):</strong> ${utils.formatNumber(result.etaSquared, 3)}</p>
+                <p><strong>Total N:</strong> ${result.N}</p>
+                ${result.tieCorrection ? '<p><em>Note: Tie correction was applied</em></p>' : ''}
+            </div>
+        `;
+        
+        if (result.postHoc) {
+            html += `
+                <div style="margin-top: 20px; padding: 15px; background-color: var(--background-medium); border-radius: 6px;">
+                    <h5>Post-hoc Analysis (${result.postHoc.method})</h5>
+                    <p style="font-size: 12px; color: var(--text-light);">Adjusted α = ${result.postHoc.adjustedAlpha.toFixed(4)}</p>
+                    <table style="width: 100%; margin-top: 10px;">
                         <thead>
                             <tr>
-                                <th>${paramName}</th>
-                                ${result.groups.map(group => `<th>${group}</th>`).join('')}
+                                <th>Comparison</th>
+                                <th>Mean Rank Diff</th>
+                                <th>Z</th>
+                                <th>p-value</th>
+                                <th>Adjusted p</th>
+                                <th>Significant</th>
                             </tr>
                         </thead>
                         <tbody>
-        `;
-
-        result.categories.forEach((category, i) => {
-            html += `<tr><td>${category}</td>`;
-            result.observed[i].forEach(count => {
-                html += `<td>${count}</td>`;
+            `;
+            
+            result.postHoc.comparisons.forEach(comp => {
+                html += `
+                    <tr>
+                        <td>Group ${comp.group1} vs ${comp.group2}</td>
+                        <td>${utils.formatNumber(comp.rankDiff, 2)}</td>
+                        <td>${utils.formatNumber(comp.z, 3)}</td>
+                        <td>${utils.formatNumber(comp.pValue, 4)}</td>
+                        <td>${utils.formatNumber(comp.adjustedPValue, 4)}</td>
+                        <td>${comp.significant ? '✓ Yes' : '✗ No'}</td>
+                    </tr>
+                `;
             });
-            html += `</tr>`;
-        });
-
-        html += `
+            
+            html += `
                         </tbody>
                     </table>
                 </div>
-            </div>
-        `;
-    }
-    
-    // Add post-hoc results if available
-    if (result.postHoc) {
-        html += `
-            <div style="margin-top: 20px; padding: 15px; background-color: var(--background-medium); border-radius: 6px;">
-                <h5>Post-hoc Analysis (${result.postHoc.method})</h5>
-                <p style="font-size: 12px; color: var(--text-light);">Adjusted α = ${result.postHoc.adjustedAlpha.toFixed(4)}</p>
-                <table style="width: 100%; margin-top: 10px;">
-                    <thead>
-                        <tr>
-                            <th>Comparison</th>
-                            <th>χ²</th>
-                            <th>df</th>
-                            <th>p-value</th>
-                            <th>Adjusted p</th>
-                            <th>Significant</th>
-                        </tr>
-                    </thead>
-                    <tbody>
-        `;
-        
-        result.postHoc.comparisons.forEach(comp => {
-            html += `
-                <tr>
-                    <td>${comp.group1} vs ${comp.group2}</td>
-                    <td>${utils.formatNumber(comp.chiSquare, 3)}</td>
-                    <td>${comp.df}</td>
-                    <td>${utils.formatNumber(comp.pValue, 4)}</td>
-                    <td>${utils.formatNumber(comp.adjustedPValue, 4)}</td>
-                    <td>${comp.significant ? '✓ Yes' : '✗ No'}</td>
-                </tr>
             `;
-        });
-        
+        }
+    } else if (result.test === 'Chi-Square') {
         html += `
-                    </tbody>
-                </table>
+            <div style="margin: 15px 0;">
+                <p><strong>Chi-Square (χ²):</strong> ${utils.formatNumber(result.statistic, 4)}</p>
+                <p><strong>Degrees of Freedom:</strong> df = ${result.df}</p>
+                <p><strong>p-value:</strong> ${utils.formatNumber(result.pValue, 6)}</p>
+                <p><strong>Effect Size (Cramer's V):</strong> ${utils.formatNumber(result.cramersV, 3)}</p>
             </div>
         `;
-    }
 
-    // Show warning if present
-    if (result.warning) {
-        html += `<p style="color: #e74c3c;"><strong>Warning:</strong> ${result.warning}</p>`;
-    }
+        if (result.observed && result.categories && result.groups) {
+            html += `
+                <div style="margin: 15px 0;">
+                    <p><strong>Contingency Table (Observed Frequencies):</strong></p>
+                    <div style="overflow-x: auto; margin-top: 10px;">
+                        <table style="width: auto;">
+                            <thead>
+                                <tr>
+                                    <th>${paramName}</th>
+                                    ${result.groups.map(group => `<th>${group}</th>`).join('')}
+                                </tr>
+                            </thead>
+                            <tbody>
+            `;
+
+            result.categories.forEach((category, i) => {
+                html += `<tr><td>${category}</td>`;
+                result.observed[i].forEach(count => {
+                    html += `<td>${count}</td>`;
+                });
+                html += `</tr>`;
+            });
+
+            html += `
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            `;
+        }
+        
+        if (result.postHoc) {
+            html += `
+                <div style="margin-top: 20px; padding: 15px; background-color: var(--background-medium); border-radius: 6px;">
+                    <h5>Post-hoc Analysis (${result.postHoc.method})</h5>
+                    <p style="font-size: 12px; color: var(--text-light);">Adjusted α = ${result.postHoc.adjustedAlpha.toFixed(4)}</p>
+                    <table style="width: 100%; margin-top: 10px;">
+                        <thead>
+                            <tr>
+                                <th>Comparison</th>
+                                <th>χ²</th>
+                                <th>df</th>
+                                <th>p-value</th>
+                                <th>Adjusted p</th>
+                                <th>Significant</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+            `;
+            
+            result.postHoc.comparisons.forEach(comp => {
+                html += `
+                    <tr>
+                        <td>${comp.group1} vs ${comp.group2}</td>
+                        <td>${utils.formatNumber(comp.chiSquare, 3)}</td>
+                        <td>${comp.df}</td>
+                        <td>${utils.formatNumber(comp.pValue, 4)}</td>
+                        <td>${utils.formatNumber(comp.adjustedPValue, 4)}</td>
+                        <td>${comp.significant ? '✓ Yes' : '✗ No'}</td>
+                    </tr>
+                `;
+            });
+            
+            html += `
+                        </tbody>
+                    </table>
+                </div>
+            `;
+        }
+
+        if (result.warning) {
+            html += `<p style="color: #e74c3c;"><strong>Warning:</strong> ${result.warning}</p>`;
+        }
     } else if (result.test === "Fisher's Exact Test") {
         html += `
             <div style="margin: 15px 0;">
-                <p><strong>p-value:</strong> ${utils.formatNumber(result.pValue, 6)} (α = ${result.alpha})</p>
+                <p><strong>p-value:</strong> ${utils.formatNumber(result.pValue, 6)}</p>
                 <p><strong>Odds Ratio:</strong> ${utils.formatNumber(result.oddsRatio, 3)}</p>
             </div>
         `;
@@ -9324,42 +9276,32 @@ function updateSignificanceGroupSelection() {
         html += `
             <div style="margin: 15px 0;">
                 <p><strong>Correlation Coefficient:</strong> ${result.test === 'Spearman' ? 'ρ' : 'r'} = ${utils.formatNumber(result.rho || result.r, 4)}</p>
-                <p><strong>p-value:</strong> ${utils.formatNumber(result.pValue, 6)} (α = ${result.alpha})</p>
+                <p><strong>p-value:</strong> ${utils.formatNumber(result.pValue, 6)}</p>
                 <p><strong>Sample Size:</strong> n = ${result.n}</p>
                 <p><strong>Interpretation:</strong> ${result.interpretation}</p>
-                <p><strong>Statistical Power:</strong> ${utils.formatNumber(result.power, 3)}</p>
+            </div>
         `;
-        
-        // Add power interpretation
-        const powerInterp = interpretationEngine.power(result.power);
-        html += `<p><strong>Power Analysis:</strong> ${powerInterp.description}</p>`;
-        
-        html += `</div>`;
     }
 
-    // Overall interpretation section
-    const pInterp = interpretationEngine.pValue(result.pValue, result.alpha);
-    
+    // Simple result summary
     html += `
         <div style="margin-top: 20px; padding: 15px; border-radius: 5px; ${result.significant ? 'background-color: rgba(82, 163, 115, 0.1);' : 'background-color: rgba(200, 84, 80, 0.1);'}">
-            <p><strong>Statistical Interpretation:</strong></p>
-            <p>${pInterp.description}</p>
-            <p>${result.significant ?
-                `🟢 <strong>Significant Difference</strong><br>The null hypothesis is rejected. There is statistical evidence of a difference between the groups.` :
-                `🔴 <strong>No Significant Difference</strong><br>The null hypothesis is maintained. There is insufficient statistical evidence of a difference between the groups.`
+            <p><strong>Result:</strong> ${result.significant ? 
+                `🟢 <strong>Significant</strong> (p = ${utils.formatNumber(result.pValue, 6)} < α = ${result.alpha})` :
+                `🔴 <strong>Not Significant</strong> (p = ${utils.formatNumber(result.pValue, 6)} ≥ α = ${result.alpha})`
             }</p>
         </div>
     `;
 
     resultDiv.innerHTML = html;
 
-    // Insert at the beginning of the results container
     if (container.firstChild) {
         container.insertBefore(resultDiv, container.firstChild);
     } else {
         container.appendChild(resultDiv);
     }
 }
+
 
 
         /**
