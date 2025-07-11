@@ -2563,11 +2563,13 @@ body:not(.significance-tab-active) #significance-results {
              * Format a number with thousands separators and fixed decimals
              */
             formatNumber(value, decimals = 2) {
-    if (value === null || value === undefined || isNaN(value) || typeof value !== 'number') {
-        return '-'; // Return dash for invalid values
-    }
-    return value.toFixed(decimals);
-},
+                // This robust check ensures the value is a valid, finite number
+                // before attempting to call .toFixed() on it.
+                if (typeof value !== 'number' || !isFinite(value)) {
+                    return '-';
+                }
+                return value.toFixed(decimals);
+            },
 
             /**
              * Format number for CSV export using detected decimal separator
