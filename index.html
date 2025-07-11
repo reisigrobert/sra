@@ -11247,7 +11247,7 @@ utils.showError(`Invalid numeric value for parameter '${parameter}': ${condition
         /**
          * Export significance test results
          */
-        Copyfunction exportSignificanceTests() {
+        function exportSignificanceTests() {
     if (globalState.significanceResults.length === 0) {
         utils.showError("No significance test results to export.");
         return;
