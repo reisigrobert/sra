@@ -2563,12 +2563,11 @@ body:not(.significance-tab-active) #significance-results {
              * Format a number with thousands separators and fixed decimals
              */
             formatNumber(value, decimals = 2) {
-                if (value === null || value === undefined || isNaN(value)) {
-                    return '-';
-                }
-
-                return value.toFixed(decimals);
-            },
+    if (value === null || value === undefined || isNaN(value) || typeof value !== 'number') {
+        return '-'; // Return dash for invalid values
+    }
+    return value.toFixed(decimals);
+},
 
             /**
              * Format number for CSV export using detected decimal separator
@@ -2830,15 +2829,18 @@ if (group.colorIndex !== undefined) {
 
             // Deskriptive Statistiken
             calculate(values) {
-                const validValues = values.filter(v => !isNaN(v) && isFinite(v));
+                calculate(values) {
+    const validValues = values.filter(v => !isNaN(v) && isFinite(v));
 
-                if (validValues.length === 0) {
-                    return {
-                        count: 0, min: null, max: null, mean: null, median: null,
-                        stdDev: null, variance: null, q1: null, q3: null, iqr: null,
-                        range: null, sum: null, cv: null
-                    };
-                }
+    // Return 0 instead of null for empty datasets
+    if (validValues.length === 0) {
+        return {
+            count: 0, 
+            min: 0, max: 0, mean: 0, median: 0,
+            stdDev: 0, variance: 0, q1: 0, q3: 0, iqr: 0,
+            range: 0, sum: 0, cv: 0
+        };
+    }
 
                 try {
                     const mean = this.ss.mean(validValues);
