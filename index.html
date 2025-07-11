@@ -1765,7 +1765,9 @@
                <!-- Significance Tests Tab -->
 <div class="tab-content" id="significance">
     <h3>Statistical Significance Tests</h3>
-    
+    <div id="test-recommendation-inline" style="margin-bottom: 15px; padding: 15px; background-color: var(--background-light); border-radius: 8px; border: 1px solid var(--border-color); display: none;">
+    <!-- Recommendation will be displayed here -->
+</div>
     <!-- Step 1: Parameter and Group Selection -->
     <div class="card" style="background-color: var(--background-medium); margin-bottom: 20px;">
         <h4>📊 Step 1: Select Parameter and Groups</h4>
@@ -1822,9 +1824,6 @@
         <!-- Manual Test Selection -->
 <div style="margin-bottom: 20px;">
     <h5>Test Selection</h5>
-    <div id="test-recommendation-inline" style="margin-bottom: 15px; padding: 15px; background-color: var(--background-light); border-radius: 8px; border: 1px solid var(--border-color); display: none;">
-        <!-- Recommendation will be displayed here -->
-    </div>
     <div class="flex-container">
         <div class="flex-item">
             <label for="sig-test-type">Test Method:</label>
@@ -6200,7 +6199,28 @@ function checkAllPrerequisites() {
                 csvContent += rowData + '\n';
             });
 
-            // Create download with timestamp
+            //Prerequisite test results
+            if (Object.keys(globalState.prerequisiteResults).length > 0) {
+                csvContent += '\nPREREQUITE TEST RESULTS\n';
+                csvContent += 'Parameter' + globalState.csvDelimiter + 'Group' + globalState.csvDelimiter + 'Normality_Test' + globalState.csvDelimiter + 'W_Statistic' + globalState.csvDelimiter + 'p_value' + globalState.csvDelimiter + 'Normal' + globalState.csvDelimiter + 'Overridden\n';
+                
+                Object.entries(globalState.prerequisiteResults).forEach(([paramName, results]) => {
+                    Object.entries(results).forEach(([groupId, result]) => {
+                        if (result.normality && globalState.currentGroups[groupId]) {
+                            csvContent += paramName + globalState.csvDelimiter;
+                            csvContent += globalState.currentGroups[groupId].name + globalState.csvDelimiter;
+                            csvContent += (result.normality.test || 'Shapiro-Wilk') + globalState.csvDelimiter;
+                            csvContent += (result.normality.W ? utils.formatNumberForCSV(result.normality.W) : '') + globalState.csvDelimiter;
+                            csvContent += (result.normality.pValue ? utils.formatNumberForCSV(result.normality.pValue) : '') + globalState.csvDelimiter;
+                            csvContent += result.normality.normal + globalState.csvDelimiter;
+                            csvContent += (result.overridden || false) + '\n';
+                        }
+                    });
+                });
+                csvContent += '\n';
+            }
+
+        // Create download with timestamp
             const timestamp = utils.getTimestamp();
             const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
             const link = document.createElement('a');
@@ -11367,10 +11387,27 @@ if (testResult.result.group1Stats && testResult.result.group2Stats) {
 }
 
 if (testResult.result.violations) {
-    lines.push('Violations: ' + testResult.result.violations.join('; '));
-}
+                    lines.push('Violations: ' + testResult.result.violations.join('; '));
+                }
 
-lines.push('');
+                // ADD HERE - Post-hoc results
+                if (testResult.result.postHoc && testResult.result.postHoc.comparisons) {
+                    lines.push('Post-hoc Analysis (' + testResult.result.postHoc.method + '):');
+                    testResult.result.postHoc.comparisons.forEach(comp => {
+                        const pVal = comp.adjustedPValue || comp.pValue;
+                        lines.push(`  Group ${comp.group1} vs ${comp.group2}: p=${pVal?.toFixed(4)}, Significant=${comp.significant ? 'Yes' : 'No'}`);
+                    });
+                }
+
+                //ANOVA details
+                if (testResult.result.test === 'ANOVA') {
+                    lines.push(`F-statistic: F(${testResult.result.dfBetween}, ${testResult.result.dfWithin}) = ${testResult.result.statistic.toFixed(4)}`);
+                    lines.push(`Sum of Squares Between: ${testResult.result.ssb?.toFixed(3)}`);
+                    lines.push(`Sum of Squares Within: ${testResult.result.ssw?.toFixed(3)}`);
+                    lines.push(`Eta Squared: ${testResult.result.etaSquared?.toFixed(3)}`);
+                }
+
+                lines.push('');
             });
 
             // Create and trigger download immediately
