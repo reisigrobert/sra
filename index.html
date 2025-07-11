@@ -7818,12 +7818,17 @@ globalState.columnNames.forEach(paramName => {
                     const bgColor = typeof color === 'string' ? color : color.bg;
 
                     if (scaleTypes[paramType].numeric) {
-                        // Numeric parameters
-const groupData = globalState.processedData[groupId]
-    .map(row => utils.parseNumericValue(row[paramName]))
-    .filter(val => !isNaN(val) && isFinite(val));
-
-const stats = statistics.calculate(groupData);
+    // Numeric parameters
+    console.log(`Getting data for numeric param ${paramName} in group ${groupId}`);
+    
+    const groupData = globalState.processedData[groupId]
+        .map(row => utils.parseNumericValue(row[paramName]))
+        .filter(val => !isNaN(val) && isFinite(val));
+    
+    console.log(`Data length for ${paramName}: ${groupData.length}`);
+    
+    const stats = statistics.calculate(groupData);
+    console.log(`Stats for ${paramName}:`, stats);
 
 // Define variables for display, with '-' as default
 let centralTendency = '-';
