@@ -7468,6 +7468,10 @@ utils.showError(`Group "${group.name}" references non-existent constellation "${
             globalState.currentGroups = {};
             globalState.recordAssignments = [];
 
+            globalState.recordAssignments = [];
+// Initialize with null to ensure proper array structure
+globalState.recordAssignments = new Array(globalState.rawData.length).fill(null).map(() => []);
+
             for (let i = 0; i < globalState.rawData.length; i++) {
                 globalState.recordAssignments.push([]);
             }
