@@ -7767,12 +7767,26 @@ utils.showError(`Group "${group.name}" references non-existent constellation "${
                     const bgColor = typeof color === 'string' ? color : color.bg;
 
                     if (scaleTypes[paramType].numeric) {
-                        // Numeric parameters
-                        const groupData = globalState.processedData[groupId]
-                            .map(row => utils.parseNumericValue(row[paramName]))
-                            .filter(val => !isNaN(val) && isFinite(val));
+    // Numeric parameters
+    const groupData = globalState.processedData[groupId]
+        .map(row => utils.parseNumericValue(row[paramName]))
+        .filter(val => !isNaN(val) && isFinite(val));
 
-                        const stats = statistics.calculate(groupData);
+    // Skip this parameter if no valid numeric data exists
+    if (groupData.length === 0) {
+        html += `
+            <tr>
+                <td><strong>${paramName}</strong></td>
+                <td><span class="scale-badge ${scaleInfo.class}">${paramType.toUpperCase()}</span></td>
+                <td><span class="group-badge" style="background-color: ${bgColor};">${group.name}</span></td>
+                <td>0</td>
+                <td colspan="4" style="text-align: center; color: #888;">No valid numeric data</td>
+            </tr>
+        `;
+        continue; // Skip to next group
+    }
+
+    const stats = statistics.calculate(groupData);
 
                         // Define variables for display, with '-' as default
                         let centralTendency = '-';
