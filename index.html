@@ -7767,41 +7767,45 @@ utils.showError(`Group "${group.name}" references non-existent constellation "${
                     const bgColor = typeof color === 'string' ? color : color.bg;
 
                     if (scaleTypes[paramType].numeric) {
-    // Numeric parameters
-    const groupData = globalState.processedData[groupId]
-        .map(row => utils.parseNumericValue(row[paramName]))
-        .filter(val => !isNaN(val) && isFinite(val));
+                        // Numeric parameters
+const groupData = globalState.processedData[groupId]
+    .map(row => utils.parseNumericValue(row[paramName]))
+    .filter(val => !isNaN(val) && isFinite(val));
 
-    // Skip this parameter if no valid numeric data exists
-    if (groupData.length === 0) {
-        html += `
-            <tr>
-                <td><strong>${paramName}</strong></td>
-                <td><span class="scale-badge ${scaleInfo.class}">${paramType.toUpperCase()}</span></td>
-                <td><span class="group-badge" style="background-color: ${bgColor};">${group.name}</span></td>
-                <td>0</td>
-                <td colspan="4" style="text-align: center; color: #888;">No valid numeric data</td>
-            </tr>
-        `;
-        continue; // Skip to next group
-    }
+const stats = statistics.calculate(groupData);
 
-    const stats = statistics.calculate(groupData);
+// Define variables for display, with '-' as default
+let centralTendency = '-';
+let dispersion = '-';
 
-                        // Define variables for display, with '-' as default
-                        let centralTendency = '-';
-                        let dispersion = '-';
+// Add safety check for stats object
+if (!stats || typeof stats !== 'object') {
+    // If stats calculation failed, show empty row
+    html += `
+        <tr>
+            <td><strong>${paramName}</strong></td>
+            <td><span class="scale-badge ${scaleInfo.class}">${paramType.toUpperCase()}</span></td>
+            <td><span class="group-badge" style="background-color: ${bgColor};">${group.name}</span></td>
+            <td>0</td>
+            <td>-</td>
+            <td>-</td>
+            <td>-</td>
+            <td>-</td>
+        </tr>
+    `;
+    return; // This will skip to the next iteration of forEach
+}
                         
-                        // Use explicit checks for each statistic before formatting
-                        if (stats.count > 0) {
-                            if (paramType === 'o') { // Ordinal uses Median and IQR
-                                centralTendency = (stats.median !== null && isFinite(stats.median)) ? utils.formatNumber(stats.median, 2) : '-';
-                                dispersion = (stats.iqr !== null && isFinite(stats.iqr)) ? utils.formatNumber(stats.iqr, 2) : '-';
-                            } else { // Interval/Ratio uses Mean and Std Dev
-                                centralTendency = (stats.mean !== null && isFinite(stats.mean)) ? utils.formatNumber(stats.mean, 2) : '-';
-                                dispersion = (stats.stdDev !== null && isFinite(stats.stdDev)) ? utils.formatNumber(stats.stdDev, 2) : '-';
-                            }
-                        }
+                       // Use explicit checks for each statistic before formatting
+if (stats && stats.count > 0) {
+    if (paramType === 'o') { // Ordinal uses Median and IQR
+        centralTendency = (stats.median !== null && stats.median !== undefined && isFinite(stats.median)) ? utils.formatNumber(stats.median, 2) : '-';
+        dispersion = (stats.iqr !== null && stats.iqr !== undefined && isFinite(stats.iqr)) ? utils.formatNumber(stats.iqr, 2) : '-';
+    } else { // Interval/Ratio uses Mean and Std Dev
+        centralTendency = (stats.mean !== null && stats.mean !== undefined && isFinite(stats.mean)) ? utils.formatNumber(stats.mean, 2) : '-';
+        dispersion = (stats.stdDev !== null && stats.stdDev !== undefined && isFinite(stats.stdDev)) ? utils.formatNumber(stats.stdDev, 2) : '-';
+    }
+}
 
                         html += `
                             <tr>
