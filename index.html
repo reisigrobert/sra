@@ -7694,14 +7694,6 @@ function checkRowAgainstGroupDefinition(row, group) {
             updateParameterDropdowns();
             updateSignificanceGroupSelection();
 
-            // Automatically select first numeric parameter for detailed analysis
-            const numericParams = globalState.columnNames.filter(name =>
-                scaleTypes[globalState.columnTypes[name]].numeric
-            );
-            if (numericParams.length > 0) {
-                document.getElementById('detail-parameter-select').value = numericParams[0];
-                updateDetailAnalysis();
-            }
         }
 
         /**
