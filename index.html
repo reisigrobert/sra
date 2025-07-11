@@ -5658,7 +5658,21 @@ function checkVarianceHomogeneity() {
         globalState.prerequisiteResults[paramName] = {};
     }
 
+    // Get the results container - make sure we're appending to the right place
     const resultsContainer = document.getElementById('prerequisite-results');
+    
+    // Create a container div for variance results if it doesn't exist
+    let varianceSection = document.getElementById('variance-test-results');
+    if (!varianceSection) {
+        varianceSection = document.createElement('div');
+        varianceSection.id = 'variance-test-results';
+        resultsContainer.appendChild(varianceSection);
+    }
+    
+    // Clear previous variance results
+    varianceSection.innerHTML = '';
+    
+    // Create the result div
     const resultDiv = document.createElement('div');
     resultDiv.style.marginBottom = '15px';
     resultDiv.style.padding = '15px';
@@ -5702,27 +5716,10 @@ function checkVarianceHomogeneity() {
         } else {
             // For more than 2 groups, use Levene's test
             // Calculate absolute deviations from median for each group
-            const allDeviations = [];
-            const groupLabels = [];
-            
-            groupDataArrays.forEach((group, groupIndex) => {
+            const deviationsByGroup = groupDataArrays.map(group => {
                 const median = statistics.ss.median(group);
-                const deviations = group.map(value => Math.abs(value - median));
-                deviations.forEach(() => groupLabels.push(groupIndex));
-                allDeviations.push(...deviations);
+                return group.map(value => Math.abs(value - median));
             });
-            
-            // Reorganize data for ANOVA
-            const deviationsByGroup = [];
-            for (let i = 0; i < groupDataArrays.length; i++) {
-                const groupDeviations = [];
-                allDeviations.forEach((dev, idx) => {
-                    if (groupLabels[idx] === i) {
-                        groupDeviations.push(dev);
-                    }
-                });
-                deviationsByGroup.push(groupDeviations);
-            }
             
             // Perform ANOVA on the deviations
             const leveneResult = statistics.anova(deviationsByGroup);
@@ -5736,13 +5733,15 @@ function checkVarianceHomogeneity() {
                     F: leveneResult.f || leveneResult.statistic,
                     pValue: leveneResult.pValue,
                     equalVariances: equalVariances,
-                    groupCount: groupDataArrays.length
+                    groupCount: groupDataArrays.length,
+                    df1: leveneResult.dfBetween,
+                    df2: leveneResult.dfWithin
                 };
                 
                 resultDiv.className = `prerequisite-result ${equalVariances ? 'pass' : 'fail'}`;
                 
                 let html = `<strong>Levene's Test for Variance Homogeneity (${groupDataArrays.length} groups):</strong><br>`;
-                html += `F = ${utils.formatNumber(leveneResult.f || leveneResult.statistic, 4)}, p = ${utils.formatNumber(leveneResult.pValue, 4)}<br>`;
+                html += `F(${leveneResult.dfBetween}, ${leveneResult.dfWithin}) = ${utils.formatNumber(leveneResult.f || leveneResult.statistic, 4)}, p = ${utils.formatNumber(leveneResult.pValue, 4)}<br>`;
                 html += equalVariances ? 
                     '<strong style="color: var(--success-color);">✓ Equal variances across all groups (p > 0.05)</strong>' : 
                     '<strong style="color: var(--danger-color);">✗ Unequal variances across groups (p ≤ 0.05) - Consider non-parametric tests</strong>';
@@ -5768,19 +5767,19 @@ function checkVarianceHomogeneity() {
                 throw new Error('Levene test calculation failed');
             }
         }
+        
+        // Append the result div to the variance section
+        varianceSection.appendChild(resultDiv);
+        
     } catch (error) {
         resultDiv.className = 'prerequisite-result error';
         resultDiv.innerHTML = `<strong>Variance Test Error:</strong> ${error.message}`;
+        varianceSection.appendChild(resultDiv);
         console.error('Variance test error:', error);
     }
-    
-    resultsContainer.appendChild(resultDiv);
 }
 
-        /**
- * Check all prerequisites at once
- */
-function checkAllPrerequisites() {
+        function checkAllPrerequisites() {
     const paramName = document.getElementById('sig-parameter-select').value;
     if (!paramName) {
         utils.showError("Please select a parameter first.");
@@ -5804,27 +5803,27 @@ function checkAllPrerequisites() {
     }
 
     const resultsContainer = document.getElementById('prerequisite-results');
-    resultsContainer.innerHTML = ''; // Clear previous results
+    resultsContainer.innerHTML = ''; // Clear all previous results
 
     if (!globalState.prerequisiteResults[paramName]) {
         globalState.prerequisiteResults[paramName] = {};
     }
 
-    // 1. Check and display normality for all selected groups
+    // 1. Check normality
     const normalityHeaderDiv = document.createElement('div');
     normalityHeaderDiv.innerHTML = '<h5>Normality Test Results:</h5>';
     resultsContainer.appendChild(normalityHeaderDiv);
-    checkNormality(); // This function appends its own results to the container
+    checkNormality();
 
-    // 2. If exactly two groups are selected, check and display variance homogeneity
-    if (selectedGroups.length === 2) {
+    // 2. Check variance homogeneity if at least 2 groups
+    if (selectedGroups.length >= 2) {
         const varianceHeaderDiv = document.createElement('div');
-        varianceHeaderDiv.innerHTML = '<h5 style="margin-top: 20px;">Variance Homogeneity Test (F-Test):</h5>';
+        varianceHeaderDiv.innerHTML = '<h5 style="margin-top: 20px;">Variance Homogeneity Test:</h5>';
         resultsContainer.appendChild(varianceHeaderDiv);
-        checkVarianceHomogeneity(); // This function will now also append its results
+        checkVarianceHomogeneity();
     }
 
-    // 3. Automatically get and display the test recommendation
+    // 3. Get test recommendation
     setTimeout(() => {
         const testSelector = new IntelligentTestSelector(statistics);
         const recommendation = testSelector.selectOptimalTest(paramName, selectedGroups);
@@ -5832,7 +5831,6 @@ function checkAllPrerequisites() {
         if (!recommendation.error) {
             displayTestRecommendation(recommendation, paramName, selectedGroups);
             
-            // Pre-select the recommended test in the dropdown
             if (recommendation.recommended && recommendation.recommended.test) {
                 document.getElementById('sig-test-type').value = recommendation.recommended.test.key;
             }
