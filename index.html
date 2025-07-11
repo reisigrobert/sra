@@ -2871,10 +2871,12 @@ if (group.colorIndex !== undefined) {
             }
 
             calculateCV(values, mean, stdDev) {
-                if (values.length === 0 || mean <= 0) return null;
+                if (!values || values.length === 0 || mean === null || mean === undefined || mean <= 0) return null;
+                if (stdDev === null || stdDev === undefined || !isFinite(stdDev)) return null;
                 const allPositive = values.every(v => v > 0);
                 if (!allPositive) return null;
-                return (stdDev / mean) * 100;
+                const cv = (stdDev / mean) * 100;
+                return isFinite(cv) ? cv : null;
             }
 
             // Normalitätstest
@@ -7754,7 +7756,9 @@ utils.showError(`Group "${group.name}" references non-existent constellation "${
 
                 // Safe formatting function
                 const safeFormat = (value, decimals) => {
-                    return value !== null && !isNaN(value) ? utils.formatNumber(value, decimals) : '-';
+                    return value !== null && value !== undefined && !isNaN(value) && isFinite(value) 
+                        ? utils.formatNumber(value, decimals) 
+                        : '-';
                 };
 
                 let centralTendency = '-';
