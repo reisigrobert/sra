@@ -2855,33 +2855,49 @@ if (group.colorIndex !== undefined) {
     }
 
                 try {
-                    const mean = this.ss.mean(validValues);
-                    const stdDev = validValues.length > 1 ? this.ss.standardDeviation(validValues) : 0;
-                    const variance = validValues.length > 1 ? this.ss.variance(validValues) : 0;
+    const mean = this.ss.mean(validValues);
+    const stdDev = validValues.length > 1 ? this.ss.standardDeviation(validValues) : 0;
+    const variance = validValues.length > 1 ? this.ss.variance(validValues) : 0;
+    
+    // Safely get min/max
+    const min = validValues.length > 0 ? Math.min(...validValues) : null;
+    const max = validValues.length > 0 ? Math.max(...validValues) : null;
+    
+    // Safely calculate quantiles
+    let q1 = null, q3 = null, median = null;
+    if (validValues.length > 0) {
+        const sorted = [...validValues].sort((a, b) => a - b);
+        median = sorted[Math.floor(sorted.length / 2)];
+        if (validValues.length >= 4) {
+            q1 = this.ss.quantile(validValues, 0.25);
+            q3 = this.ss.quantile(validValues, 0.75);
+        }
+    }
 
-                    return {
-                        count: validValues.length,
-                        min: this.ss.min(validValues),
-                        max: this.ss.max(validValues),
-                        mean: mean,
-                        median: this.ss.median(validValues),
-                        stdDev: stdDev,
-                        variance: variance,
-                        q1: this.ss.quantile(validValues, 0.25),
-                        q3: this.ss.quantile(validValues, 0.75),
-                        iqr: this.ss.interquartileRange(validValues),
-                        range: this.ss.max(validValues) - this.ss.min(validValues),
-                        sum: this.ss.sum(validValues),
-                        cv: this.calculateCV(validValues, mean, stdDev)
-                    };
-                } catch (error) {
-                    console.warn('Error in descriptive statistics:', error);
-                    return {
-                        count: validValues.length, min: null, max: null, mean: null, median: null,
-                        stdDev: null, variance: null, q1: null, q3: null, iqr: null,
-                        range: null, sum: null, cv: null
-                    };
-                }
+    return {
+        count: validValues.length,
+        min: min,
+        max: max,
+        mean: mean || null,
+        median: median,
+        stdDev: stdDev || null,
+        variance: variance || null,
+        q1: q1,
+        q3: q3,
+        iqr: (q1 !== null && q3 !== null) ? (q3 - q1) : null,
+        range: (min !== null && max !== null) ? (max - min) : null,
+        sum: validValues.length > 0 ? validValues.reduce((a, b) => a + b, 0) : null,
+        cv: this.calculateCV(validValues, mean, stdDev)
+    };
+} catch (error) {
+    console.warn('Error in descriptive statistics:', error);
+    return {
+        count: validValues.length, 
+        min: null, max: null, mean: null, median: null,
+        stdDev: null, variance: null, q1: null, q3: null, iqr: null,
+        range: null, sum: null, cv: null
+    };
+}
             }
 
             calculateCV(values, mean, stdDev) {
