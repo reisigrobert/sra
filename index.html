@@ -2562,12 +2562,17 @@ body:not(.significance-tab-active) #significance-results {
              * Format a number with thousands separators and fixed decimals
              */
             formatNumber(value, decimals = 2) {
-                if (value === null || value === undefined || isNaN(value)) {
-                    return '-';
-                }
+    if (value === null || value === undefined || isNaN(value) || !isFinite(value)) {
+        return '-';
+    }
 
-                return value.toFixed(decimals);
-            },
+    try {
+        return value.toFixed(decimals);
+    } catch (e) {
+        console.warn('Error formatting number:', value, e);
+        return '-';
+    }
+},
 
             /**
              * Format number for CSV export using detected decimal separator
@@ -5723,6 +5728,13 @@ function checkAllPrerequisites() {
     headerDiv.innerHTML = '<h5>Normality Test Results:</h5>';
     resultsContainer.appendChild(headerDiv);
     checkNormality();
+
+    // Ensure the variance test results are displayed if they exist
+if (selectedGroups.length === 2) {
+    const varianceHeaderDiv = document.createElement('div');
+    varianceHeaderDiv.innerHTML = '<h5 style="margin-top: 20px;">Variance Homogeneity Test:</h5>';
+    resultsContainer.appendChild(varianceHeaderDiv);
+}
     
     // Check variance homogeneity if exactly 2 groups
     // Check variance homogeneity if exactly 2 groups
@@ -7730,21 +7742,21 @@ utils.showError(`Group "${group.name}" references non-existent constellation "${
                         }
 
                         html += `
-                            <tr>
-                                <td><strong>${paramName}</strong></td>
-                                <td><span class="scale-badge ${scaleInfo.class}">${paramType.toUpperCase()}</span></td>
-                                <td>
-                                    <span class="group-badge" style="background-color: ${bgColor};">
-                                        ${group.name}
-                                    </span>
-                                </td>
-                                <td>${stats.count}</td>
-                                <td>${centralTendency}</td>
-                                <td>${dispersion}</td>
-                                <td>${stats.min !== null ? utils.formatNumber(stats.min, 2) : '-'}</td>
-                                <td>${stats.max !== null ? utils.formatNumber(stats.max, 2) : '-'}</td>
-                            </tr>
-                        `;
+    <tr>
+        <td><strong>${paramName}</strong></td>
+        <td><span class="scale-badge ${scaleInfo.class}">${paramType.toUpperCase()}</span></td>
+        <td>
+            <span class="group-badge" style="background-color: ${bgColor};">
+                ${group.name}
+            </span>
+        </td>
+        <td>${stats.count}</td>
+        <td>${centralTendency}</td>
+        <td>${dispersion}</td>
+        <td>${stats.min !== null && stats.min !== undefined && !isNaN(stats.min) ? utils.formatNumber(stats.min, 2) : '-'}</td>
+        <td>${stats.max !== null && stats.max !== undefined && !isNaN(stats.max) ? utils.formatNumber(stats.max, 2) : '-'}</td>
+    </tr>
+`;
                     } else {
                         // Categorical parameters
                         const groupData = globalState.processedData[groupId]
@@ -11664,12 +11676,28 @@ utils.showError(`Invalid numeric value for parameter '${parameter}': ${condition
     lines.push('-'.repeat(40));
     
     if (results.stats.odds.oddsRatio !== undefined && isFinite(results.stats.odds.oddsRatio)) {
-        lines.push(`Odds Ratio: ${results.stats.odds.oddsRatio.toFixed(3)} [95% CI: ${results.stats.odds.oddsRatioCI[0].toFixed(3)}-${results.stats.odds.oddsRatioCI[1].toFixed(3)}]`);
+    let ciText = '';
+    if (results.stats.odds.oddsRatioCI && 
+        results.stats.odds.oddsRatioCI[0] !== undefined && 
+        results.stats.odds.oddsRatioCI[1] !== undefined &&
+        isFinite(results.stats.odds.oddsRatioCI[0]) &&
+        isFinite(results.stats.odds.oddsRatioCI[1])) {
+        ciText = ` [95% CI: ${results.stats.odds.oddsRatioCI[0].toFixed(3)}-${results.stats.odds.oddsRatioCI[1].toFixed(3)}]`;
     }
+    lines.push(`Odds Ratio: ${results.stats.odds.oddsRatio.toFixed(3)}${ciText}`);
+}
     
     if (results.stats.risk.riskDifference !== undefined && isFinite(results.stats.risk.riskDifference)) {
-        lines.push(`Risk Difference: ${results.stats.risk.riskDifference.toFixed(3)} [95% CI: ${results.stats.risk.riskDifferenceCI[0].toFixed(3)}-${results.stats.risk.riskDifferenceCI[1].toFixed(3)}]`);
+    let ciText = '';
+    if (results.stats.risk.riskDifferenceCI && 
+        results.stats.risk.riskDifferenceCI[0] !== undefined && 
+        results.stats.risk.riskDifferenceCI[1] !== undefined &&
+        isFinite(results.stats.risk.riskDifferenceCI[0]) &&
+        isFinite(results.stats.risk.riskDifferenceCI[1])) {
+        ciText = ` [95% CI: ${results.stats.risk.riskDifferenceCI[0].toFixed(3)}-${results.stats.risk.riskDifferenceCI[1].toFixed(3)}]`;
     }
+    lines.push(`Risk Difference: ${results.stats.risk.riskDifference.toFixed(3)}${ciText}`);
+}
     
     if (results.stats.risk.riskRatio !== undefined && isFinite(results.stats.risk.riskRatio)) {
         lines.push(`Risk Ratio: ${results.stats.risk.riskRatio.toFixed(3)}`);
