@@ -7630,103 +7630,108 @@ utils.showError(`Group "${group.name}" references non-existent constellation "${
          * Update overview statistics table
          */
         function updateOverviewStatsTable() {
-            const table = document.getElementById('overview-stats-table');
-            let html = '<thead><tr><th>Parameter</th><th>Scale</th><th>Group</th><th>N</th><th>Mean/Median</th><th>SD/IQR</th><th>Min</th><th>Max</th></tr></thead><tbody>';
+    const table = document.getElementById('overview-stats-table');
+    let html = '<thead><tr><th>Parameter</th><th>Scale</th><th>Group</th><th>N</th><th>Mean/Median</th><th>SD/IQR</th><th>Min</th><th>Max</th></tr></thead><tbody>';
 
-// Add explanation about statistics used
-            const explanationDiv = document.createElement('div');
-            explanationDiv.style.cssText = 'margin-bottom: 15px; padding: 15px; background-color: var(--background-light); border-radius: 8px; border: 1px solid var(--border-color);';
-            explanationDiv.innerHTML = `
-                <p style="font-size: 14px; color: var(--text-light);">
-                    <strong>📊 Statistical Measures Used:</strong><br>
-                    • <strong>Ordinal data (o):</strong> Median and IQR (Interquartile Range) - appropriate for ranked data without equal intervals<br>
-                    • <strong>Interval/Ratio data (i/r):</strong> Mean and SD (Standard Deviation) - appropriate for continuous data with meaningful intervals<br>
-                    • <strong>Categorical data (k):</strong> Mode and frequency counts - appropriate for nominal categories
-                </p>
-            `;
-            document.getElementById('overview-stats-table').parentNode.insertBefore(explanationDiv, document.getElementById('overview-stats-table'));
-            
-            // All parameters
-            globalState.columnNames.forEach(paramName => {
-                const paramType = globalState.columnTypes[paramName];
-                const scaleInfo = utils.getScaleInfo(paramType);
+    // Add explanation about statistics used
+    const explanationDiv = document.createElement('div');
+    explanationDiv.style.cssText = 'margin-bottom: 15px; padding: 15px; background-color: var(--background-light); border-radius: 8px; border: 1px solid var(--border-color);';
+    explanationDiv.innerHTML = `
+        <p style="font-size: 14px; color: var(--text-light);">
+            <strong>📊 Statistical Measures Used:</strong><br>
+            • <strong>Ordinal data (o):</strong> Median and IQR (Interquartile Range) - appropriate for ranked data without equal intervals<br>
+            • <strong>Interval/Ratio data (i/r):</strong> Mean and SD (Standard Deviation) - appropriate for continuous data with meaningful intervals<br>
+            • <strong>Categorical data (k):</strong> Mode and frequency counts - appropriate for nominal categories
+        </p>
+    `;
+    document.getElementById('overview-stats-table').parentNode.insertBefore(explanationDiv, document.getElementById('overview-stats-table'));
+    
+    // All parameters
+    globalState.columnNames.forEach(paramName => {
+        const paramType = globalState.columnTypes[paramName];
+        const scaleInfo = utils.getScaleInfo(paramType);
 
-                Object.entries(globalState.currentGroups).forEach(([groupId, group], index) => {
-                    const color = group.customColor || groupColors[group.colorIndex];
-                    const bgColor = typeof color === 'string' ? color : color.bg;
-if (scaleTypes[paramType].numeric) {
-                        // Numeric parameters
-                        const groupData = globalState.processedData[groupId]
-                            .map(row => utils.parseNumericValue(row[paramName]))
-                            .filter(val => !isNaN(val));
+        Object.entries(globalState.currentGroups).forEach(([groupId, group], index) => {
+            const color = group.customColor || groupColors[group.colorIndex];
+            const bgColor = typeof color === 'string' ? color : color.bg;
 
-                        const stats = statistics.calculate(groupData);
+            if (scaleTypes[paramType].numeric) {
+                // Numeric parameters
+                const groupData = globalState.processedData[groupId]
+                    .map(row => utils.parseNumericValue(row[paramName]))
+                    .filter(val => !isNaN(val));
 
-                        let centralTendency = '-';
-                        let dispersion = '-';
+                const stats = statistics.calculate(groupData);
 
-                        if (stats.count > 0) {
-                            if (paramType === 'o') {
-                                // Ordinal: use median and IQR
-                                centralTendency = stats.median !== null ? utils.formatNumber(stats.median, 2) : '-';
-                                dispersion = stats.iqr !== null ? utils.formatNumber(stats.iqr, 2) : '-';
-                            } else {
-                                // Interval/Ratio: use mean and SD
-                                centralTendency = stats.mean !== null ? utils.formatNumber(stats.mean, 2) : '-';
-                                dispersion = stats.stdDev !== null ? utils.formatNumber(stats.stdDev, 2) : '-';
-                            }
-                        }
+                // Safe formatting function
+                const safeFormat = (value, decimals) => {
+                    return value !== null && !isNaN(value) ? utils.formatNumber(value, decimals) : '-';
+                };
 
-                        html += `
-                            <tr>
-                                <td><strong>${paramName}</strong></td>
-                                <td><span class="scale-badge ${scaleInfo.class}">${paramType.toUpperCase()}</span></td>
-                                <td>
-                                    <span class="group-badge" style="background-color: ${bgColor};">
-                                        ${group.name}
-                                    </span>
-                                </td>
-                                <td>${stats.count}</td>
-                                <td>${centralTendency}</td>
-                                <td>${dispersion}</td>
-                                <td>${stats.min !== null ? utils.formatNumber(stats.min, 2) : '-'}</td>
-                                <td>${stats.max !== null ? utils.formatNumber(stats.max, 2) : '-'}</td>
-                            </tr>
-                        `;
+                let centralTendency = '-';
+                let dispersion = '-';
+
+                if (stats.count > 0) {
+                    if (paramType === 'o') {
+                        // Ordinal: use median and IQR
+                        centralTendency = safeFormat(stats.median, 2);
+                        dispersion = safeFormat(stats.iqr, 2);
                     } else {
-                    
-                        // Categorical parameters
-                        const groupData = globalState.processedData[groupId]
-                            .map(row => row[paramName])
-                            .filter(val => val !== null && val !== undefined && val !== '');
-
-                        const uniqueValues = [...new Set(groupData)];
-                        const mode = uniqueValues.length > 0 ?
-                            uniqueValues.reduce((a, b) =>
-                                groupData.filter(v => v === a).length >= groupData.filter(v => v === b).length ? a : b
-                            ) : '-';
-
-                        html += `
-                            <tr>
-                                <td><strong>${paramName}</strong></td>
-                                <td><span class="scale-badge ${scaleInfo.class}">${paramType.toUpperCase()}</span></td>
-                                <td>
-                                    <span class="group-badge" style="background-color: ${bgColor};">
-                                        ${group.name}
-                                    </span>
-                                </td>
-                                <td>${groupData.length}</td>
-                                <td colspan="2">Mode: ${mode}</td>
-                                <td colspan="2">${uniqueValues.length} categories</td>
-                            </tr>
-                        `;
+                        // Interval/Ratio: use mean and SD
+                        centralTendency = safeFormat(stats.mean, 2);
+                        dispersion = safeFormat(stats.stdDev, 2);
                     }
-                });
-            });
+                }
 
-            html += '</tbody>';
-            table.innerHTML = html;
-        }
+                html += `
+                    <tr>
+                        <td><strong>${paramName}</strong></td>
+                        <td><span class="scale-badge ${scaleInfo.class}">${paramType.toUpperCase()}</span></td>
+                        <td>
+                            <span class="group-badge" style="background-color: ${bgColor};">
+                                ${group.name}
+                            </span>
+                        </td>
+                        <td>${stats.count}</td>
+                        <td>${centralTendency}</td>
+                        <td>${dispersion}</td>
+                        <td>${safeFormat(stats.min, 2)}</td>
+                        <td>${safeFormat(stats.max, 2)}</td>
+                    </tr>
+                `;
+            } else {
+                // Categorical parameters
+                const groupData = globalState.processedData[groupId]
+                    .map(row => row[paramName])
+                    .filter(val => val !== null && val !== undefined && val !== '');
+
+                const uniqueValues = [...new Set(groupData)];
+                const mode = uniqueValues.length > 0 ?
+                    uniqueValues.reduce((a, b) =>
+                        groupData.filter(v => v === a).length >= groupData.filter(v => v === b).length ? a : b
+                    ) : '-';
+
+                html += `
+                    <tr>
+                        <td><strong>${paramName}</strong></td>
+                        <td><span class="scale-badge ${scaleInfo.class}">${paramType.toUpperCase()}</span></td>
+                        <td>
+                            <span class="group-badge" style="background-color: ${bgColor};">
+                                ${group.name}
+                            </span>
+                        </td>
+                        <td>${groupData.length}</td>
+                        <td colspan="2">Mode: ${mode}</td>
+                        <td colspan="2">${uniqueValues.length} categories</td>
+                    </tr>
+                `;
+            }
+        });
+    });
+
+    html += '</tbody>';
+    table.innerHTML = html;
+}
 
         /**
  * Update significance test group selection
