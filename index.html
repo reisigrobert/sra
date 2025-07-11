@@ -4143,6 +4143,9 @@ calculateProportionCI(proportion, n, alpha = 0.05) {
 }
 
 calculateOddsRatioCI(a, b, c, d) {
+    if (a === 0 || b === 0 || c === 0 || d === 0) {
+        return [NaN, NaN];
+    }
     const logOR = Math.log((a * d) / (b * c));
     const se = Math.sqrt(1/a + 1/b + 1/c + 1/d);
     const z = 1.96;
@@ -4153,6 +4156,9 @@ calculateOddsRatioCI(a, b, c, d) {
 }
 
 calculateRiskDifferenceCI(a, b, c, d) {
+    if ((a + b) === 0 || (c + d) === 0) {
+        return [NaN, NaN];
+    }
     const p1 = a / (a + b);
     const p2 = c / (c + d);
     const rd = p1 - p2;
@@ -5689,6 +5695,11 @@ if (isOverridden) {
             resultsContainer.appendChild(resultDiv);
         }
 
+            // Force a reflow to ensure the variance test is visible
+    resultsContainer.style.display = 'none';
+    resultsContainer.offsetHeight; // Force reflow
+    resultsContainer.style.display = 'block';
+
         /**
  * Check all prerequisites at once
  */
@@ -5735,7 +5746,6 @@ if (selectedGroups.length === 2) {
     resultsContainer.appendChild(varianceHeaderDiv);
 }
     
-    // Check variance homogeneity if exactly 2 groups
     // Check variance homogeneity if exactly 2 groups
     if (selectedGroups.length === 2) {
         // Get data for both groups
@@ -7721,7 +7731,7 @@ utils.showError(`Group "${group.name}" references non-existent constellation "${
                         // Numeric parameters
                         const groupData = globalState.processedData[groupId]
                             .map(row => utils.parseNumericValue(row[paramName]))
-                            .filter(val => !isNaN(val));
+                            .filter(val => !isNaN(val) && isFinite(val));
 
                         const stats = statistics.calculate(groupData);
 
@@ -7760,8 +7770,8 @@ utils.showError(`Group "${group.name}" references non-existent constellation "${
         <td>${stats.count}</td>
         <td>${centralTendency}</td>
         <td>${dispersion}</td>
-        <td>${stats.min !== null && stats.min !== undefined && !isNaN(stats.min) ? utils.formatNumber(stats.min, 2) : '-'}</td>
-        <td>${stats.max !== null && stats.max !== undefined && !isNaN(stats.max) ? utils.formatNumber(stats.max, 2) : '-'}</td>
+        <td>${(stats.min !== null && stats.min !== undefined && !isNaN(stats.min) && isFinite(stats.min)) ? utils.formatNumber(stats.min, 2) : '-'}</td>
+                            <td>${(stats.max !== null && stats.max !== undefined && !isNaN(stats.max) && isFinite(stats.max)) ? utils.formatNumber(stats.max, 2) : '-'}</td>
     </tr>
 `;
                     } else {
