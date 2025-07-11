@@ -5509,7 +5509,6 @@ function updateTestSelectionUI() {
 
     // Clear previous results
     const resultsContainer = document.getElementById('prerequisite-results');
-    resultsContainer.innerHTML = '';
 
     // Store results
     if (!globalState.prerequisiteResults[paramName]) {
@@ -7732,12 +7731,20 @@ utils.showError(`Group "${group.name}" references non-existent constellation "${
                         if (stats.count > 0) {
                             if (paramType === 'o') {
                                 // Ordinal: use median and IQR
-                                centralTendency = utils.formatNumber(stats.median, 2);
-                                dispersion = utils.formatNumber(stats.iqr, 2);
+                                if (stats.median !== null && stats.median !== undefined && !isNaN(stats.median) && isFinite(stats.median)) {
+                                    centralTendency = utils.formatNumber(stats.median, 2);
+                                }
+                                if (stats.iqr !== null && stats.iqr !== undefined && !isNaN(stats.iqr) && isFinite(stats.iqr)) {
+                                    dispersion = utils.formatNumber(stats.iqr, 2);
+                                }
                             } else {
                                 // Interval/Ratio: use mean and SD
-                                centralTendency = utils.formatNumber(stats.mean, 2);
-                                dispersion = utils.formatNumber(stats.stdDev, 2);
+                                if (stats.mean !== null && stats.mean !== undefined && !isNaN(stats.mean) && isFinite(stats.mean)) {
+                                    centralTendency = utils.formatNumber(stats.mean, 2);
+                                }
+                                if (stats.stdDev !== null && stats.stdDev !== undefined && !isNaN(stats.stdDev) && isFinite(stats.stdDev)) {
+                                    dispersion = utils.formatNumber(stats.stdDev, 2);
+                                }
                             }
                         }
 
@@ -11675,39 +11682,41 @@ utils.showError(`Invalid numeric value for parameter '${parameter}': ${condition
     lines.push('ASSOCIATION MEASURES:');
     lines.push('-'.repeat(40));
     
-    if (results.stats.odds.oddsRatio !== undefined && isFinite(results.stats.odds.oddsRatio)) {
-    let ciText = '';
-    if (results.stats.odds.oddsRatioCI && 
-        results.stats.odds.oddsRatioCI[0] !== undefined && 
-        results.stats.odds.oddsRatioCI[1] !== undefined &&
-        isFinite(results.stats.odds.oddsRatioCI[0]) &&
-        isFinite(results.stats.odds.oddsRatioCI[1])) {
-        ciText = ` [95% CI: ${results.stats.odds.oddsRatioCI[0].toFixed(3)}-${results.stats.odds.oddsRatioCI[1].toFixed(3)}]`;
+   if (results.stats && results.stats.odds && results.stats.odds.oddsRatio !== undefined && isFinite(results.stats.odds.oddsRatio)) {
+        let line = `Odds Ratio: ${results.stats.odds.oddsRatio.toFixed(3)}`;
+        if (results.stats.odds.oddsRatioCI && 
+            results.stats.odds.oddsRatioCI[0] !== undefined && 
+            results.stats.odds.oddsRatioCI[1] !== undefined &&
+            isFinite(results.stats.odds.oddsRatioCI[0]) &&
+            isFinite(results.stats.odds.oddsRatioCI[1])) {
+            line += ` [95% CI: ${results.stats.odds.oddsRatioCI[0].toFixed(3)}-${results.stats.odds.oddsRatioCI[1].toFixed(3)}]`;
+        }
+        lines.push(line);
     }
-    lines.push(`Odds Ratio: ${results.stats.odds.oddsRatio.toFixed(3)}${ciText}`);
-}
     
-    if (results.stats.risk.riskDifference !== undefined && isFinite(results.stats.risk.riskDifference)) {
-    let ciText = '';
-    if (results.stats.risk.riskDifferenceCI && 
-        results.stats.risk.riskDifferenceCI[0] !== undefined && 
-        results.stats.risk.riskDifferenceCI[1] !== undefined &&
-        isFinite(results.stats.risk.riskDifferenceCI[0]) &&
-        isFinite(results.stats.risk.riskDifferenceCI[1])) {
-        ciText = ` [95% CI: ${results.stats.risk.riskDifferenceCI[0].toFixed(3)}-${results.stats.risk.riskDifferenceCI[1].toFixed(3)}]`;
+    if (results.stats && results.stats.risk && results.stats.risk.riskDifference !== undefined && isFinite(results.stats.risk.riskDifference)) {
+        let line = `Risk Difference: ${results.stats.risk.riskDifference.toFixed(3)}`;
+        if (results.stats.risk.riskDifferenceCI && 
+            results.stats.risk.riskDifferenceCI[0] !== undefined && 
+            results.stats.risk.riskDifferenceCI[1] !== undefined &&
+            isFinite(results.stats.risk.riskDifferenceCI[0]) &&
+            isFinite(results.stats.risk.riskDifferenceCI[1])) {
+            line += ` [95% CI: ${results.stats.risk.riskDifferenceCI[0].toFixed(3)}-${results.stats.risk.riskDifferenceCI[1].toFixed(3)}]`;
+        }
+        lines.push(line);
     }
-    lines.push(`Risk Difference: ${results.stats.risk.riskDifference.toFixed(3)}${ciText}`);
-}
     
-    if (results.stats.risk.riskRatio !== undefined && isFinite(results.stats.risk.riskRatio)) {
+    if (results.stats && results.stats.risk && results.stats.risk.riskRatio !== undefined && isFinite(results.stats.risk.riskRatio)) {
         lines.push(`Risk Ratio: ${results.stats.risk.riskRatio.toFixed(3)}`);
     }
     
-    if (results.stats.risk.nnt !== undefined && isFinite(results.stats.risk.nnt)) {
+    if (results.stats && results.stats.risk && results.stats.risk.nnt !== undefined && isFinite(results.stats.risk.nnt)) {
         lines.push(`Number Needed to Treat (NNT): ${Math.abs(results.stats.risk.nnt).toFixed(1)}`);
     }
     
-    lines.push(`Phi Coefficient: ${results.stats.phi.toFixed(3)}`);
+    if (results.stats && results.stats.phi !== undefined && isFinite(results.stats.phi)) {
+        lines.push(`Phi Coefficient: ${results.stats.phi.toFixed(3)}`);
+    }
     lines.push('');
     
     // Statistical tests
