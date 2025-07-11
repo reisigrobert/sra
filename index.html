@@ -5477,11 +5477,7 @@ function updateTestSelectionUI() {
             // The actual update happens when the chart is generated
         }
 
-        /**
-         * Check normality for selected parameter and groups
-         */
         function checkNormality() {
-            
     const paramName = document.getElementById('sig-parameter-select').value;
     if (!paramName) {
         utils.showError("Please select a parameter first.");
@@ -5505,9 +5501,15 @@ function updateTestSelectionUI() {
         return;
     }
 
-    // Clear previous results
+    // Get or create normality results container
     const resultsContainer = document.getElementById('prerequisite-results');
-    resultsContainer.innerHTML = '';
+    let normalitySection = document.getElementById('normality-test-results');
+    if (!normalitySection) {
+        normalitySection = document.createElement('div');
+        normalitySection.id = 'normality-test-results';
+        resultsContainer.appendChild(normalitySection);
+    }
+    normalitySection.innerHTML = ''; // Clear only normality results
 
     // Store results
     if (!globalState.prerequisiteResults[paramName]) {
@@ -5581,28 +5583,30 @@ function updateTestSelectionUI() {
             html += '<br>';
         }
         
-        // Overall assessment - use Shapiro-Wilk as primary test
-const shapiroNormal = shapiroResult.normal && !shapiroResult.error;
-const overallNormal = isOverridden || shapiroNormal;
+        // Overall assessment
+        const shapiroNormal = shapiroResult.normal && !shapiroResult.error;
+        const overallNormal = isOverridden || shapiroNormal;
 
-if (isOverridden) {
-    html += '<br><strong style="color: var(--warning-color);">⚠️ Normality assumption manually overridden</strong>';
-    resultDiv.className = 'prerequisite-result pass';
-} else if (overallNormal) {
-const testName = shapiroResult.test || 'Shapiro-Wilk';
-html += `<br><strong style="color: var(--success-color);">✓ Normal distribution (${testName} test passed)</strong>`;    resultDiv.className = 'prerequisite-result pass';
-} else {
-const testName = shapiroResult.test || 'Shapiro-Wilk';
-html += `<br><strong style="color: var(--danger-color);">✗ Not normally distributed (${testName} test failed)</strong>`;    resultDiv.className = 'prerequisite-result fail';
-}
+        if (isOverridden) {
+            html += '<br><strong style="color: var(--warning-color);">⚠️ Normality assumption manually overridden</strong>';
+            resultDiv.className = 'prerequisite-result pass';
+        } else if (overallNormal) {
+            const testName = shapiroResult.test || 'Shapiro-Wilk';
+            html += `<br><strong style="color: var(--success-color);">✓ Normal distribution (${testName} test passed)</strong>`;
+            resultDiv.className = 'prerequisite-result pass';
+        } else {
+            const testName = shapiroResult.test || 'Shapiro-Wilk';
+            html += `<br><strong style="color: var(--danger-color);">✗ Not normally distributed (${testName} test failed)</strong>`;
+            resultDiv.className = 'prerequisite-result fail';
+        }
 
         resultDiv.innerHTML = html;
-resultsContainer.appendChild(resultDiv);
+        normalitySection.appendChild(resultDiv);
 
-// Update the stored result to use Shapiro-Wilk as primary
-if (globalState.prerequisiteResults[paramName][groupId]) {
-    globalState.prerequisiteResults[paramName][groupId].normality.normal = overallNormal;
-}
+        // Update the stored result
+        if (globalState.prerequisiteResults[paramName][groupId]) {
+            globalState.prerequisiteResults[paramName][groupId].normality.normal = overallNormal;
+        }
     });
 }
 
@@ -5779,7 +5783,10 @@ function checkVarianceHomogeneity() {
     }
 }
 
-        function checkAllPrerequisites() {
+       /**
+ * Check all prerequisites at once
+ */
+function checkAllPrerequisites() {
     const paramName = document.getElementById('sig-parameter-select').value;
     if (!paramName) {
         utils.showError("Please select a parameter first.");
@@ -5809,17 +5816,23 @@ function checkVarianceHomogeneity() {
         globalState.prerequisiteResults[paramName] = {};
     }
 
-    // 1. Check normality
+    // 1. Add normality header and run test
     const normalityHeaderDiv = document.createElement('div');
     normalityHeaderDiv.innerHTML = '<h5>Normality Test Results:</h5>';
     resultsContainer.appendChild(normalityHeaderDiv);
     checkNormality();
 
-    // 2. Check variance homogeneity if at least 2 groups
+    // 2. Add variance header and run test if at least 2 groups
     if (selectedGroups.length >= 2) {
         const varianceHeaderDiv = document.createElement('div');
         varianceHeaderDiv.innerHTML = '<h5 style="margin-top: 20px;">Variance Homogeneity Test:</h5>';
         resultsContainer.appendChild(varianceHeaderDiv);
+        
+        // Create variance results container
+        const varianceSection = document.createElement('div');
+        varianceSection.id = 'variance-test-results';
+        resultsContainer.appendChild(varianceSection);
+        
         checkVarianceHomogeneity();
     }
 
@@ -7719,110 +7732,101 @@ utils.showError(`Group "${group.name}" references non-existent constellation "${
          * Update overview statistics table
          */
         function updateOverviewStatsTable() {
-    const table = document.getElementById('overview-stats-table');
-    let html = '<thead><tr><th>Parameter</th><th>Scale</th><th>Group</th><th>N</th><th>Mean/Median</th><th>SD/IQR</th><th>Min</th><th>Max</th></tr></thead><tbody>';
+            const table = document.getElementById('overview-stats-table');
+            const tableContainer = table.parentNode;
 
-    // Add explanation about statistics used
-    const explanationDiv = document.createElement('div');
-    explanationDiv.style.cssText = 'margin-bottom: 15px; padding: 15px; background-color: var(--background-light); border-radius: 8px; border: 1px solid var(--border-color);';
-    explanationDiv.innerHTML = `
-        <p style="font-size: 14px; color: var(--text-light);">
-            <strong>📊 Statistical Measures Used:</strong><br>
-            • <strong>Ordinal data (o):</strong> Median and IQR (Interquartile Range) - appropriate for ranked data without equal intervals<br>
-            • <strong>Interval/Ratio data (i/r):</strong> Mean and SD (Standard Deviation) - appropriate for continuous data with meaningful intervals<br>
-            • <strong>Categorical data (k):</strong> Mode and frequency counts - appropriate for nominal categories
-        </p>
-    `;
-    document.getElementById('overview-stats-table').parentNode.insertBefore(explanationDiv, document.getElementById('overview-stats-table'));
-    
-    // All parameters
-    globalState.columnNames.forEach(paramName => {
-        const paramType = globalState.columnTypes[paramName];
-        const scaleInfo = utils.getScaleInfo(paramType);
-
-        Object.entries(globalState.currentGroups).forEach(([groupId, group], index) => {
-            const color = group.customColor || groupColors[group.colorIndex];
-            const bgColor = typeof color === 'string' ? color : color.bg;
-
-            if (scaleTypes[paramType].numeric) {
-                // Numeric parameters
-                const groupData = globalState.processedData[groupId]
-                    .map(row => utils.parseNumericValue(row[paramName]))
-                    .filter(val => !isNaN(val));
-
-                const stats = statistics.calculate(groupData);
-
-                // Safe formatting function
-                const safeFormat = (value, decimals) => {
-                    return value !== null && value !== undefined && !isNaN(value) && isFinite(value) 
-                        ? utils.formatNumber(value, decimals) 
-                        : '-';
-                };
-
-                let centralTendency = '-';
-                let dispersion = '-';
-
-                if (stats.count > 0) {
-                    if (paramType === 'o') {
-                        // Ordinal: use median and IQR
-                        centralTendency = safeFormat(stats.median, 2);
-                        dispersion = safeFormat(stats.iqr, 2);
-                    } else {
-                        // Interval/Ratio: use mean and SD
-                        centralTendency = safeFormat(stats.mean, 2);
-                        dispersion = safeFormat(stats.stdDev, 2);
-                    }
-                }
-
-                html += `
-                    <tr>
-                        <td><strong>${paramName}</strong></td>
-                        <td><span class="scale-badge ${scaleInfo.class}">${paramType.toUpperCase()}</span></td>
-                        <td>
-                            <span class="group-badge" style="background-color: ${bgColor};">
-                                ${group.name}
-                            </span>
-                        </td>
-                        <td>${stats.count}</td>
-                        <td>${centralTendency}</td>
-                        <td>${dispersion}</td>
-                        <td>${safeFormat(stats.min, 2)}</td>
-                        <td>${safeFormat(stats.max, 2)}</td>
-                    </tr>
-                `;
-            } else {
-                // Categorical parameters
-                const groupData = globalState.processedData[groupId]
-                    .map(row => row[paramName])
-                    .filter(val => val !== null && val !== undefined && val !== '');
-
-                const uniqueValues = [...new Set(groupData)];
-                const mode = uniqueValues.length > 0 ?
-                    uniqueValues.reduce((a, b) =>
-                        groupData.filter(v => v === a).length >= groupData.filter(v => v === b).length ? a : b
-                    ) : '-';
-
-                html += `
-                    <tr>
-                        <td><strong>${paramName}</strong></td>
-                        <td><span class="scale-badge ${scaleInfo.class}">${paramType.toUpperCase()}</span></td>
-                        <td>
-                            <span class="group-badge" style="background-color: ${bgColor};">
-                                ${group.name}
-                            </span>
-                        </td>
-                        <td>${groupData.length}</td>
-                        <td colspan="2">Mode: ${mode}</td>
-                        <td colspan="2">${uniqueValues.length} categories</td>
-                    </tr>
-                `;
+            // Add or update the explanation div to prevent duplicates
+            let explanationDiv = tableContainer.querySelector('.stats-explanation');
+            if (!explanationDiv) {
+                explanationDiv = document.createElement('div');
+                explanationDiv.className = 'stats-explanation'; // Use a class for easier selection
+                tableContainer.insertBefore(explanationDiv, table);
             }
-        });
-    });
+            explanationDiv.style.cssText = 'margin-bottom: 15px; padding: 15px; background-color: var(--background-light); border-radius: 8px; border: 1px solid var(--border-color);';
+            explanationDiv.innerHTML = `
+                <p style="font-size: 14px; color: var(--text-light);">
+                    <strong>📊 Statistical Measures Used:</strong><br>
+                    • <strong>Ordinal data (o):</strong> Median and IQR (Interquartile Range) are shown as they are robust to non-normal distributions.<br>
+                    • <strong>Interval/Ratio data (i/r):</strong> Mean and SD (Standard Deviation) are shown for normally distributed data.<br>
+                    • <strong>Categorical data (k):</strong> Mode (most frequent value) and frequency counts are shown.
+                </p>
+            `;
+            
+            let html = '<thead><tr><th>Parameter</th><th>Scale</th><th>Group</th><th>N</th><th>Mean/Median</th><th>SD/IQR</th><th>Min</th><th>Max</th></tr></thead><tbody>';
 
-    html += '</tbody>';
-    table.innerHTML = html;
-}
+            // All parameters
+            globalState.columnNames.forEach(paramName => {
+                const paramType = globalState.columnTypes[paramName];
+                const scaleInfo = utils.getScaleInfo(paramType);
+
+                Object.entries(globalState.currentGroups).forEach(([groupId, group]) => {
+                    const color = group.customColor || groupColors[group.colorIndex % groupColors.length];
+                    const bgColor = typeof color === 'string' ? color : color.bg;
+
+                    if (scaleTypes[paramType].numeric) {
+                        // Numeric parameters
+                        const groupData = globalState.processedData[groupId]
+                            .map(row => utils.parseNumericValue(row[paramName]))
+                            .filter(val => !isNaN(val) && isFinite(val));
+
+                        const stats = statistics.calculate(groupData);
+
+                        // Define variables for display, with '-' as default
+                        let centralTendency = '-';
+                        let dispersion = '-';
+                        
+                        // Use explicit checks for each statistic before formatting
+                        if (stats.count > 0) {
+                            if (paramType === 'o') { // Ordinal uses Median and IQR
+                                centralTendency = (stats.median !== null && isFinite(stats.median)) ? utils.formatNumber(stats.median, 2) : '-';
+                                dispersion = (stats.iqr !== null && isFinite(stats.iqr)) ? utils.formatNumber(stats.iqr, 2) : '-';
+                            } else { // Interval/Ratio uses Mean and Std Dev
+                                centralTendency = (stats.mean !== null && isFinite(stats.mean)) ? utils.formatNumber(stats.mean, 2) : '-';
+                                dispersion = (stats.stdDev !== null && isFinite(stats.stdDev)) ? utils.formatNumber(stats.stdDev, 2) : '-';
+                            }
+                        }
+
+                        html += `
+                            <tr>
+                                <td><strong>${paramName}</strong></td>
+                                <td><span class="scale-badge ${scaleInfo.class}">${paramType.toUpperCase()}</span></td>
+                                <td><span class="group-badge" style="background-color: ${bgColor};">${group.name}</span></td>
+                                <td>${stats.count}</td>
+                                <td>${centralTendency}</td>
+                                <td>${dispersion}</td>
+                                <td>${(stats.min !== null && isFinite(stats.min)) ? utils.formatNumber(stats.min, 2) : '-'}</td>
+                                <td>${(stats.max !== null && isFinite(stats.max)) ? utils.formatNumber(stats.max, 2) : '-'}</td>
+                            </tr>
+                        `;
+                    } else {
+                        // Categorical parameters
+                        const groupData = globalState.processedData[groupId]
+                            .map(row => row[paramName])
+                            .filter(val => val !== null && val !== undefined && val !== '');
+
+                        const uniqueValues = [...new Set(groupData)];
+                        const mode = uniqueValues.length > 0 ?
+                            uniqueValues.reduce((a, b) =>
+                                groupData.filter(v => v === a).length >= groupData.filter(v => v === b).length ? a : b
+                            ) : '-';
+
+                        html += `
+                            <tr>
+                                <td><strong>${paramName}</strong></td>
+                                <td><span class="scale-badge ${scaleInfo.class}">${paramType.toUpperCase()}</span></td>
+                                <td><span class="group-badge" style="background-color: ${bgColor};">${group.name}</span></td>
+                                <td>${groupData.length}</td>
+                                <td colspan="2">Mode: ${mode}</td>
+                                <td colspan="2">${uniqueValues.length} categories</td>
+                            </tr>
+                        `;
+                    }
+                });
+            });
+
+            html += '</tbody>';
+            table.innerHTML = html;
+        }
 
         /**
  * Update significance test group selection
