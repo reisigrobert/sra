@@ -5442,6 +5442,8 @@ function updateTestSelectionUI() {
             inlineDisplay.style.display = 'block';
         }
     }
+
+            checkAllPrerequisites();
 }
 
         /**
@@ -8755,6 +8757,23 @@ function updateSignificanceGroupSelection() {
     let testType = document.getElementById('sig-test-type').value;
     const forceExecution = true; // Always force execution
 
+// Validate test type against scale type
+const paramType = globalState.columnTypes[paramName];
+const scaleInfo = scaleTypes[paramType];
+
+// Scale-based test validation
+const invalidTestForScale = {
+    'k': ['ttest', 'welch', 'anova', 'mann-whitney', 'kruskal-wallis', 'wilcoxon', 'pearson', 'spearman'],
+    'o': ['ttest', 'welch', 'anova', 'pearson'], // Ordinal can't use parametric tests except correlation
+    'i': [], // Interval can use all tests
+    'r': []  // Ratio can use all tests
+};
+
+if (invalidTestForScale[paramType] && invalidTestForScale[paramType].includes(testType)) {
+    utils.showError(`${testInfo[testType].name} cannot be used with ${scaleInfo.name} scale data. Please select an appropriate test.`);
+    return;
+}
+            
     // Get alpha level
             let alpha = 0.05;
             const alphaSelect = document.getElementById('sig-alpha');
@@ -11557,58 +11576,86 @@ utils.showError(`Invalid numeric value for parameter '${parameter}': ${condition
         lines.push('DIAGNOSTIC TEST METRICS:');
         lines.push('-'.repeat(40));
         
-         // Performance metrics
+        // Performance metrics
         lines.push('Test Performance:');
-        if (dm.sensitivity !== undefined && dm.sensitivityCI) {
-            lines.push(`  Sensitivity: ${(dm.sensitivity * 100).toFixed(1)}% [95% CI: ${(dm.sensitivityCI[0] * 100).toFixed(1)}%-${(dm.sensitivityCI[1] * 100).toFixed(1)}%]`);
+        if (dm.sensitivity !== undefined && isFinite(dm.sensitivity)) {
+            let line = `  Sensitivity: ${(dm.sensitivity * 100).toFixed(1)}%`;
+            if (dm.sensitivityCI && dm.sensitivityCI[0] !== undefined && dm.sensitivityCI[1] !== undefined) {
+                line += ` [95% CI: ${(dm.sensitivityCI[0] * 100).toFixed(1)}%-${(dm.sensitivityCI[1] * 100).toFixed(1)}%]`;
+            }
+            lines.push(line);
         }
-        if (dm.specificity !== undefined && dm.specificityCI) {
-            lines.push(`  Specificity: ${(dm.specificity * 100).toFixed(1)}% [95% CI: ${(dm.specificityCI[0] * 100).toFixed(1)}%-${(dm.specificityCI[1] * 100).toFixed(1)}%]`);
+        if (dm.specificity !== undefined && isFinite(dm.specificity)) {
+            let line = `  Specificity: ${(dm.specificity * 100).toFixed(1)}%`;
+            if (dm.specificityCI && dm.specificityCI[0] !== undefined && dm.specificityCI[1] !== undefined) {
+                line += ` [95% CI: ${(dm.specificityCI[0] * 100).toFixed(1)}%-${(dm.specificityCI[1] * 100).toFixed(1)}%]`;
+            }
+            lines.push(line);
         }
-        if (dm.accuracy !== undefined) {
+        if (dm.accuracy !== undefined && isFinite(dm.accuracy)) {
             lines.push(`  Accuracy: ${(dm.accuracy * 100).toFixed(1)}%`);
         }
         lines.push('');
         
         // Predictive values
         lines.push('Predictive Values:');
-        if (dm.ppv !== undefined && dm.ppvCI) {
-            lines.push(`  Positive Predictive Value (PPV): ${(dm.ppv * 100).toFixed(1)}% [95% CI: ${(dm.ppvCI[0] * 100).toFixed(1)}%-${(dm.ppvCI[1] * 100).toFixed(1)}%]`);
+        if (dm.ppv !== undefined && isFinite(dm.ppv)) {
+            let line = `  Positive Predictive Value (PPV): ${(dm.ppv * 100).toFixed(1)}%`;
+            if (dm.ppvCI && dm.ppvCI[0] !== undefined && dm.ppvCI[1] !== undefined) {
+                line += ` [95% CI: ${(dm.ppvCI[0] * 100).toFixed(1)}%-${(dm.ppvCI[1] * 100).toFixed(1)}%]`;
+            }
+            lines.push(line);
         }
-        if (dm.npv !== undefined && dm.npvCI) {
-            lines.push(`  Negative Predictive Value (NPV): ${(dm.npv * 100).toFixed(1)}% [95% CI: ${(dm.npvCI[0] * 100).toFixed(1)}%-${(dm.npvCI[1] * 100).toFixed(1)}%]`);
+        if (dm.npv !== undefined && isFinite(dm.npv)) {
+            let line = `  Negative Predictive Value (NPV): ${(dm.npv * 100).toFixed(1)}%`;
+            if (dm.npvCI && dm.npvCI[0] !== undefined && dm.npvCI[1] !== undefined) {
+                line += ` [95% CI: ${(dm.npvCI[0] * 100).toFixed(1)}%-${(dm.npvCI[1] * 100).toFixed(1)}%]`;
+            }
+            lines.push(line);
         }
-        if (dm.prevalence !== undefined) {
+        if (dm.prevalence !== undefined && isFinite(dm.prevalence)) {
             lines.push(`  Prevalence: ${(dm.prevalence * 100).toFixed(1)}%`);
         }
         lines.push('');
         
         // Likelihood ratios
         lines.push('Likelihood Ratios:');
-        if (isFinite(dm.lrPositive)) {
-            lines.push(`  Positive Likelihood Ratio (LR+): ${dm.lrPositive.toFixed(2)}`);
-        } else {
-            lines.push(`  Positive Likelihood Ratio (LR+): ∞ (Perfect specificity)`);
+        if (dm.lrPositive !== undefined) {
+            if (isFinite(dm.lrPositive)) {
+                lines.push(`  Positive Likelihood Ratio (LR+): ${dm.lrPositive.toFixed(2)}`);
+            } else {
+                lines.push(`  Positive Likelihood Ratio (LR+): ∞ (Perfect specificity)`);
+            }
         }
         
-        if (isFinite(dm.lrNegative)) {
-            lines.push(`  Negative Likelihood Ratio (LR−): ${dm.lrNegative.toFixed(2)}`);
-        } else {
-            lines.push(`  Negative Likelihood Ratio (LR−): 0 (Perfect sensitivity)`);
+        if (dm.lrNegative !== undefined) {
+            if (isFinite(dm.lrNegative)) {
+                lines.push(`  Negative Likelihood Ratio (LR−): ${dm.lrNegative.toFixed(2)}`);
+            } else {
+                lines.push(`  Negative Likelihood Ratio (LR−): 0 (Perfect sensitivity)`);
+            }
         }
         
-        if (isFinite(dm.dor)) {
-            lines.push(`  Diagnostic Odds Ratio (DOR): ${dm.dor.toFixed(2)}`);
-        } else {
-            lines.push(`  Diagnostic Odds Ratio (DOR): ∞ (Perfect test)`);
+        if (dm.dor !== undefined) {
+            if (isFinite(dm.dor)) {
+                lines.push(`  Diagnostic Odds Ratio (DOR): ${dm.dor.toFixed(2)}`);
+            } else {
+                lines.push(`  Diagnostic Odds Ratio (DOR): ∞ (Perfect test)`);
+            }
         }
         lines.push('');
         
         // Additional metrics
         lines.push('Additional Metrics:');
-        lines.push(`  Youden's Index: ${dm.youdenIndex.toFixed(3)}`);
-        lines.push(`  F1 Score: ${dm.f1Score.toFixed(3)}`);
-        lines.push(`  Matthews Correlation Coefficient (MCC): ${dm.mcc.toFixed(3)}`);
+        if (dm.youdenIndex !== undefined && isFinite(dm.youdenIndex)) {
+            lines.push(`  Youden's Index: ${dm.youdenIndex.toFixed(3)}`);
+        }
+        if (dm.f1Score !== undefined && isFinite(dm.f1Score)) {
+            lines.push(`  F1 Score: ${dm.f1Score.toFixed(3)}`);
+        }
+        if (dm.mcc !== undefined && isFinite(dm.mcc)) {
+            lines.push(`  Matthews Correlation Coefficient (MCC): ${dm.mcc.toFixed(3)}`);
+        }
         lines.push('');
     }
 
