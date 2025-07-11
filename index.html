@@ -7430,16 +7430,25 @@ function checkAllPrerequisites() {
                 });
 
                 if (conditions.length > 0 || constellations.length > 0) {
-                    globalState.groupDefinitions.push({
-                        id: `group_${index}`,
-                        name: groupName,
-                        conditions: conditions,
-                        constellations: constellations,
-                        notInPrevious: notInPrevious,
-                        includeInAnalysis: includeInAnalysis,
-                        customColor: customColor,
-                        colorIndex: colorSelect.value !== 'custom' ? parseInt(colorSelect.value) : index % groupColors.length
-                    });
+                   // ALWAYS ensure valid colorIndex
+let finalColorIndex = index % groupColors.length;
+if (colorSelect && colorSelect.value !== 'custom') {
+    const parsed = parseInt(colorSelect.value);
+    if (!isNaN(parsed) && parsed >= 0 && parsed < groupColors.length) {
+        finalColorIndex = parsed;
+    }
+}
+
+globalState.groupDefinitions.push({
+    id: `group_${index}`,
+    name: groupName,
+    conditions: conditions,
+    constellations: constellations,
+    notInPrevious: notInPrevious,
+    includeInAnalysis: includeInAnalysis,
+    customColor: customColor,
+    colorIndex: finalColorIndex
+});
                 }
             });
 
@@ -7485,11 +7494,11 @@ globalState.recordAssignments = new Array(globalState.rawData.length).fill(null)
 
                 globalState.processedData[group.id] = [];
                 globalState.currentGroups[group.id] = {
-                    name: group.name,
-                    count: 0,
-                    customColor: group.customColor,
-                    colorIndex: group.colorIndex
-                };
+    name: group.name,
+    count: 0,
+    customColor: group.customColor || null,
+    colorIndex: (group.colorIndex !== undefined && group.colorIndex !== null) ? group.colorIndex : 0
+};
 
 
                 for (let rowIndex = 0; rowIndex < globalState.rawData.length; rowIndex++) {
