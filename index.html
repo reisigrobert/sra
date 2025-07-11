@@ -546,6 +546,10 @@
             display: block;
         }
 
+        .tab-content:not(.active) {
+    display: none !important;
+}
+
         @keyframes fadeIn {
             from {
                 opacity: 0;
@@ -2050,32 +2054,6 @@
                             </div>
                             <button id="export-csv-data" class="btn btn-secondary">Export as CSV</button>
                         </div>
-
-                        <div class="flex-item">
-                            <h4>Comprehensive Report</h4>
-                            <p>Export all analysis results in a single report:</p>
-                            <div style="margin: 15px 0;">
-                                <div class="checkbox-container">
-                                    <input type="checkbox" id="export-report-overview" checked>
-                                    <label for="export-report-overview">Group overview</label>
-                                </div>
-                                <div class="checkbox-container">
-                                    <input type="checkbox" id="export-report-statistics" checked>
-                                    <label for="export-report-statistics">Detailed statistics</label>
-                                </div>
-                                <div class="checkbox-container">
-                                    <input type="checkbox" id="export-report-tests" checked>
-                                    <label for="export-report-tests">Significance tests</label>
-                                </div>
-                                <div class="checkbox-container">
-                                    <input type="checkbox" id="export-report-fourfold" checked>
-                                    <label for="export-report-fourfold">Fourfold tables</label>
-                                </div>
-                            </div>
-                            <button id="export-comprehensive-report" class="btn btn-secondary">Export Comprehensive
-                                Report
-                            </button>
-                        </div>
                     </div>
                 </div>
             </div>
@@ -2659,6 +2637,13 @@
 
                 // Export inclusion state
                 text += `IncludeInAnalysis: ${group.includeInAnalysis !== false}\n`;
+
+                if (group.customColor) {
+    text += `CustomColor: ${group.customColor}\n`;
+}
+if (group.colorIndex !== undefined) {
+    text += `ColorIndex: ${group.colorIndex}\n`;
+}
 
                 // Export individual conditions
                 if (group.conditions && group.conditions.length > 0) {
@@ -4931,8 +4916,6 @@ document.getElementById('regression-custom-alpha').addEventListener('change', up
 
             // Export functionality
             document.getElementById('export-csv-data').addEventListener('click', exportAnalysisResults);
-            document.getElementById('export-comprehensive-report').addEventListener('click', exportComprehensiveReport);
-
             document.getElementById('fourfold-constellation-1').addEventListener('focus', updateConstellationState);
             document.getElementById('fourfold-constellation-2').addEventListener('focus', updateConstellationState);
 
@@ -5395,9 +5378,6 @@ function updateTestSelectionUI() {
     });
     
     const hasValidSelection = paramName && selectedGroups.length >= 1;
-    
-    // Enable/disable run test button
-    document.getElementById('run-significance-test').disabled = !hasValidSelection;
 }
 
         function updateRecommendationBasedOnOverrides() {
@@ -8699,14 +8679,6 @@ function updateSignificanceGroupSelection() {
         return;
     }
 
-    // Check prerequisites if not already done
-    const paramType = globalState.columnTypes[paramName];
-    if (scaleTypes[paramType].numeric && !globalState.prerequisiteResults[paramName]) {
-        utils.showError("Please check prerequisites first before running the test.");
-        checkAllPrerequisites();
-        return;
-    }
-
     let testType = document.getElementById('sig-test-type').value;
     const forceExecution = true; // Always force execution
 
@@ -11381,11 +11353,24 @@ utils.showError(`Invalid numeric value for parameter '${parameter}': ${condition
                     lines.push(`Effect Size: ${testResult.result.effectSize.toFixed(3)}`);
                 }
 
-                if (testResult.result.power !== undefined) {
-                    lines.push(`Power: ${testResult.result.power.toFixed(3)}`);
-                }
+               if (testResult.result.power !== undefined) {
+    lines.push(`Power: ${testResult.result.power.toFixed(3)}`);
+}
 
-                lines.push('');
+if (testResult.result.confidenceInterval) {
+    lines.push(`Confidence Interval: [${testResult.result.confidenceInterval[0].toFixed(3)}, ${testResult.result.confidenceInterval[1].toFixed(3)}]`);
+}
+
+if (testResult.result.group1Stats && testResult.result.group2Stats) {
+    lines.push(`Group 1: n=${testResult.result.group1Stats.count}, Mean=${testResult.result.group1Stats.mean?.toFixed(3)}, SD=${testResult.result.group1Stats.stdDev?.toFixed(3)}`);
+    lines.push(`Group 2: n=${testResult.result.group2Stats.count}, Mean=${testResult.result.group2Stats.mean?.toFixed(3)}, SD=${testResult.result.group2Stats.stdDev?.toFixed(3)}`);
+}
+
+if (testResult.result.violations) {
+    lines.push('Violations: ' + testResult.result.violations.join('; '));
+}
+
+lines.push('');
             });
 
             // Create and trigger download immediately
@@ -11520,9 +11505,8 @@ utils.showError(`Invalid numeric value for parameter '${parameter}': ${condition
                 lines.push('');
             } else {
                 lines.push('DIAGNOSTIC TEST METRICS');
-                lines.push('Cannot be calculated due to validation errors.');
-                lines.push('Please see validation issues above.');
-                lines.push('');
+    lines.push('Cannot be calculated due to validation errors.');
+    lines.push('');
             }
 
             lines.push('ASSOCIATION MEASURES');
@@ -11573,131 +11557,6 @@ utils.showError(`Invalid numeric value for parameter '${parameter}': ${condition
             link.click();
 
             utils.showSuccess('Diagnostic test analysis exported successfully!');
-        }
-
-
-        /**
-         * Export comprehensive report
-         */
-        function exportComprehensiveReport() {
-            const includeOverview = document.getElementById('export-report-overview').checked;
-            const includeStatistics = document.getElementById('export-report-statistics').checked;
-            const includeTests = document.getElementById('export-report-tests').checked;
-            const includeFourfold = document.getElementById('export-report-fourfold').checked;
-
-            const lines = [];
-
-            lines.push('STATISTICAL RESEARCH ANALYZER - COMPREHENSIVE REPORT');
-            lines.push('='.repeat(60));
-            lines.push(`Generated: ${new Date().toLocaleDateString()} ${new Date().toLocaleTimeString()}`);
-            lines.push(`Total Records: ${globalState.rawData.length}`);
-            lines.push(`Parameters: ${globalState.columnNames.length}`);
-            lines.push(`Groups: ${Object.keys(globalState.currentGroups).length}`);
-            lines.push('');
-
-            if (includeOverview) {
-                lines.push('GROUP OVERVIEW');
-                lines.push('-'.repeat(40));
-                const totalRecords = globalState.rawData.length;
-                Object.entries(globalState.currentGroups).forEach(([groupId, group]) => {
-                    const percentage = ((group.count / totalRecords) * 100).toFixed(1);
-                    lines.push(`${group.name}: ${group.count} records (${percentage}%)`);
-                });
-                lines.push('');
-            }
-
-            if (includeStatistics) {
-                lines.push('DETAILED STATISTICS');
-                lines.push('-'.repeat(40));
-
-                const numericParams = globalState.columnNames.filter(name =>
-                    scaleTypes[globalState.columnTypes[name]].numeric
-                );
-
-                numericParams.forEach(paramName => {
-                    const paramType = globalState.columnTypes[paramName];
-                    lines.push('');
-                    lines.push(`Parameter: ${paramName} (${scaleTypes[paramType].name})`);
-
-                    Object.entries(globalState.currentGroups).forEach(([groupId, group]) => {
-                        const groupData = globalState.processedData[groupId]
-                            .map(row => utils.parseNumericValue(row[paramName]))
-                            .filter(val => !isNaN(val));
-
-                        if (groupData.length > 0) {
-                            const stats = statistics.calculate(groupData);
-                            lines.push(`  ${group.name}:`);
-                            lines.push(`    N: ${stats.count}`);
-                            if (stats.mean !== null) lines.push(`    Mean: ${stats.mean.toFixed(3)}`);
-                            if (stats.median !== null) lines.push(`    Median: ${stats.median.toFixed(3)}`);
-                            if (stats.stdDev !== null) lines.push(`    Std Dev: ${stats.stdDev.toFixed(3)}`);
-                            if (stats.min !== null && stats.max !== null) {
-                                lines.push(`    Range: [${stats.min.toFixed(3)}, ${stats.max.toFixed(3)}]`);
-                            }
-                        }
-                    });
-                });
-                lines.push('');
-            }
-
-            if (includeTests && globalState.significanceResults.length > 0) {
-                lines.push('SIGNIFICANCE TEST RESULTS');
-                lines.push('-'.repeat(40));
-
-                globalState.significanceResults.forEach((testResult, index) => {
-                    lines.push('');
-                    lines.push(`Test ${index + 1}: ${testResult.result.test}`);
-                    lines.push(`Parameter: ${testResult.paramName}`);
-                    lines.push(`Groups: ${testResult.groupNames.join(' vs ')}`);
-                    if (testResult.result.pValue !== undefined) {
-                        lines.push(`p-value: ${testResult.result.pValue.toFixed(6)}`);
-                    }
-                    lines.push(`Result: ${testResult.result.significant ? 'SIGNIFICANT' : 'Not significant'} (α = ${testResult.result.alpha})`);
-
-                    if (testResult.result.effectSize !== undefined) {
-                        lines.push(`Effect Size: ${testResult.result.effectSize.toFixed(3)}`);
-                    }
-                });
-                lines.push('');
-            }
-
-            if (includeFourfold && globalState.fourfoldResults) {
-                lines.push('FOURFOLD TABLE ANALYSIS');
-                lines.push('-'.repeat(40));
-                const results = globalState.fourfoldResults;
-
-                // Format test and condition names with negation
-                const name1 = results.not1 ? `NOT ${results.testConstellation}` : results.testConstellation;
-                const name2 = results.not2 ? `NOT ${results.trueConditionConstellation}` : results.trueConditionConstellation;
-
-                lines.push(`${name1} vs ${name2}`);
-                if (results.stats.odds.oddsRatio !== undefined) {
-                    lines.push(`Odds Ratio: ${results.stats.odds.oddsRatio.toFixed(3)}`);
-                }
-                if (results.stats.chiSquare.pValue !== undefined) {
-                    lines.push(`Chi-Square p-value: ${results.stats.chiSquare.pValue.toFixed(4)}`);
-                }
-                if (results.stats.fisherExact.pValue !== undefined) {
-                    lines.push(`Fisher's Exact p-value: ${results.stats.fisherExact.pValue.toFixed(4)}`);
-                }
-                lines.push('');
-            }
-
-            lines.push('='.repeat(60));
-            lines.push('End of Report');
-
-            const content = lines.join('\n');
-            const timestamp = utils.getTimestamp();
-
-            // Use data URL for text files
-            const dataUrl = 'data:text/plain;charset=utf-8,' + encodeURIComponent(content);
-
-            const link = document.createElement('a');
-            link.href = dataUrl;
-            link.download = `sra-${timestamp}-comprehensive-report.txt`;
-            link.click();
-
-            utils.showSuccess('Comprehensive report exported successfully!');
         }
     </script>
 </body>
