@@ -7521,41 +7521,64 @@ globalState.recordAssignments = new Array(globalState.rawData.length).fill(null)
         /**
          * Check if a row matches a group definition
          */
-        function checkRowAgainstGroupDefinition(row, group) {
-            let hasAnyConditions = false;
+function checkRowAgainstGroupDefinition(row, group) {
+    // If group has no conditions and no constellations, treat as all-data group
+    if ((!group.conditions || group.conditions.length === 0) && (!group.constellations || group.constellations.length === 0)) {
+        return true;
+    }
 
-            if (group.conditions && group.conditions.length > 0) {
-                hasAnyConditions = true;
-                if (!checkRowAgainstConditions(row, group.conditions)) {
+    let hasAnyConditions = false;
+
+    if (group.conditions && group.conditions.length > 0) {
+        hasAnyConditions = true;
+
+        // Special handling for all-data condition
+        if (
+            group.conditions.length === 1 &&
+            group.conditions[0].parameter === '__all_data__'
+        ) {
+            return true;
+        }
+
+        if (!checkRowAgainstConditions(row, group.conditions)) {
+            return false;
+        }
+    }
+
+    if (group.constellations && group.constellations.length > 0) {
+        for (let i = 0; i < group.constellations.length; i++) {
+            const constellationRef = group.constellations[i];
+            const constellation = globalState.parameterConstellations.find(c => c.name === constellationRef.name);
+
+            if (!constellation || !constellation.conditions) {
+                continue;
+            }
+
+            hasAnyConditions = true;
+
+            if (constellationRef.negated) {
+                if (checkRowAgainstConditions(row, constellation.conditions)) {
+                    return false;
+                }
+            } else {
+                if (!checkRowAgainstConditions(row, constellation.conditions)) {
                     return false;
                 }
             }
-
-            if (group.constellations && group.constellations.length > 0) {
-                for (let i = 0; i < group.constellations.length; i++) {
-                    const constellationRef = group.constellations[i];
-                    const constellation = globalState.parameterConstellations.find(c => c.name === constellationRef.name);
-
-                    if (!constellation || !constellation.conditions) {
-                        continue;
-                    }
-
-                    hasAnyConditions = true;
-
-                    if (constellationRef.negated) {
-                        if (checkRowAgainstConditions(row, constellation.conditions)) {
-                            return false;
-                        }
-                    } else {
-                        if (!checkRowAgainstConditions(row, constellation.conditions)) {
-                            return false;
-                        }
-                    }
-                }
-            }
-
-            return hasAnyConditions;
         }
+    }
+
+    // If the group is defined with an all-data condition, it should always match
+    if (
+        group.conditions &&
+        group.conditions.length === 1 &&
+        group.conditions[0].parameter === '__all_data__'
+    ) {
+        return true;
+    }
+    // If we had any conditions and passed them all, return true
+    return hasAnyConditions;
+}
 
 
         /**
