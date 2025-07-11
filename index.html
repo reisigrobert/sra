@@ -7803,88 +7803,68 @@ globalState.recordAssignments = new Array(globalState.rawData.length).fill(null)
             let html = '<thead><tr><th>Parameter</th><th>Scale</th><th>Group</th><th>N</th><th>Mean/Median</th><th>SD/IQR</th><th>Min</th><th>Max</th></tr></thead><tbody>';
 
             // All parameters
-globalState.columnNames.forEach(paramName => {
-    // SAFETY: Ensure currentGroups is properly structured
-    if (!globalState.currentGroups || typeof globalState.currentGroups !== 'object') {
-        console.error('currentGroups is malformed');
-        return;
-    }
-    
-    // Force consistent array behavior
-    const groupsArray = Object.entries(globalState.currentGroups);
-    if (groupsArray.length === 0) return;
-    
-    const paramType = globalState.columnTypes[paramName];
-    const scaleInfo = utils.getScaleInfo(paramType);
+            globalState.columnNames.forEach(paramName => {
+                const paramType = globalState.columnTypes[paramName];
+                const scaleInfo = utils.getScaleInfo(paramType);
 
-    // DEBUG SINGLE GROUP ISSUE
-    console.log("Processing parameter:", paramName);
-    const groups = Object.entries(globalState.currentGroups);
-    console.log("Groups to process:", groups.length);
-    
-    groups.forEach(([groupId, group]) => {
-        console.log("Group details:", groupId, group);
-                    const color = group.customColor || groupColors[group.colorIndex % groupColors.length];
+                // ====================================================================
+                // THE CORE FIX: Use a standard 'for' loop to guarantee identical
+                // behavior for single and multiple groups, eliminating the bug.
+                // ====================================================================
+                const groupEntries = Object.entries(globalState.currentGroups);
+
+                for (let i = 0; i < groupEntries.length; i++) {
+                    const [groupId, group] = groupEntries[i];
+
+                    // Safety check to prevent errors with malformed group data
+                    if (!groupId || !group || !globalState.processedData[groupId]) {
+                        continue; // Skip this iteration if data is invalid
+                    }
+                    
+                    // Robust color handling
+                    const colorIndex = (group.colorIndex !== undefined && group.colorIndex !== null) ? group.colorIndex : i;
+                    const color = group.customColor || groupColors[colorIndex % groupColors.length];
                     const bgColor = typeof color === 'string' ? color : color.bg;
 
                     if (scaleTypes[paramType].numeric) {
-    // Numeric parameters
-    console.log(`Getting data for numeric param ${paramName} in group ${groupId}`);
-    
-    const groupData = globalState.processedData[groupId]
-        .map(row => utils.parseNumericValue(row[paramName]))
-        .filter(val => !isNaN(val) && isFinite(val));
-    
-    console.log(`Data length for ${paramName}: ${groupData.length}`);
-    
-    const stats = statistics.calculate(groupData);
-    console.log(`Stats for ${paramName}:`, stats);
+                        // Numeric parameters
+                        const groupData = globalState.processedData[groupId]
+                            .map(row => utils.parseNumericValue(row[paramName]))
+                            .filter(val => !isNaN(val) && isFinite(val));
 
-// Define variables for display, with '-' as default
-let centralTendency = '-';
-let dispersion = '-';
-
-// Add safety check for stats object
-if (!stats || typeof stats !== 'object') {
-    // If stats calculation failed, show empty row
-    html += `
-        <tr>
-            <td><strong>${paramName}</strong></td>
-            <td><span class="scale-badge ${scaleInfo.class}">${paramType.toUpperCase()}</span></td>
-            <td><span class="group-badge" style="background-color: ${bgColor};">${group.name}</span></td>
-            <td>0</td>
-            <td>-</td>
-            <td>-</td>
-            <td>-</td>
-            <td>-</td>
-        </tr>
-    `;
-    return; // This will skip to the next iteration of forEach
-}
+                        const stats = statistics.calculate(groupData);
                         
-                       // Use explicit checks for each statistic before formatting
-if (stats && stats.count > 0) {
-    if (paramType === 'o') { // Ordinal uses Median and IQR
-        centralTendency = (stats.median !== null && stats.median !== undefined && isFinite(stats.median)) ? utils.formatNumber(stats.median, 2) : '-';
-        dispersion = (stats.iqr !== null && stats.iqr !== undefined && isFinite(stats.iqr)) ? utils.formatNumber(stats.iqr, 2) : '-';
-    } else { // Interval/Ratio uses Mean and Std Dev
-        centralTendency = (stats.mean !== null && stats.mean !== undefined && isFinite(stats.mean)) ? utils.formatNumber(stats.mean, 2) : '-';
-        dispersion = (stats.stdDev !== null && stats.stdDev !== undefined && isFinite(stats.stdDev)) ? utils.formatNumber(stats.stdDev, 2) : '-';
-    }
-}
+                        // Critical safety check: if stats calculation fails, render an error row and continue
+                        if (!stats) {
+                            html += `<tr><td><strong>${paramName}</strong></td><td><span class="scale-badge ${scaleInfo.class}">${paramType.toUpperCase()}</span></td><td><span class="group-badge" style="background-color: ${bgColor};">${group.name}</span></td><td colspan="5" style="color: var(--danger-color);">Error calculating stats</td></tr>`;
+                            continue;
+                        }
+
+                        let centralTendency = '-';
+                        let dispersion = '-';
+                        
+                        if (stats.count > 0) {
+                            if (paramType === 'o') { // Ordinal
+                                centralTendency = isFinite(stats.median) ? utils.formatNumber(stats.median, 2) : '-';
+                                dispersion = isFinite(stats.iqr) ? utils.formatNumber(stats.iqr, 2) : '-';
+                            } else { // Interval/Ratio
+                                centralTendency = isFinite(stats.mean) ? utils.formatNumber(stats.mean, 2) : '-';
+                                dispersion = isFinite(stats.stdDev) ? utils.formatNumber(stats.stdDev, 2) : '-';
+                            }
+                        }
 
                         html += `
-    <tr>
-        <td><strong>${paramName}</strong></td>
-        <td><span class="scale-badge ${scaleInfo.class}">${paramType.toUpperCase()}</span></td>
-        <td><span class="group-badge" style="background-color: ${bgColor};">${group.name}</span></td>
-        <td>${stats.count}</td>
-        <td>${centralTendency}</td>
-        <td>${dispersion}</td>
-        <td>${(stats.min !== null && stats.min !== undefined && isFinite(stats.min)) ? stats.min.toFixed(2) : '-'}</td>
-<td>${(stats.max !== null && stats.max !== undefined && isFinite(stats.max)) ? stats.max.toFixed(2) : '-'}</td>
-    </tr>
-`;
+                            <tr>
+                                <td><strong>${paramName}</strong></td>
+                                <td><span class="scale-badge ${scaleInfo.class}">${paramType.toUpperCase()}</span></td>
+                                <td><span class="group-badge" style="background-color: ${bgColor};">${group.name}</span></td>
+                                <td>${stats.count}</td>
+                                <td>${centralTendency}</td>
+                                <td>${dispersion}</td>
+                                <td>${isFinite(stats.min) ? utils.formatNumber(stats.min, 2) : '-'}</td>
+                                <td>${isFinite(stats.max) ? utils.formatNumber(stats.max, 2) : '-'}</td>
+                            </tr>
+                        `;
                     } else {
                         // Categorical parameters
                         const groupData = globalState.processedData[groupId]
@@ -7892,14 +7872,15 @@ if (stats && stats.count > 0) {
                             .filter(val => val !== null && val !== undefined && val !== '');
 
                         const uniqueValues = [...new Set(groupData)];
-let mode = '-';
-if (uniqueValues.length === 1) {
-    mode = uniqueValues[0];
-} else if (uniqueValues.length > 1) {
-    mode = uniqueValues.reduce((a, b) =>
-        groupData.filter(v => v === a).length >= groupData.filter(v => v === b).length ? a : b
-    );
-}
+                        let mode = '-';
+                        // Robust mode calculation
+                        if (uniqueValues.length === 1) {
+                            mode = uniqueValues[0];
+                        } else if (uniqueValues.length > 1) {
+                            mode = uniqueValues.reduce((a, b) =>
+                                groupData.filter(v => v === a).length >= groupData.filter(v => v === b).length ? a : b
+                            );
+                        }
 
                         html += `
                             <tr>
@@ -7912,13 +7893,13 @@ if (uniqueValues.length === 1) {
                             </tr>
                         `;
                     }
-                });
+                }
             });
 
             html += '</tbody>';
             table.innerHTML = html;
         }
-
+        
         /**
  * Update significance test group selection
  */
