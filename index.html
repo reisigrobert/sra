@@ -7270,6 +7270,23 @@ function checkAllPrerequisites() {
                 return;
             }
 
+            // DEBUG: Check data integrity
+    console.log("Raw data sample:", globalState.rawData.slice(0, 3));
+    console.log("Column names:", globalState.columnNames);
+    console.log("Column types:", globalState.columnTypes);
+    
+    // Check for problematic data
+    const problematicRows = [];
+    globalState.rawData.forEach((row, index) => {
+        if (!row || typeof row !== 'object') {
+            problematicRows.push(index);
+        }
+    });
+    
+    if (problematicRows.length > 0) {
+        console.error("Found problematic rows at indices:", problematicRows);
+    }
+
             utils.setLoading(true);
 
             setTimeout(() => {
@@ -7457,6 +7474,31 @@ utils.showError(`Group "${group.name}" references non-existent constellation "${
                     customColor: group.customColor,
                     colorIndex: group.colorIndex
                 };
+
+                // Add data validation for single group scenarios
+    const isAllDataGroup = group.conditions.some(condition => condition.parameter === '__all_data__');
+    
+    for (let rowIndex = 0; rowIndex < globalState.rawData.length; rowIndex++) {
+        const row = globalState.rawData[rowIndex];
+        
+        // Validate row data before processing
+        if (!row || typeof row !== 'object') {
+            console.warn(`Skipping invalid row at index ${rowIndex}`);
+            continue;
+        }
+        
+        // For "All Data" groups, validate that the row has valid structure
+        if (isAllDataGroup) {
+            const hasValidData = globalState.columnNames.some(colName => {
+                const value = row[colName];
+                return value !== null && value !== undefined && value !== '';
+            });
+            
+            if (!hasValidData) {
+                console.warn(`Skipping empty row at index ${rowIndex}`);
+                continue;
+            }
+        }
 
                 for (let rowIndex = 0; rowIndex < globalState.rawData.length; rowIndex++) {
                     const row = globalState.rawData[rowIndex];
