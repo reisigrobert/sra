@@ -7438,7 +7438,7 @@ function checkAllPrerequisites() {
                         notInPrevious: notInPrevious,
                         includeInAnalysis: includeInAnalysis,
                         customColor: customColor,
-colorIndex: (colorSelect && colorSelect.value !== 'custom' && !isNaN(parseInt(colorSelect.value))) ? parseInt(colorSelect.value) : index % groupColors.length
+                        colorIndex: colorSelect.value !== 'custom' ? parseInt(colorSelect.value) : index % groupColors.length
                     });
                 }
             });
@@ -7663,8 +7663,7 @@ globalState.recordAssignments = new Array(globalState.rawData.length).fill(null)
 
             Object.entries(globalState.currentGroups).forEach(([groupId, group], index) => {
                 const percentage = ((group.count / totalPatients) * 100).toFixed(1);
-const colorIndex = (group.colorIndex !== undefined && group.colorIndex !== null) ? group.colorIndex : 0;
-const color = group.customColor || groupColors[colorIndex % groupColors.length];
+                const color = group.customColor || groupColors[group.colorIndex];
                 const bgColor = typeof color === 'string' ? color : color.bg;
 
                 html += `
@@ -7706,20 +7705,21 @@ const color = group.customColor || groupColors[colorIndex % groupColors.length];
             const labels = Object.values(globalState.currentGroups).map(group => group.name);
             const data = Object.values(globalState.currentGroups).map(group => group.count);
 
-            const backgroundColors = Object.values(globalState.currentGroups).map((group, idx) => {
+            const backgroundColors = Object.values(globalState.currentGroups).map(group => {
     if (group.customColor) {
         return group.customColor;
     }
-    const colorIndex = (group.colorIndex !== undefined && group.colorIndex !== null) ? group.colorIndex : idx;
-    return groupColors[colorIndex % groupColors.length].bg;
+    const colorIndex = group.colorIndex !== undefined ? group.colorIndex : 0;
+    return groupColors[colorIndex].bg;
 });
 
-            const borderColors = Object.values(globalState.currentGroups).map((group, idx) => {
+            const borderColors = Object.values(globalState.currentGroups).map(group => {
     if (group.customColor) {
+        // Convert custom color to border (remove transparency)
         return group.customColor.replace('B3', '');
     }
-    const colorIndex = (group.colorIndex !== undefined && group.colorIndex !== null) ? group.colorIndex : idx;
-    return groupColors[colorIndex % groupColors.length].border;
+    const colorIndex = group.colorIndex !== undefined ? group.colorIndex : 0;
+    return groupColors[colorIndex].border;
 });
 
             utils.destroyChart('group-distribution-chart');
@@ -7799,8 +7799,7 @@ const color = group.customColor || groupColors[colorIndex % groupColors.length];
                 const scaleInfo = utils.getScaleInfo(paramType);
 
                 Object.entries(globalState.currentGroups).forEach(([groupId, group]) => {
-const colorIndex = (group.colorIndex !== undefined && group.colorIndex !== null) ? group.colorIndex : Object.keys(globalState.currentGroups).indexOf(groupId);
-const color = group.customColor || groupColors[colorIndex % groupColors.length];
+                    const color = group.customColor || groupColors[group.colorIndex % groupColors.length];
                     const bgColor = typeof color === 'string' ? color : color.bg;
 
                     if (scaleTypes[paramType].numeric) {
@@ -7894,10 +7893,7 @@ function updateSignificanceGroupSelection() {
     container.innerHTML = '';
 
     Object.entries(globalState.currentGroups).forEach(([groupId, group], index) => {
-
-        const colorIndex = (group.colorIndex !== undefined && group.colorIndex !== null) ? group.colorIndex : 0;
-const color = group.customColor || groupColors[colorIndex % groupColors.length];
-        
+        const color = group.customColor || groupColors[group.colorIndex];
         const bgColor = typeof color === 'string' ? color : color.bg;
 
         const checkboxDiv = document.createElement('div');
@@ -8034,21 +8030,19 @@ const color = group.customColor || groupColors[colorIndex % groupColors.length];
                 return paramType === 'o' ? stats.iqr / 2 : stats.stdDev;
             });
 
-            const backgroundColors = Object.values(globalState.currentGroups).map((group, idx) => {
-    if (group.customColor) {
-        return group.customColor;
-    }
-    const colorIndex = (group.colorIndex !== undefined && group.colorIndex !== null) ? group.colorIndex : idx;
-    return groupColors[colorIndex % groupColors.length].bg;
-});
+            const backgroundColors = Object.values(globalState.currentGroups).map(group => {
+                if (group.customColor) {
+                    return group.customColor;
+                }
+                return groupColors[group.colorIndex].bg;
+            });
 
-            const borderColors = Object.values(globalState.currentGroups).map((group, idx) => {
-    if (group.customColor) {
-        return group.customColor.replace('B3', '');
-    }
-    const colorIndex = (group.colorIndex !== undefined && group.colorIndex !== null) ? group.colorIndex : idx;
-    return groupColors[colorIndex % groupColors.length].border;
-});
+            const borderColors = Object.values(globalState.currentGroups).map(group => {
+                if (group.customColor) {
+                    return group.customColor.replace('B3', '');
+                }
+                return groupColors[group.colorIndex].border;
+            });
 
             // Calculate Y-axis range
             const allValues = Object.values(groupData).flat();
@@ -8192,13 +8186,12 @@ const color = group.customColor || groupColors[colorIndex % groupColors.length];
                 maxData.push(stats.max || 0);
             });
 
-            const backgroundColors = Object.values(globalState.currentGroups).map((group, idx) => {
-    if (group.customColor) {
-        return group.customColor;
-    }
-    const colorIndex = (group.colorIndex !== undefined && group.colorIndex !== null) ? group.colorIndex : idx;
-    return groupColors[colorIndex % groupColors.length].bg;
-});
+            const backgroundColors = Object.values(globalState.currentGroups).map(group => {
+                if (group.customColor) {
+                    return group.customColor;
+                }
+                return groupColors[group.colorIndex].bg;
+            });
 
             // Calculate Y-axis range
             const allValues = [...minData, ...maxData];
@@ -8320,10 +8313,7 @@ const color = group.customColor || groupColors[colorIndex % groupColors.length];
             Object.entries(groupData).forEach(([groupId, data], index) => {
                 const stats = statistics.calculate(data);
                 const group = globalState.currentGroups[groupId];
-
-                const colorIndex = (group.colorIndex !== undefined && group.colorIndex !== null) ? group.colorIndex : 0;
-const color = group.customColor || groupColors[colorIndex % groupColors.length];
-                
+                const color = group.customColor || groupColors[group.colorIndex];
                 const bgColor = typeof color === 'string' ? color : color.bg;
 
                 html += `
@@ -8381,10 +8371,7 @@ const color = group.customColor || groupColors[colorIndex % groupColors.length];
 
             // Create checkboxes for each group
             Object.entries(globalState.currentGroups).forEach(([groupId, group]) => {
-
-                const colorIndex = (group.colorIndex !== undefined && group.colorIndex !== null) ? group.colorIndex : 0;
-const color = group.customColor || groupColors[colorIndex % groupColors.length];
-                
+                const color = group.customColor || groupColors[group.colorIndex];
                 const bgColor = typeof color === 'string' ? color : color.bg;
 
                 const checkboxDiv = document.createElement('div');
@@ -8506,9 +8493,7 @@ const color = group.customColor || groupColors[colorIndex % groupColors.length];
             // Add histogram for each selected group
             selectedGroups.forEach(groupId => {
                 const group = globalState.currentGroups[groupId];
-const colorIndex = (group.colorIndex !== undefined && group.colorIndex !== null) ? group.colorIndex : 0;
-const color = group.customColor || groupColors[colorIndex % groupColors.length];
-                
+                const color = group.customColor || groupColors[group.colorIndex];
                 const bgColor = typeof color === 'string' ? color : color.bg;
                 const borderColor = typeof color === 'string' ? color.replace('B3', '') : color.border;
 
@@ -9504,10 +9489,7 @@ if (!document.getElementById('viz-group-selection-container')) {
     // Populate group checkboxes
     const groupContainer = document.getElementById('viz-group-selection');
     Object.entries(globalState.currentGroups).forEach(([groupId, group]) => {
-
-        const colorIndex = (group.colorIndex !== undefined && group.colorIndex !== null) ? group.colorIndex : 0;
-const color = group.customColor || groupColors[colorIndex % groupColors.length];
-        
+        const color = group.customColor || groupColors[group.colorIndex];
         const bgColor = typeof color === 'string' ? color : color.bg;
         
         const checkboxDiv = document.createElement('div');
@@ -9820,11 +9802,8 @@ Object.entries(globalState.currentGroups).forEach(([groupId, group], index) => {
     if (vizSelectedGroups.length > 0 && !vizSelectedGroups.includes(groupId)) {
         return;
     }
-
-const colorIndex = (group.colorIndex !== undefined && group.colorIndex !== null) ? group.colorIndex : 0;
-const color = group.customColor || groupColors[colorIndex % groupColors.length];
-    
-    const bgColor = typeof color === 'string' ? color : color.bg;
+                const color = group.customColor || groupColors[group.colorIndex];
+                const bgColor = typeof color === 'string' ? color : color.bg;
                 const borderColor = typeof color === 'string' ? color.replace('B3', '') : color.border;
 
                 const points = globalState.processedData[groupId].map(row => {
@@ -10048,11 +10027,8 @@ Object.entries(globalState.currentGroups).forEach(([groupId, group], index) => {
     if (vizSelectedGroups.length > 0 && !vizSelectedGroups.includes(groupId)) {
         return;
     }
-
-    const colorIndex = (group.colorIndex !== undefined && group.colorIndex !== null) ? group.colorIndex : 0;
-const color = group.customColor || groupColors[colorIndex % groupColors.length];
-    
-    const bgColor = typeof color === 'string' ? color : color.bg;
+                    const color = group.customColor || groupColors[group.colorIndex];
+                    const bgColor = typeof color === 'string' ? color : color.bg;
                     const borderColor = typeof color === 'string' ? color.replace('B3', '') : color.border;
 
                     const categoryMeans = categories.map(category => {
