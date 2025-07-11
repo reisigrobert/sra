@@ -8709,7 +8709,7 @@ function updateSignificanceGroupSelection() {
                 }
             } else {
                 // Multiple groups - show overall statistics
-                subtitleText = `Combined: μ=${mean.toFixed(2)}, σ=${stdDev.toFixed(2)}`;
+                subtitleText = `Combined: μ=${mean ? mean.toFixed(2) : 'N/A'}, σ=${stdDev ? stdDev.toFixed(2) : 'N/A'}`;
             }
 
             if (subtitleText) {
