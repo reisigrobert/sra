@@ -7328,10 +7328,48 @@ function checkAllPrerequisites() {
                     document.getElementById('analysis-results').scrollIntoView({ behavior: 'smooth' });
 
                 } catch (error) {
-                    utils.showError("Error in group analysis: " + error.message);
-                } finally {
-                    utils.setLoading(false);
-                }
+    // WORKAROUND: If error occurs with single group, retry with dummy group
+    if (globalState.groupDefinitions.length === 1 && !applyGroupsAndAnalyze.retriedWithDummy) {
+        console.log("Single group error detected, adding dummy group and retrying...");
+        
+        // Add flag to prevent infinite retry
+        applyGroupsAndAnalyze.retriedWithDummy = true;
+        
+        // Add dummy group
+        globalState.groupDefinitions.push({
+            id: 'dummy_group_workaround',
+            name: '_DUMMY_GROUP_',
+            conditions: [{
+                parameter: 'dummy_param',
+                operator: '=',
+                value: 'impossible_value_that_matches_nothing',
+                type: 'k'
+            }],
+            constellations: [],
+            notInPrevious: false,
+            includeInAnalysis: true,
+            customColor: null,
+            colorIndex: 1
+        });
+        
+        // Retry the analysis
+        utils.setLoading(false);
+        setTimeout(() => {
+            applyGroupsAndAnalyze();
+        }, 100);
+        
+        return;
+    }
+    
+    // Reset retry flag for next time
+    applyGroupsAndAnalyze.retriedWithDummy = false;
+    
+    utils.showError("Error in group analysis: " + error.message);
+} finally {
+    if (!applyGroupsAndAnalyze.retriedWithDummy) {
+        utils.setLoading(false);
+    }
+}
             }, 100);
         }
 
