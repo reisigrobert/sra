@@ -5713,27 +5713,27 @@ function checkAllPrerequisites() {
     }
 
     const resultsContainer = document.getElementById('prerequisite-results');
-    resultsContainer.innerHTML = '';
-    
+    resultsContainer.innerHTML = ''; // Clear previous results
+
     if (!globalState.prerequisiteResults[paramName]) {
         globalState.prerequisiteResults[paramName] = {};
     }
 
-    // Check normality
-    const headerDiv = document.createElement('div');
-    headerDiv.innerHTML = '<h5>Normality Test Results:</h5>';
-    resultsContainer.appendChild(headerDiv);
-    checkNormality();
-    
-// Check variance homogeneity if exactly 2 groups are selected
+    // 1. Check and display normality for all selected groups
+    const normalityHeaderDiv = document.createElement('div');
+    normalityHeaderDiv.innerHTML = '<h5>Normality Test Results:</h5>';
+    resultsContainer.appendChild(normalityHeaderDiv);
+    checkNormality(); // This function appends its own results to the container
+
+    // 2. If exactly two groups are selected, check and display variance homogeneity
     if (selectedGroups.length === 2) {
         const varianceHeaderDiv = document.createElement('div');
         varianceHeaderDiv.innerHTML = '<h5 style="margin-top: 20px;">Variance Homogeneity Test (F-Test):</h5>';
         resultsContainer.appendChild(varianceHeaderDiv);
-        checkVarianceHomogeneity(); // This will now append the results
+        checkVarianceHomogeneity(); // This function will now also append its results
     }
-    
-    // Automatically get test recommendation
+
+    // 3. Automatically get and display the test recommendation
     setTimeout(() => {
         const testSelector = new IntelligentTestSelector(statistics);
         const recommendation = testSelector.selectOptimalTest(paramName, selectedGroups);
@@ -5741,7 +5741,7 @@ function checkAllPrerequisites() {
         if (!recommendation.error) {
             displayTestRecommendation(recommendation, paramName, selectedGroups);
             
-            // Pre-select the recommended test
+            // Pre-select the recommended test in the dropdown
             if (recommendation.recommended && recommendation.recommended.test) {
                 document.getElementById('sig-test-type').value = recommendation.recommended.test.key;
             }
@@ -7654,8 +7654,7 @@ utils.showError(`Group "${group.name}" references non-existent constellation "${
                 Object.entries(globalState.currentGroups).forEach(([groupId, group], index) => {
                     const color = group.customColor || groupColors[group.colorIndex];
                     const bgColor = typeof color === 'string' ? color : color.bg;
-
-                    if (scaleTypes[paramType].numeric) {
+if (scaleTypes[paramType].numeric) {
                         // Numeric parameters
                         const groupData = globalState.processedData[groupId]
                             .map(row => utils.parseNumericValue(row[paramName]))
@@ -7695,6 +7694,7 @@ utils.showError(`Group "${group.name}" references non-existent constellation "${
                             </tr>
                         `;
                     } else {
+                    
                         // Categorical parameters
                         const groupData = globalState.processedData[groupId]
                             .map(row => row[paramName])
@@ -11443,34 +11443,38 @@ utils.showError(`Invalid numeric value for parameter '${parameter}': ${condition
             lines.push('');
             lines.push('PREREQUISITE CHECKS:');
 
-            // Normality
+            // Normality Checks
             let normalityOutput = false;
             testResult.groupNames.forEach(groupName => {
-                const groupPrereq = Object.values(prereqs).find(p => p.normality && globalState.currentGroups[Object.keys(globalState.currentGroups).find(key => globalState.currentGroups[key].name === groupName)]);
-                if (groupPrereq && groupPrereq.normality) {
+                const groupId = Object.keys(globalState.currentGroups).find(id => globalState.currentGroups[id].name === groupName);
+                if (groupId && prereqs[groupId] && prereqs[groupId].normality) {
                     if (!normalityOutput) {
                         lines.push('Normality (Shapiro-Wilk):');
                         normalityOutput = true;
                     }
-                    const normResult = groupPrereq.normality;
-                    let normText = `  - ${groupName}: p=${normResult.pValue?.toFixed(4)}, ${normResult.normal ? 'Normal' : 'Not Normal'}`;
-                    if (groupPrereq.overridden) {
-                        normText += ' (Overridden)';
+                    const normResult = prereqs[groupId].normality;
+                    let normText = `  - ${groupName}: p=${normResult.pValue?.toFixed(4)}, Result: ${normResult.normal ? 'Normal' : 'Not Normal'}`;
+                    if (prereqs[groupId].overridden) {
+                        normText += ' (MANUALLY OVERRIDDEN)';
                     }
                     lines.push(normText);
                 }
             });
 
-            // Variance Homogeneity
+            // Variance Homogeneity Check
             if (prereqs.varianceTest && testResult.groupNames.length === 2) {
                 const varianceResult = prereqs.varianceTest;
-                lines.push('Variance Homogeneity (F-Test):');
-                let varianceText = `  - p=${varianceResult.pValue?.toFixed(4)}, ${varianceResult.equalVariances ? 'Equal Variances' : 'Unequal Variances'}`;
-                if (prereqs.varianceTest.overridden) {
-                    varianceText += ' (Overridden)';
+                if(varianceResult.pValue !== null) {
+                    lines.push('Variance Homogeneity (F-Test):');
+                    let varianceText = `  - p=${varianceResult.pValue.toFixed(4)}, Result: ${varianceResult.equalVariances ? 'Equal Variances' : 'Unequal Variances'}`;
+                    const homogeneityOverride = document.getElementById('override-homogeneity').checked;
+                    if (homogeneityOverride) {
+                       varianceText += ' (MANUALLY OVERRIDDEN)';
+                    }
+                    lines.push(varianceText);
                 }
-                lines.push(varianceText);
             }
+             lines.push('');
         }
         
         // Test violations if any
@@ -11685,7 +11689,11 @@ utils.showError(`Invalid numeric value for parameter '${parameter}': ${condition
     lines.push('');
     
     lines.push(`Fisher's Exact Test:`);
-    lines.push(`  p-value = ${results.stats.fisherExact.pValue.toFixed(4)} ${results.stats.fisherExact.pValue < 0.05 ? '(Significant)' : '(Not significant)'}`);
+    if (results.stats.fisherExact && typeof results.stats.fisherExact.pValue === 'number') {
+        lines.push(`  p-value = ${results.stats.fisherExact.pValue.toFixed(4)} ${results.stats.fisherExact.pValue < 0.05 ? '(Significant)' : '(Not significant)'}`);
+    } else {
+        lines.push(`  p-value = N/A (${results.stats.fisherExact.error || 'Calculation failed'})`);
+    }
     
     // Create and download file
     const content = lines.join('\n');
