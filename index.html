@@ -7842,17 +7842,17 @@ if (stats && stats.count > 0) {
 }
 
                         html += `
-                            <tr>
-                                <td><strong>${paramName}</strong></td>
-                                <td><span class="scale-badge ${scaleInfo.class}">${paramType.toUpperCase()}</span></td>
-                                <td><span class="group-badge" style="background-color: ${bgColor};">${group.name}</span></td>
-                                <td>${stats.count}</td>
-                                <td>${centralTendency}</td>
-                                <td>${dispersion}</td>
-                                <td>${(stats.min !== null && isFinite(stats.min)) ? utils.formatNumber(stats.min, 2) : '-'}</td>
-                                <td>${(stats.max !== null && isFinite(stats.max)) ? utils.formatNumber(stats.max, 2) : '-'}</td>
-                            </tr>
-                        `;
+    <tr>
+        <td><strong>${paramName}</strong></td>
+        <td><span class="scale-badge ${scaleInfo.class}">${paramType.toUpperCase()}</span></td>
+        <td><span class="group-badge" style="background-color: ${bgColor};">${group.name}</span></td>
+        <td>${stats.count}</td>
+        <td>${centralTendency}</td>
+        <td>${dispersion}</td>
+        <td>${(stats.min !== null && stats.min !== undefined && isFinite(stats.min)) ? stats.min.toFixed(2) : '-'}</td>
+        <td>${(stats.max !== null && stats.max !== undefined && isFinite(stats.max)) ? stats.max.toFixed(2) : '-'}</td>
+    </tr>
+`;
                     } else {
                         // Categorical parameters
                         const groupData = globalState.processedData[groupId]
