@@ -8702,11 +8702,11 @@ function updateSignificanceGroupSelection() {
                 // Single group - show Shapiro-Wilk test
                 const data = groupDataMap[selectedGroups[0]];
                 const shapiroResult = statistics.shapiroWilkTest(data);
-                if (!shapiroResult.error) {
-                    subtitleText = shapiroResult.normal ?
-                        `Shapiro-Wilk: W=${shapiroResult.W.toFixed(4)}, p=${shapiroResult.pValue.toFixed(4)} (Normal)` :
-                        `Shapiro-Wilk: W=${shapiroResult.W.toFixed(4)}, p=${shapiroResult.pValue.toFixed(4)} (Not Normal)`;
-                }
+               if (!shapiroResult.error && shapiroResult.W !== null && shapiroResult.pValue !== null) {
+    subtitleText = shapiroResult.normal ?
+        `Shapiro-Wilk: W=${shapiroResult.W.toFixed(4)}, p=${shapiroResult.pValue.toFixed(4)} (Normal)` :
+        `Shapiro-Wilk: W=${shapiroResult.W.toFixed(4)}, p=${shapiroResult.pValue.toFixed(4)} (Not Normal)`;
+}
             } else {
                 // Multiple groups - show overall statistics
                 subtitleText = `Combined: μ=${mean ? mean.toFixed(2) : 'N/A'}, σ=${stdDev ? stdDev.toFixed(2) : 'N/A'}`;
