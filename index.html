@@ -7734,7 +7734,7 @@ globalState.recordAssignments = new Array(globalState.rawData.length).fill(null)
             utils.destroyChart('group-distribution-chart');
 
             globalState.charts['group-distribution-chart'] = new Chart(ctx, {
-                type: labels.length === 1 ? 'bar' : 'doughnut',
+                 type: 'doughnut',
                 data: {
                     labels: labels,
                     datasets: [{
@@ -7892,10 +7892,14 @@ if (stats && stats.count > 0) {
                             .filter(val => val !== null && val !== undefined && val !== '');
 
                         const uniqueValues = [...new Set(groupData)];
-                        const mode = uniqueValues.length > 0 ?
-                            uniqueValues.reduce((a, b) =>
-                                groupData.filter(v => v === a).length >= groupData.filter(v => v === b).length ? a : b
-                            ) : '-';
+let mode = '-';
+if (uniqueValues.length === 1) {
+    mode = uniqueValues[0];
+} else if (uniqueValues.length > 1) {
+    mode = uniqueValues.reduce((a, b) =>
+        groupData.filter(v => v === a).length >= groupData.filter(v => v === b).length ? a : b
+    );
+}
 
                         html += `
                             <tr>
