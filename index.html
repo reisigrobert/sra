@@ -7314,6 +7314,8 @@ function checkAllPrerequisites() {
                     // Filter data into groups
                     filterDataIntoGroups();
 
+                    console.log("Groups created:", Object.keys(globalState.currentGroups), "Processed data:", Object.keys(globalState.processedData));
+
                     // Update analysis results
                     updateAnalysisResults();
 
