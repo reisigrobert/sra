@@ -9849,10 +9849,14 @@ document.querySelectorAll('#viz-group-selection input:checked').forEach(checkbox
 });
 
 Object.entries(globalState.currentGroups).forEach(([groupId, group], index) => {
-    // Skip if group not selected
-    if (vizSelectedGroups.length > 0 && !vizSelectedGroups.includes(groupId)) {
-        return;
-    }
+    // Skip if group not selected (only if checkboxes exist and none are checked)
+if (vizSelectedGroups.length === 0 && document.querySelectorAll('#viz-group-selection input').length > 0) {
+    // Checkboxes exist but none selected
+    return;
+} else if (vizSelectedGroups.length > 0 && !vizSelectedGroups.includes(groupId)) {
+    // Checkboxes exist and this group is not selected
+    return;
+}
                 const color = group.customColor || groupColors[group.colorIndex];
                 const bgColor = typeof color === 'string' ? color : color.bg;
                 const borderColor = typeof color === 'string' ? color.replace('B3', '') : color.border;
