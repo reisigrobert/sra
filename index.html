@@ -7327,48 +7327,31 @@ function checkAllPrerequisites() {
                     // Scroll to results
                     document.getElementById('analysis-results').scrollIntoView({ behavior: 'smooth' });
 
-                } catch (error) {
-    // WORKAROUND: If error occurs with single group, retry with dummy group
-    if (globalState.groupDefinitions.length === 1 && !applyGroupsAndAnalyze.retriedWithDummy) {
-        console.log("Single group error detected, adding dummy group and retrying...");
-        
-        // Add flag to prevent infinite retry
-        applyGroupsAndAnalyze.retriedWithDummy = true;
-        
-        // Add dummy group
+   } catch (error) {
+    // If single group, add dummy and retry ONCE
+    if (globalState.groupDefinitions.length === 1) {
         globalState.groupDefinitions.push({
-            id: 'dummy_group_workaround',
-            name: '_DUMMY_GROUP_',
-            conditions: [{
-                parameter: 'dummy_param',
-                operator: '=',
-                value: 'impossible_value_that_matches_nothing',
-                type: 'k'
-            }],
+            id: 'dummy_fix',
+            name: 'dummy',
+            conditions: [],
             constellations: [],
             notInPrevious: false,
-            includeInAnalysis: true,
+            includeInAnalysis: false,
             customColor: null,
             colorIndex: 1
         });
         
-        // Retry the analysis
-        utils.setLoading(false);
-        setTimeout(() => {
-            applyGroupsAndAnalyze();
-        }, 100);
-        
-        return;
+        // Try again
+        filterDataIntoGroups();
+        updateAnalysisResults();
+        document.getElementById('analysis-results').style.display = 'block';
+        utils.showSuccess(`Analysis complete! ${Object.keys(globalState.currentGroups).length} groups created.`);
+        document.getElementById('analysis-results').scrollIntoView({ behavior: 'smooth' });
+    } else {
+        utils.showError("Error in group analysis: " + error.message);
     }
-    
-    // Reset retry flag for next time
-    applyGroupsAndAnalyze.retriedWithDummy = false;
-    
-    utils.showError("Error in group analysis: " + error.message);
 } finally {
-    if (!applyGroupsAndAnalyze.retriedWithDummy) {
-        utils.setLoading(false);
-    }
+    utils.setLoading(false);
 }
             }, 100);
         }
