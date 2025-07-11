@@ -9911,66 +9911,97 @@ Object.entries(globalState.currentGroups).forEach(([groupId, group], index) => {
                         }
 
                         if (regression && regression.predict) {
-                            // Test regression significance
-                            const sigTest = statistics.testRegressionSignificance(regression, regressionType, alpha);
+    // Test regression significance
+    const sigTest = statistics.testRegressionSignificance(regression, regressionType, alpha);
 
-                            // Calculate line points
-                            const xValues = points.map(p => p.x);
-                            const minX = Math.min(...xValues);
-                            const maxX = Math.max(...xValues);
+    // Calculate line points
+    const xValues = points.map(p => p.x);
+    const minX = Math.min(...xValues);
+    const maxX = Math.max(...xValues);
 
-                            // Generate smooth curve for non-linear regressions
-                            const numPoints = regressionType === 'linear' ? 2 : 100;
-                            const linePoints = [];
+    // Generate smooth curve for non-linear regressions
+    const numPoints = regressionType === 'linear' ? 2 : 100;
+    const linePoints = [];
 
-                            for (let i = 0; i < numPoints; i++) {
-                                const x = minX + (maxX - minX) * i / (numPoints - 1);
-                                const y = regression.predict(x);
-                                if (isFinite(y)) {
-                                    linePoints.push({ x, y });
-                                }
-                            }
+    // Adjust range for special cases
+    let startX = minX;
+    let endX = maxX;
+    
+    // For logarithmic, ensure x > 0
+    if (regressionType === 'logarithmic') {
+        startX = Math.max(0.0001, minX);
+    }
 
-                            // Add regression line dataset
-                            datasets.push({
-                                label: `${group.name} Regression`,
-                                data: linePoints,
-                                backgroundColor: 'transparent',
-                                borderColor: borderColor,
-                                borderWidth: 2,
-                                borderDash: [5, 5],
-                                pointRadius: 0,
-                                showLine: true,
-                                fill: false
-                            });
+    for (let i = 0; i < numPoints; i++) {
+        const x = startX + (endX - startX) * i / (numPoints - 1);
+        try {
+            const y = regression.predict(x);
+            if (isFinite(y) && !isNaN(y)) {
+                linePoints.push({ x, y });
+            }
+        } catch (e) {
+            // Skip points that cause errors
+            console.warn(`Regression prediction failed for x=${x}:`, e);
+        }
+    }
 
-                            // Add to regression info with significance
-                            const sigClass = sigTest.significant ? 'significant' : 'not-significant';
-                            regressionInfo += `
-                                <div class="regression-significance ${sigClass}" style="margin-bottom: 10px;">
-                                    <div style="color: ${borderColor};">
-                                        <strong>${group.name}:</strong> ${regression.equation}<br>
-                                        R² = ${utils.formatNumber(regression.r2, 4)}, n = ${regression.n}
-                                        ${regression.conditionNumber ? `<br><small>Condition number: ${utils.formatNumber(regression.conditionNumber, 2)}</small>` : ''}
-                                    </div>
-                            `;
+    // Only add regression line if we have enough valid points
+    if (linePoints.length >= 2) {
+        datasets.push({
+            label: `${group.name} Regression`,
+            data: linePoints,
+            backgroundColor: 'transparent',
+            borderColor: borderColor,
+            borderWidth: 2,
+            borderDash: [5, 5],
+            pointRadius: 0,
+            showLine: true,
+            fill: false
+        });
+    }
 
-                            if (sigTest.error) {
-                                regressionInfo += `<div style="font-size: 0.85em; margin-top: 5px;">${sigTest.error}</div>`;
-                            } else {
-                                regressionInfo += `
-                                    <div style="font-size: 0.85em; margin-top: 5px;">
-                                        ${sigTest.fStatistic ? `F(${sigTest.df1},${sigTest.df2}) = ${utils.formatNumber(sigTest.fStatistic, 3)}, ` : ''}
-                                        p = ${utils.formatNumber(sigTest.pValue, 4)}
-                                        ${sigTest.significant ?
-                                        `<span style="color: var(--secondary-color); font-weight: bold;"> ✓ Significant</span>` :
-                                        `<span style="color: var(--danger-color);"> Not significant</span>`}
-                                    </div>
-                                `;
-                            }
+    // Add to regression info with significance
+    const sigClass = sigTest.significant ? 'significant' : 'not-significant';
+    regressionInfo += `
+        <div class="regression-significance ${sigClass}" style="margin-bottom: 10px;">
+            <div style="color: ${borderColor};">
+                <strong>${group.name}:</strong> ${regression.equation}<br>
+                R² = ${utils.formatNumber(regression.r2, 4)}, n = ${regression.n}
+                ${regression.conditionNumber ? `<br><small>Condition number: ${utils.formatNumber(regression.conditionNumber, 2)}</small>` : ''}
+            </div>
+    `;
 
-                            regressionInfo += `</div>`;
-                        }
+    if (sigTest.error) {
+        regressionInfo += `<div style="font-size: 0.85em; margin-top: 5px;">${sigTest.error}</div>`;
+    } else {
+        regressionInfo += `
+            <div style="font-size: 0.85em; margin-top: 5px;">
+                ${sigTest.fStatistic ? `F(${sigTest.df1},${sigTest.df2}) = ${utils.formatNumber(sigTest.fStatistic, 3)}, ` : ''}
+                p = ${utils.formatNumber(sigTest.pValue, 4)}
+                ${sigTest.significant ?
+                `<span style="color: var(--secondary-color); font-weight: bold;"> ✓ Significant</span>` :
+                `<span style="color: var(--danger-color);"> Not significant</span>`}
+            </div>
+        `;
+    }
+
+    regressionInfo += `</div>`;
+    
+    // Add debug info if no line was plotted
+    if (linePoints.length < 2) {
+        console.warn(`Failed to generate regression line for ${group.name} - ${regressionType}: only ${linePoints.length} valid points`);
+    }
+} else {
+    // Regression calculation failed
+    console.error(`Regression calculation failed for ${group.name} - ${regressionType}`);
+    regressionInfo += `
+        <div style="margin-bottom: 10px; color: ${borderColor};">
+            <strong>${group.name}:</strong> Failed to calculate ${regressionTypes[regressionType].name} regression
+        </div>
+    `;
+}
+
+                        
                     }
                 }
             });
