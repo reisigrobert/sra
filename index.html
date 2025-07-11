@@ -2319,7 +2319,7 @@ body:not(.significance-tab-active) #significance-results {
          */
         const utils = {
             /**
-             * Parse a numeric value from various formats
+             * Parse a numeric value from various formats, respecting detected decimal separator.
              */
             parseNumericValue(value) {
                 if (value === null || value === undefined || value === '') {
@@ -2327,14 +2327,25 @@ body:not(.significance-tab-active) #significance-results {
                 }
 
                 if (typeof value === 'number') {
-                    return isNaN(value) ? NaN : value;
+                    // If it's already a number, just validate and return it.
+                    return isFinite(value) ? value : NaN;
                 }
 
                 let stringValue = String(value).trim();
                 if (stringValue === '') return NaN;
 
-                // Replace comma with period for parseFloat
-                stringValue = stringValue.replace(',', '.');
+                // This is the critical new logic that handles different number formats.
+                if (globalState.decimalSeparator === ',') {
+                    // Handles European format like "1.234,56"
+                    // 1. Remove all periods (thousands separators).
+                    stringValue = stringValue.replace(/\./g, '');
+                    // 2. Replace the decimal comma with a period for parsing.
+                    stringValue = stringValue.replace(',', '.');
+                } else {
+                    // Handles US/UK format like "1,234.56"
+                    // 1. Remove all commas (thousands separators).
+                    stringValue = stringValue.replace(/,/g, '');
+                }
 
                 const parsed = parseFloat(stringValue);
                 return isNaN(parsed) ? NaN : parsed;
