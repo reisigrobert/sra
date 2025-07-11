@@ -7734,7 +7734,7 @@ globalState.recordAssignments = new Array(globalState.rawData.length).fill(null)
             utils.destroyChart('group-distribution-chart');
 
             globalState.charts['group-distribution-chart'] = new Chart(ctx, {
-                type: 'doughnut',
+                type: labels.length === 1 ? 'bar' : 'doughnut',
                 data: {
                     labels: labels,
                     datasets: [{
@@ -7804,6 +7804,16 @@ globalState.recordAssignments = new Array(globalState.rawData.length).fill(null)
 
             // All parameters
 globalState.columnNames.forEach(paramName => {
+    // SAFETY: Ensure currentGroups is properly structured
+    if (!globalState.currentGroups || typeof globalState.currentGroups !== 'object') {
+        console.error('currentGroups is malformed');
+        return;
+    }
+    
+    // Force consistent array behavior
+    const groupsArray = Object.entries(globalState.currentGroups);
+    if (groupsArray.length === 0) return;
+    
     const paramType = globalState.columnTypes[paramName];
     const scaleInfo = utils.getScaleInfo(paramType);
 
