@@ -5605,86 +5605,175 @@ if (globalState.prerequisiteResults[paramName][groupId]) {
 }
 
         /**
-         * Check variance homogeneity between groups
-         */
-        function checkVarianceHomogeneity() {
+ * Check variance homogeneity between groups
+ */
+function checkVarianceHomogeneity() {
+    const paramName = document.getElementById('sig-parameter-select').value;
+    if (!paramName) {
+        utils.showError("Please select a parameter first.");
+        return;
+    }
+
+    const paramType = globalState.columnTypes[paramName];
+    if (!scaleTypes[paramType].numeric) {
+        utils.showError("Variance test requires a numeric parameter (ordinal, interval, or ratio scale).");
+        return;
+    }
+
+    // Get selected groups
+    const selectedGroups = [];
+    document.querySelectorAll('#sig-group-selection input:checked').forEach(checkbox => {
+        selectedGroups.push(checkbox.value);
+    });
+
+    if (selectedGroups.length < 2) {
+        utils.showError("Variance homogeneity test requires at least 2 groups.");
+        return;
+    }
+
+    // Get data for all selected groups
+    const groupDataArrays = [];
+    const groupNames = [];
+    
+    selectedGroups.forEach(groupId => {
+        const data = globalState.processedData[groupId]
+            .map(row => utils.parseNumericValue(row[paramName]))
+            .filter(val => !isNaN(val) && isFinite(val));
+        
+        if (data.length > 0) {
+            groupDataArrays.push(data);
+            groupNames.push(globalState.currentGroups[groupId].name);
+        }
+    });
+
+    if (groupDataArrays.length < 2) {
+        utils.showError("At least 2 groups with valid numeric data are required for variance test.");
+        return;
+    }
+
+    // Store result
+    if (!globalState.prerequisiteResults[paramName]) {
+        globalState.prerequisiteResults[paramName] = {};
+    }
+
+    const resultsContainer = document.getElementById('prerequisite-results');
+    const resultDiv = document.createElement('div');
+    resultDiv.style.marginBottom = '15px';
+    resultDiv.style.padding = '15px';
+    resultDiv.style.backgroundColor = 'var(--background-light)';
+    resultDiv.style.borderRadius = '6px';
+
+    try {
+        if (selectedGroups.length === 2) {
+            // For 2 groups, use F-test
+            const result = statistics.fTest(groupDataArrays[0], groupDataArrays[1]);
             
-            const paramName = document.getElementById('sig-parameter-select').value;
-            if (!paramName) {
-                utils.showError("Please select a parameter first.");
-                return;
-            }
-
-            const paramType = globalState.columnTypes[paramName];
-            if (!scaleTypes[paramType].numeric) {
-                utils.showError("Variance test requires a numeric parameter (ordinal, interval, or ratio scale).");
-                return;
-            }
-
-            // Get selected groups
-            const selectedGroups = [];
-            document.querySelectorAll('#sig-group-selection input:checked').forEach(checkbox => {
-                selectedGroups.push(checkbox.value);
-            });
-
-            if (selectedGroups.length !== 2) {
-                utils.showError("Variance homogeneity test requires exactly 2 groups.");
-                return;
-            }
-
-            // Get data for both groups
-            const group1Data = globalState.processedData[selectedGroups[0]]
-                .map(row => utils.parseNumericValue(row[paramName]))
-                .filter(val => !isNaN(val));
-
-            const group2Data = globalState.processedData[selectedGroups[1]]
-                .map(row => utils.parseNumericValue(row[paramName]))
-                .filter(val => !isNaN(val));
-
-            const result = statistics.fTest(group1Data, group2Data);
-
-            // Store result
-            if (!globalState.prerequisiteResults[paramName]) {
-                globalState.prerequisiteResults[paramName] = {};
-            }
             globalState.prerequisiteResults[paramName].varianceTest = result;
-
-            // Display result
-            const resultsContainer = document.getElementById('prerequisite-results');
-            const resultDiv = document.createElement('div');
-            resultDiv.className = `prerequisite-result ${result.equalVariances ? 'pass' : 'fail'}`;
-
+            
             if (result.error) {
                 resultDiv.innerHTML = `<strong>F-Test:</strong> ${result.error}`;
+                resultDiv.className = 'prerequisite-result error';
             } else {
-                const group1Name = globalState.currentGroups[selectedGroups[0]].name;
-                const group2Name = globalState.currentGroups[selectedGroups[1]].name;
-
-                resultDiv.innerHTML = `
-                    <strong>F-Test for Equal Variances:</strong><br>
-                    ${group1Name} variance: ${utils.formatNumber(result.variance1, 4)}<br>
-                    ${group2Name} variance: ${utils.formatNumber(result.variance2, 4)}<br>
-                    F = ${utils.formatNumber(result.F, 4)}, p = ${utils.formatNumber(result.pValue, 4)}
-                    ${result.equalVariances ?
-                        ' ✓ Equal variances (p > 0.05)' :
-                        ' ✗ Unequal variances (p ≤ 0.05) - Consider Welch\'s t-test'}
-                `;
+                let html = `<strong>F-Test for Equal Variances:</strong><br>`;
+                html += `${groupNames[0]} variance: ${utils.formatNumber(result.variance1, 4)}<br>`;
+                html += `${groupNames[1]} variance: ${utils.formatNumber(result.variance2, 4)}<br>`;
+                html += `F = ${utils.formatNumber(result.F, 4)}, p = ${utils.formatNumber(result.pValue, 4)}<br>`;
+                
+                const equalVariances = result.equalVariances;
+                resultDiv.className = `prerequisite-result ${equalVariances ? 'pass' : 'fail'}`;
+                
+                html += equalVariances ? 
+                    '<strong style="color: var(--success-color);">✓ Equal variances (p > 0.05)</strong>' : 
+                    '<strong style="color: var(--danger-color);">✗ Unequal variances (p ≤ 0.05) - Consider Welch\'s t-test</strong>';
+                
+                // Check if override is active
+                const overrideCheckbox = document.getElementById('override-homogeneity');
+                const isOverridden = overrideCheckbox && overrideCheckbox.checked;
+                
+                if (isOverridden) {
+                    html += '<br><strong style="color: var(--warning-color);">⚠️ Variance homogeneity assumption manually overridden</strong>';
+                    globalState.assumptionOverrides.homogeneity[paramName] = true;
+                }
+                
+                resultDiv.innerHTML = html;
             }
-
-            // Check if override is active
-const overrideCheckbox = document.getElementById('override-homogeneity');
-const isOverridden = overrideCheckbox && overrideCheckbox.checked;
-
-// Store override in global state
-globalState.assumptionOverrides.homogeneity[paramName] = isOverridden;
-
-if (isOverridden) {
-    resultDiv.innerHTML += '<br><strong style="color: var(--warning-color);">⚠️ Variance homogeneity assumption manually overridden</strong>';
-    resultDiv.className = `prerequisite-result variance-test-result`;
-}
-
-            resultsContainer.appendChild(resultDiv);
+        } else {
+            // For more than 2 groups, use Levene's test
+            // Calculate absolute deviations from median for each group
+            const allDeviations = [];
+            const groupLabels = [];
+            
+            groupDataArrays.forEach((group, groupIndex) => {
+                const median = statistics.ss.median(group);
+                const deviations = group.map(value => Math.abs(value - median));
+                deviations.forEach(() => groupLabels.push(groupIndex));
+                allDeviations.push(...deviations);
+            });
+            
+            // Reorganize data for ANOVA
+            const deviationsByGroup = [];
+            for (let i = 0; i < groupDataArrays.length; i++) {
+                const groupDeviations = [];
+                allDeviations.forEach((dev, idx) => {
+                    if (groupLabels[idx] === i) {
+                        groupDeviations.push(dev);
+                    }
+                });
+                deviationsByGroup.push(groupDeviations);
+            }
+            
+            // Perform ANOVA on the deviations
+            const leveneResult = statistics.anova(deviationsByGroup);
+            
+            if (leveneResult && leveneResult.pValue !== undefined) {
+                const equalVariances = leveneResult.pValue > 0.05;
+                
+                // Store the result
+                globalState.prerequisiteResults[paramName].varianceTest = {
+                    test: 'Levene',
+                    F: leveneResult.f || leveneResult.statistic,
+                    pValue: leveneResult.pValue,
+                    equalVariances: equalVariances,
+                    groupCount: groupDataArrays.length
+                };
+                
+                resultDiv.className = `prerequisite-result ${equalVariances ? 'pass' : 'fail'}`;
+                
+                let html = `<strong>Levene's Test for Variance Homogeneity (${groupDataArrays.length} groups):</strong><br>`;
+                html += `F = ${utils.formatNumber(leveneResult.f || leveneResult.statistic, 4)}, p = ${utils.formatNumber(leveneResult.pValue, 4)}<br>`;
+                html += equalVariances ? 
+                    '<strong style="color: var(--success-color);">✓ Equal variances across all groups (p > 0.05)</strong>' : 
+                    '<strong style="color: var(--danger-color);">✗ Unequal variances across groups (p ≤ 0.05) - Consider non-parametric tests</strong>';
+                
+                // Check if override is active
+                const overrideCheckbox = document.getElementById('override-homogeneity');
+                const isOverridden = overrideCheckbox && overrideCheckbox.checked;
+                
+                if (isOverridden) {
+                    html += '<br><strong style="color: var(--warning-color);">⚠️ Variance homogeneity assumption manually overridden</strong>';
+                    globalState.assumptionOverrides.homogeneity[paramName] = true;
+                }
+                
+                // Show group variances
+                html += '<br><br><strong>Group Variances:</strong><br>';
+                groupDataArrays.forEach((group, idx) => {
+                    const variance = statistics.ss.variance(group);
+                    html += `${groupNames[idx]}: ${utils.formatNumber(variance, 4)}<br>`;
+                });
+                
+                resultDiv.innerHTML = html;
+            } else {
+                throw new Error('Levene test calculation failed');
+            }
         }
+    } catch (error) {
+        resultDiv.className = 'prerequisite-result error';
+        resultDiv.innerHTML = `<strong>Variance Test Error:</strong> ${error.message}`;
+        console.error('Variance test error:', error);
+    }
+    
+    resultsContainer.appendChild(resultDiv);
+}
 
         /**
  * Check all prerequisites at once
