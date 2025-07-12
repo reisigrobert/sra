@@ -4220,17 +4220,18 @@ calculatePhiCoefficient(a, b, c, d) {
                     const line = this.ss.linearRegressionLine(regression);
                     const r = this.ss.sampleCorrelation(x, y);
 
-                    return {
-                        slope: regression.m,
-                        intercept: regression.b,
-                        r: r,
-                        r2: r * r,
-                        n: validPoints.length,
-                        standardError: 0, // Placeholder
-                        equation: `y = ${regression.m.toFixed(4)}x + ${regression.b.toFixed(4)}`,
-                        points: validPoints,
-                        predict: (xVal) => line(xVal)
-                    };
+                   return {
+    slope: regression.m,
+    intercept: regression.b,
+    r: r,
+    r2: r * r,
+    n: validPoints.length,
+    standardError: 0, // Placeholder
+    equation: `y = ${regression.m.toFixed(4)}x + ${regression.b.toFixed(4)}`,
+    points: validPoints,
+    // FIX: Use a direct calculation instead of the helper function.
+    predict: (xVal) => (regression.m * xVal) + regression.b
+};
                 } catch (error) {
                     return null;
                 }
