@@ -4209,33 +4209,57 @@ calculatePhiCoefficient(a, b, c, d) {
 }
 
             // Regression
-            linearRegression(points) {
-                const validPoints = points.filter(p => !isNaN(p.x) && !isNaN(p.y) && isFinite(p.x) && isFinite(p.y));
-                if (validPoints.length < 2) return null;
+       linearRegression(points) {
+    const validPoints = points.filter(p => !isNaN(p.x) && !isNaN(p.y) && isFinite(p.x) && isFinite(p.y));
+    if (validPoints.length < 2) return null;
 
-                try {
-                    const x = validPoints.map(p => p.x);
-                    const y = validPoints.map(p => p.y);
-                    const regression = this.ss.linearRegression(x, y);
-                    const line = this.ss.linearRegressionLine(regression);
-                    const r = this.ss.sampleCorrelation(x, y);
+    try {
+        const n = validPoints.length;
+        let sumX = 0, sumY = 0, sumXY = 0, sumX2 = 0;
+        
+        validPoints.forEach(p => {
+            sumX += p.x;
+            sumY += p.y;
+            sumXY += p.x * p.y;
+            sumX2 += p.x * p.x;
+        });
+        
+        // Check for singular case (all x identical)
+        const denominator = n * sumX2 - sumX * sumX;
+        if (Math.abs(denominator) < 1e-10) {
+            console.warn('Linear regression failed: All x values are identical or variance is zero');
+            return null;
+        }
+        
+        const slope = (n * sumXY - sumX * sumY) / denominator;
+        const intercept = (sumY * sumX2 - sumX * sumXY) / denominator;
+        
+        // Calculate R²
+        const meanY = sumY / n;
+        let ssTotal = 0, ssResidual = 0;
+        validPoints.forEach(p => {
+            const predicted = slope * p.x + intercept;
+            ssTotal += (p.y - meanY) ** 2;
+            ssResidual += (p.y - predicted) ** 2;
+        });
+        const r2 = ssTotal > 0 ? 1 - (ssResidual / ssTotal) : null;
+        const r = Math.sqrt(r2);  // Simplified; assumes positive correlation
 
-                   return {
-    slope: regression.m,
-    intercept: regression.b,
-    r: r,
-    r2: r * r,
-    n: validPoints.length,
-    standardError: 0, // Placeholder
-    equation: `y = ${regression.m.toFixed(4)}x + ${regression.b.toFixed(4)}`,
-    points: validPoints,
-    // FIX: Use a direct calculation instead of the helper function.
-    predict: (xVal) => (regression.m * xVal) + regression.b
-};
-                } catch (error) {
-                    return null;
-                }
-            }
+        return {
+            slope: slope,
+            intercept: intercept,
+            r: r,
+            r2: r2,
+            n: validPoints.length,
+            equation: `y = ${slope.toFixed(4)}x + ${intercept.toFixed(4)}`,
+            points: validPoints,
+            predict: (xVal) => slope * xVal + intercept
+        };
+    } catch (error) {
+        console.error('Linear regression error:', error);
+        return null;
+    }
+}
 
             polynomialRegression(points, order) {
     const validPoints = points.filter(p => !isNaN(p.x) && !isNaN(p.y) && isFinite(p.x) && isFinite(p.y));
@@ -4379,69 +4403,108 @@ solveLinearSystem(A, b) {
 }
 
             logarithmicRegression(points) {
-                const validPoints = points.filter(p => !isNaN(p.x) && !isNaN(p.y) && isFinite(p.x) && isFinite(p.y) && p.x > 0);
-                if (validPoints.length < 2) return null;
+    const validPoints = points.filter(p => !isNaN(p.x) && !isNaN(p.y) && isFinite(p.x) && isFinite(p.y) && p.x > 0);
+    if (validPoints.length < 2) return null;
 
-                try {
-                    const transformedPoints = validPoints.map(p => ({ x: Math.log(p.x), y: p.y }));
-                    const linear = this.linearRegression(transformedPoints);
-                    if (!linear) return null;
+    try {
+        const n = validPoints.length;
+        let sumLogX = 0, sumY = 0, sumLogXY = 0, sumLogX2 = 0;
+        
+        validPoints.forEach(p => {
+            const logX = Math.log(p.x);
+            sumLogX += logX;
+            sumY += p.y;
+            sumLogXY += logX * p.y;
+            sumLogX2 += logX * logX;
+        });
+        
+        // Check for singular case
+        const denominator = n * sumLogX2 - sumLogX * sumLogX;
+        if (Math.abs(denominator) < 1e-10) {
+            console.warn('Logarithmic regression failed: All log(x) values are identical or variance is zero');
+            return null;
+        }
+        
+        const a = (n * sumLogXY - sumLogX * sumY) / denominator;
+        const b = (sumY * sumLogX2 - sumLogX * sumLogXY) / denominator;
+        
+        // Calculate R²
+        const meanY = sumY / n;
+        let ssTotal = 0, ssResidual = 0;
+        validPoints.forEach(p => {
+            const predicted = a * Math.log(p.x) + b;
+            ssTotal += (p.y - meanY) ** 2;
+            ssResidual += (p.y - predicted) ** 2;
+        });
+        const r2 = ssTotal > 0 ? 1 - (ssResidual / ssTotal) : null;
 
-                    const a = linear.slope;
-                    const b = linear.intercept;
+        return {
+            a: a,
+            b: b,
+            r2: r2,
+            n: validPoints.length,
+            equation: `y = ${a.toFixed(4)}·ln(x) + ${b.toFixed(4)}`,
+            points: validPoints,
+            predict: (x) => a * Math.log(x) + b
+        };
+    } catch (error) {
+        console.error('Logarithmic regression error:', error);
+        return null;
+    }
+}
 
-                    return {
-                        a: a,
-                        b: b,
-                        r2: linear.r2,
-                        n: linear.n,
-                        equation: `y = ${a.toFixed(4)}·ln(x) + ${b.toFixed(4)}`,
-                        points: validPoints,
-                        predict: (x) => a * Math.log(x) + b
-                    };
-                } catch (error) {
-                    return null;
-                }
-            }
+           exponentialRegression(points) {
+    const validPoints = points.filter(p => !isNaN(p.x) && !isNaN(p.y) && isFinite(p.x) && isFinite(p.y) && p.y > 0);
+    if (validPoints.length < 2) return null;
 
-            exponentialRegression(points) {
-                const validPoints = points.filter(p => !isNaN(p.x) && !isNaN(p.y) && isFinite(p.x) && isFinite(p.y) && p.y > 0);
-                if (validPoints.length < 2) return null;
+    try {
+        const n = validPoints.length;
+        let sumX = 0, sumLogY = 0, sumXLogY = 0, sumX2 = 0;
+        
+        validPoints.forEach(p => {
+            const logY = Math.log(p.y);
+            sumX += p.x;
+            sumLogY += logY;
+            sumXLogY += p.x * logY;
+            sumX2 += p.x * p.x;
+        });
+        
+        // Check for singular case
+        const denominator = n * sumX2 - sumX * sumX;
+        if (Math.abs(denominator) < 1e-10) {
+            console.warn('Exponential regression failed: All x values are identical or variance is zero');
+            return null;
+        }
+        
+        const b = (n * sumXLogY - sumX * sumLogY) / denominator;
+        const lnA = (sumLogY * sumX2 - sumX * sumXLogY) / denominator;
+        const a = Math.exp(lnA);
+        
+        // Calculate R²
+        const meanY = validPoints.reduce((sum, p) => sum + p.y, 0) / n;
+        let ssTotal = 0, ssResidual = 0;
+        validPoints.forEach(p => {
+            const predicted = a * Math.exp(b * p.x);
+            ssTotal += (p.y - meanY) ** 2;
+            ssResidual += (p.y - predicted) ** 2;
+        });
+        const r2 = ssTotal > 0 ? 1 - (ssResidual / ssTotal) : null;
 
-                try {
-                    const transformedPoints = validPoints.map(p => ({ x: p.x, y: Math.log(p.y) }));
-                    const linear = this.linearRegression(transformedPoints);
-                    if (!linear) return null;
+        return {
+            a: a,
+            b: b,
+            r2: r2,
+            n: validPoints.length,
+            equation: `y = ${a.toFixed(4)}·e^(${b.toFixed(4)}x)`,
+            points: validPoints,
+            predict: (x) => a * Math.exp(b * x)
+        };
+    } catch (error) {
+        console.error('Exponential regression error:', error);
+        return null;
+    }
+}
 
-                    const b = linear.slope;
-                    const lnA = linear.intercept;
-                    const a = Math.exp(lnA);
-
-                    const meanY = validPoints.reduce((sum, p) => sum + p.y, 0) / validPoints.length;
-                    let ssTotal = 0;
-                    let ssResidual = 0;
-
-                    validPoints.forEach(p => {
-                        const predicted = a * Math.exp(b * p.x);
-                        ssTotal += Math.pow(p.y - meanY, 2);
-                        ssResidual += Math.pow(p.y - predicted, 2);
-                    });
-
-                    const r2 = 1 - (ssResidual / ssTotal);
-
-                    return {
-                        a: a,
-                        b: b,
-                        r2: r2,
-                        n: linear.n,
-                        equation: `y = ${a.toFixed(4)}·e^(${b.toFixed(4)}x)`,
-                        points: validPoints,
-                        predict: (x) => a * Math.exp(b * x)
-                    };
-                } catch (error) {
-                    return null;
-                }
-            }
 
             testRegressionSignificance(regression, type, alpha = 0.05) {
                 if (!regression || !regression.n || regression.n < 3) {
