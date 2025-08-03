@@ -141,18 +141,18 @@ sra/
 - Export/import group definitions for reproducibility
 
 #### Statistical Tests
-- **Parametric:** t-test, Welch's t-test, ANOVA (with post-hoc)
-- **Non-parametric:** Mann-Whitney U, Wilcoxon, Kruskal-Wallis (with post-hoc)
-- **Categorical:** Chi-square, Fisher's exact
+- **Parametric:** t-test, Welch's t-test, ANOVA (with Tukey HSD post-hoc)
+- **Non-parametric:** Mann-Whitney U, Kruskal-Wallis (with Dunn's test post-hoc)
+- **Categorical:** Chi-square (with pairwise post-hoc), Fisher's exact
 - **Intelligent test recommendation** based on data characteristics
 - Prerequisite checking with override options
 - Power analysis for all tests
 
 #### Regression Analysis
 - Linear, polynomial (2nd/3rd order), logarithmic, exponential
-- Significance testing with confidence levels
+- Significance testing for regression models
 - Visual regression lines on scatter plots
-- R² and effect size calculations
+- R² and equation display
 
 #### Diagnostic Test Analysis
 - Sensitivity, specificity, PPV, NPV with confidence intervals
@@ -199,4 +199,4 @@ sra/
 ---
 
 **SRA: Professional-grade statistical analysis, right in your browser.**  
-**[Try it now](https://reisigrobert.github.io/sra)** (Remember: Your data stays on your computer!)
+**[Try it now](https://reisigrobert.github.io/sra)**
