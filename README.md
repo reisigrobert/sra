@@ -21,10 +21,10 @@ SRA is designed for anyone who needs to explore and compare data subgroups—**e
 SRA allows you to:
 
 - **Import CSV data** with automatic scale type detection (nominal, ordinal, interval, ratio)
-- **Define complex subgroups** using individual conditions
+- **Define complex subgroups** using individual conditions or reusable parameter constellations
 - **Perform comprehensive statistical analysis** across multiple scale types
-- **Run appropriate statistical tests** with automatic test selection and prerequisite checking
-- **Create visualizations** with regression analysis
+- **Run appropriate statistical tests** with intelligent test selection and prerequisite checking
+- **Create visualizations** with multiple regression analysis types
 - **Conduct diagnostic test analysis** with fourfold tables and comprehensive metrics
 - **Export everything** - data, results, charts, and group definitions
 
@@ -63,39 +63,45 @@ r;k;k;r;o
 - **Delimiter:** Semicolon (`;`) or comma (`,`) - automatically detected
 - **Decimal separator:** Period (`.`) or comma (`,`) - automatically detected
 
-### 2. Required libraries
+### 2. Using SRA
 
-You need these open-source JS libraries (place in `lib/` folder):
+#### **Option A: Quick Start (Recommended)**
 
-| Library       | Purpose              | Download                                              |
-|---------------|---------------------|-------------------------------------------------------|
-| PapaParse     | CSV parsing         | https://www.papaparse.com/                            |
-| Chart.js      | Charts/graphics     | https://www.chartjs.org/                              |
-| jStat         | Statistical tests   | https://jstat.github.io/                              |
-| html2canvas   | Export charts       | https://html2canvas.hertzen.com/                      |
+Simply visit [https://reisigrobert.github.io/sra](https://reisigrobert.github.io/sra) in your browser. 
 
-**Folder structure:**
+**Important:** Even though you access it via a URL, **all processing happens locally in your browser**. No data is sent to any server. The website merely serves the application files to your browser, where everything runs offline.
+
+#### **Option B: Maximum Security (Download Everything)**
+
+For absolute certainty that no external connections are made, download all files locally:
+
+1. **Download the SRA application:**
+   - Get the latest release from [GitHub](https://github.com/reisigrobert/sra)
+   - Or clone: `git clone https://github.com/reisigrobert/sra.git`
+
+2. **Download required libraries:**
+
+| Library | Direct Download Link |
+|---------|---------------------|
+| PapaParse 5.4.1 | [papaparse.min.js](https://unpkg.com/papaparse@5.4.1/papaparse.min.js) |
+| Chart.js 4.4.1 | [chart.umd.js](https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.js) |
+| jStat 1.9.6 | [jstat.min.js](https://cdn.jsdelivr.net/npm/jstat@1.9.6/dist/jstat.min.js) |
+| html2canvas 1.4.1 | [html2canvas.min.js](https://cdn.jsdelivr.net/npm/html2canvas@1.4.1/dist/html2canvas.min.js) |
+| Simple Statistics 7.8.3 | [simple-statistics.min.js](https://unpkg.com/simple-statistics@7.8.3/dist/simple-statistics.min.js) |
+
+3. **Set up folder structure:**
 ```
-your-folder/
+sra/
 ├── index.html
 └── lib/
     ├── papaparse.min.js
     ├── chart.umd.js
     ├── jstat.min.js
-    └── html2canvas.min.js
+    ├── html2canvas.min.js
+    └── simple-statistics.min.js
 ```
 
-### 3. Using SRA
-
-#### **Option A: Online**
-
-- Open [https://reisigrobert.github.io/sra](https://reisigrobert.github.io/sra) in your browser
-
-#### **Option B: Offline**
-
-- Download the repository
-- Ensure the `lib/` folder contains all required libraries
-- Open `index.html` in any modern browser (Chrome, Firefox, Safari, Edge)
+4. **Open `index.html` in any modern browser**
 
 ---
 
@@ -106,6 +112,7 @@ your-folder/
 1. **Import Data**
    - Drag & drop or select your CSV file
    - Review the data preview and validation warnings
+   - Supports both comma and period as decimal separators
 
 2. **Define Parameter Constellations** (optional)
    - Create reusable combinations of conditions
@@ -119,8 +126,8 @@ your-folder/
 
 4. **Analyze Results**
    - **Overview:** Group distributions and summary statistics
-   - **Detailed Analysis:** Deep dive into specific parameters
-   - **Significance Tests:** Automatic test selection with prerequisite checking
+   - **Detailed Analysis:** Deep dive into specific parameters with histograms
+   - **Significance Tests:** Intelligent test selection with prerequisite checking
    - **Visualization:** Interactive charts with regression analysis
    - **Fourfold Tables:** Diagnostic test evaluation
    - **Export:** Comprehensive reports and raw data
@@ -131,24 +138,28 @@ your-folder/
 - Define once, use multiple times
 - Support for NOT operations
 - Combine with individual conditions in groups
+- Export/import group definitions for reproducibility
 
 #### Statistical Tests
-- **Parametric:** t-test, Welch's t-test, ANOVA
-- **Non-parametric:** Mann-Whitney U, Kruskal-Wallis
+- **Parametric:** t-test, Welch's t-test, ANOVA (with post-hoc)
+- **Non-parametric:** Mann-Whitney U, Wilcoxon, Kruskal-Wallis (with post-hoc)
 - **Categorical:** Chi-square, Fisher's exact
-- **Correlation:** Pearson, Spearman
-- Prerequisite checking (normality, variance homogeneity)
+- **Intelligent test recommendation** based on data characteristics
+- Prerequisite checking with override options
+- Power analysis for all tests
 
 #### Regression Analysis
 - Linear, polynomial (2nd/3rd order), logarithmic, exponential
-- Significance testing for regression models
+- Significance testing with confidence levels
 - Visual regression lines on scatter plots
+- R² and effect size calculations
 
 #### Diagnostic Test Analysis
-- Sensitivity, specificity, PPV, NPV
+- Sensitivity, specificity, PPV, NPV with confidence intervals
 - Likelihood ratios and diagnostic odds ratio
 - Youden's index, MCC, F1 score
 - Comprehensive validation warnings
+- Number needed to treat (NNT)
 
 ---
 
@@ -157,15 +168,15 @@ your-folder/
 ### Import Issues
 - **Wrong delimiter?** SRA auto-detects, but check for consistency
 - **Scale types incorrect?** Ensure row 2 has valid codes (k, o, i, r)
-- **Special characters?** Use UTF-8 encoding
+- **Decimal numbers?** Both period (.) and comma (,) work as decimal separators
 
 ### Statistical Tests
 - **Test unavailable?** Check scale type requirements
-- **Prerequisites failed?** Enable "Force execution" with caution
-- **No results?** Ensure groups have sufficient data
+- **Prerequisites failed?** Use override checkboxes with caution
+- **No results?** Ensure groups have sufficient data (≥2 observations)
 
 ### Performance
-- **Large datasets slow?** Use pagination controls
+- **Large datasets slow?** Use pagination controls in data preview
 - **Charts not rendering?** Check browser console for errors
 - **Export failing?** Try smaller datasets or different formats
 
@@ -173,10 +184,11 @@ your-folder/
 
 ## 🔐 Privacy & Security
 
-- **100% client-side:** No server communication
-- **No tracking:** No analytics or telemetry
-- **No dependencies:** Works offline after initial load
-- **Open source:** Inspect the code yourself
+- **100% client-side:** All calculations happen in your browser
+- **No server communication:** Data never leaves your computer
+- **No tracking:** No analytics, cookies, or telemetry
+- **No external dependencies:** Works completely offline after initial load
+- **Open source:** Inspect the code yourself on GitHub
 
 ---
 
@@ -187,4 +199,4 @@ your-folder/
 ---
 
 **SRA: Professional-grade statistical analysis, right in your browser.**  
-**[Try it online now](https://reisigrobert.github.io/sra)**
+**[Try it now](https://reisigrobert.github.io/sra)** (Remember: Your data stays on your computer!)
