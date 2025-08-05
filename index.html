@@ -1719,7 +1719,7 @@
                             <div id="group-summary-table"></div>
                         </div>
                         <div class="flex-item">
-                            <div class="chart-container small">
+                            <div class="chart-container">
                                 <canvas id="group-distribution-chart"></canvas>
                             </div>
                             <div class="text-center">
@@ -1746,7 +1746,7 @@
 
                     <div class="parameter-selector">
                         <label for="detail-parameter-select">Select Parameter:</label>
-                        <select id="detail-parameter-select">
+                        <select id="detail-parameter-select" onchange="updateDetailAnalysis()">
                             <option value="">Please select a parameter</option>
                         </select>
                         <span class="tooltip">ⓘ
@@ -1756,6 +1756,13 @@
                     </div>
 
                     <div id="detail-analysis-content">
+                        <!-- Platzhalter für leere Auswahl (wird von JS gehandhabt) -->
+                        <div class="empty-message"
+                            style="display: none; text-align: center; color: var(--text-light); margin: 40px 0;">
+                            <p>Bitte wählen Sie einen numerischen Parameter (ordinal, Intervall- oder Verhältnisskala),
+                                um die Detailanalyse anzuzeigen.</p>
+                        </div>
+
                         <div class="flex-container">
                             <div class="flex-item">
                                 <h4>Mean Values with Error Bars</h4>
@@ -1778,10 +1785,9 @@
                                 </div>
                             </div>
                         </div>
+
                         <div style="margin-top: 30px;">
                             <h4>Data Distribution Analysis</h4>
-
-                            <!-- Add group selection controls -->
                             <div
                                 style="margin-bottom: 15px; padding: 15px; background-color: var(--background-medium); border-radius: 8px; border: 1px solid var(--border-color);">
                                 <div style="margin-bottom: 10px;">
@@ -1812,11 +1818,11 @@
                         <div class="text-center">
                             <button class="btn btn-small btn-accent"
                                 onclick="exportTableAsCSV('detail-stats-table', 'detailed-statistics')">Export
-                                Statistics
-                            </button>
+                                Statistics</button>
                         </div>
                     </div>
                 </div>
+
 
                 <!-- Significance Tests Tab -->
                 <div class="tab-content" id="significance">
@@ -7219,44 +7225,80 @@
                 });
 
                 const valueInput = document.createElement('input');
-                valueInput.type = 'text';  // Text for flexible input
+                valueInput.type = 'text';
                 valueInput.className = 'condition-value';
-                valueInput.placeholder = 'Enter value (use . or , for decimal)';
+                valueInput.placeholder = 'Enter value';
 
                 container.appendChild(operatorSelect);
                 container.appendChild(valueInput);
 
-                // Update constellation state on change
-                operatorSelect.addEventListener('change', updateConstellationState);
-                valueInput.addEventListener('change', updateConstellationState);
+                // Helper function to parse numeric input intelligently
+                const parseUserInput = (input) => {
+                    if (!input || input.trim() === '') return NaN;
 
-                // Real-time parsing and validation for decimal input
-                valueInput.addEventListener('input', () => {
-                    let inputValue = valueInput.value.trim();
+                    let cleaned = input.trim();
 
-                    // Remove thousands separators (both . and , if they appear as such)
-                    inputValue = inputValue.replace(/(\d)\.(\d{3})/g, '$1$2');  // Remove . as thousands
-                    inputValue = inputValue.replace(/(\d),(\d{3})/g, '$1$2');  // Remove , as thousands
+                    // Count occurrences of . and ,
+                    const dotCount = (cleaned.match(/\./g) || []).length;
+                    const commaCount = (cleaned.match(/,/g) || []).length;
 
-                    // Find if there's a decimal separator (last non-digit separator)
-                    const hasComma = inputValue.lastIndexOf(',') > inputValue.lastIndexOf('.');
-                    const decimalSep = hasComma ? ',' : '.';
+                    // Determine what's the decimal separator
+                    if (dotCount === 0 && commaCount === 1) {
+                        // Only one comma - it's decimal separator
+                        cleaned = cleaned.replace(',', '.');
+                    } else if (dotCount === 1 && commaCount === 0) {
+                        // Only one dot - it's decimal separator (already correct)
+                    } else if (dotCount > 1 && commaCount === 0) {
+                        // Multiple dots - remove all but last (thousands separators)
+                        const parts = cleaned.split('.');
+                        cleaned = parts.slice(0, -1).join('') + '.' + parts[parts.length - 1];
+                    } else if (dotCount === 0 && commaCount > 1) {
+                        // Multiple commas - remove all but last (thousands separators)
+                        const parts = cleaned.split(',');
+                        cleaned = parts.slice(0, -1).join('') + '.' + parts[parts.length - 1];
+                    } else if (dotCount >= 1 && commaCount >= 1) {
+                        // Both present - determine based on position
+                        const lastDot = cleaned.lastIndexOf('.');
+                        const lastComma = cleaned.lastIndexOf(',');
 
-                    // Replace the decimal separator with . for parsing
-                    if (decimalSep === ',') {
-                        inputValue = inputValue.replace(',', '.');
+                        if (lastComma > lastDot) {
+                            // Comma is decimal separator
+                            cleaned = cleaned.replace(/\./g, '').replace(',', '.');
+                        } else {
+                            // Dot is decimal separator
+                            cleaned = cleaned.replace(/,/g, '');
+                        }
                     }
 
-                    // Parse as float
-                    const numericValue = parseFloat(inputValue);
+                    return parseFloat(cleaned);
+                };
+
+                // Update constellation state on change
+                operatorSelect.addEventListener('change', () => {
+                    const numValue = parseUserInput(valueInput.value);
+                    if (!isNaN(numValue)) {
+                        updateConstellationState();
+                    }
+                });
+
+                valueInput.addEventListener('change', () => {
+                    const numValue = parseUserInput(valueInput.value);
+                    if (!isNaN(numValue)) {
+                        updateConstellationState();
+                    }
+                });
+
+                // Real-time parsing and validation
+                valueInput.addEventListener('input', () => {
+                    const numericValue = parseUserInput(valueInput.value);
 
                     if (!isNaN(numericValue)) {
                         updateNumericDistribution(paramName, operatorSelect.value, numericValue, distributionDiv);
-                        updateConstellationState();
-                    } else {
+                        // Clear any error message
+                        const errorMsg = infoDiv.querySelector('.input-error');
+                        if (errorMsg) errorMsg.remove();
+                    } else if (valueInput.value.trim() !== '') {
                         distributionDiv.style.display = 'none';
-                        // Optional: Show warning in UI
-                        infoDiv.innerHTML += '<p style="color: var(--danger-color);">Invalid number. Use . or , as decimal.</p>';
                     }
                 });
 
@@ -7268,7 +7310,7 @@
                 if (values.length > 0) {
                     const stats = statistics.calculate(values);
 
-                    // Set initial value with proper decimal separator
+                    // Set initial value
                     let initialValue;
                     if (paramType === 'o') {
                         initialValue = Math.round(stats.median);
@@ -7276,34 +7318,30 @@
                         initialValue = stats.median;
                     }
 
-                    // Format with detected decimal separator
-                    let formattedValue = initialValue.toFixed(2);
-                    if (globalState.decimalSeparator === ',') {
-                        formattedValue = formattedValue.replace('.', ',');
-                    }
-                    valueInput.value = formattedValue;
+                    // Format based on detected decimal separator for display
+                    valueInput.value = initialValue.toFixed(2).replace('.', globalState.decimalSeparator);
 
                     let infoText = `<strong>Statistics for ${paramName} (${scaleInfo.name}):</strong><br>`;
 
                     if (paramType === 'o') {
                         infoText += `Min: ${stats.min} | Max: ${stats.max}<br>`;
-                        infoText += `Median: ${stats.median.toFixed(2)}`;
+                        infoText += `Median: ${stats.median.toFixed(2).replace('.', globalState.decimalSeparator)}`;
                     } else {
-                        infoText += `Min: ${stats.min.toFixed(2)} | Max: ${stats.max.toFixed(2)}<br>`;
-                        infoText += `Median: ${stats.median.toFixed(2)} | Mean: ${stats.mean.toFixed(2)}`;
+                        const formatStat = (value) => value.toFixed(2).replace('.', globalState.decimalSeparator);
+                        infoText += `Min: ${formatStat(stats.min)} | Max: ${formatStat(stats.max)}<br>`;
+                        infoText += `Median: ${formatStat(stats.median)} | Mean: ${formatStat(stats.mean)}`;
                         if (paramType === 'r' && stats.cv !== null) {
-                            infoText += ` | CV: ${stats.cv.toFixed(1)}%`;
+                            infoText += ` | CV: ${stats.cv.toFixed(1).replace('.', globalState.decimalSeparator)}%`;
                         }
                     }
 
                     infoDiv.innerHTML = infoText;
 
-                    // Initial distribution update with parsed value
-                    const initialNumeric = parseFloat(valueInput.value.replace(',', '.'));
-                    updateNumericDistribution(paramName, operatorSelect.value, initialNumeric, distributionDiv);
+                    // Initial distribution update
+                    updateNumericDistribution(paramName, operatorSelect.value, initialValue, distributionDiv);
                 }
             } else if (paramType === 'k') {
-                // Categorical parameter (unchanged, as it was not affected)
+                // Categorical parameter (unchanged)
                 const operatorSelect = document.createElement('select');
                 operatorSelect.className = 'condition-operator';
 
@@ -7481,13 +7519,14 @@
         }
 
         function performAnalysisReset() {
-            // Destroy all charts
+            // Destroy all charts to free resources
             utils.destroyAllCharts();
 
             // Reset analysis-related global state (keep raw data)
             globalState.processedData = {};
             globalState.currentGroups = {};
             globalState.groupDefinitions = [];  // Clear old definitions, will be recollected
+            resetDetailAnalysisContent();
             globalState.significanceResults = [];
             globalState.prerequisiteResults = {};
             globalState.recordAssignments = [];
@@ -7497,29 +7536,23 @@
                 homogeneity: {}
             };
 
-            // Clear analysis UI elements
+            // Clear specific UI elements without touching structural elements like canvases
+            document.getElementById('group-summary-table').innerHTML = '';
+            document.getElementById('overview-stats-table').innerHTML = '';
             document.getElementById('significance-results').innerHTML = '';
             document.getElementById('prerequisite-results').innerHTML = '';
+            document.getElementById('fourfold-results').innerHTML = '';
+            document.getElementById('fourfold-export').style.display = 'none';
+
+            // Hide analysis results to prevent display of stale data
             document.getElementById('analysis-results').style.display = 'none';
 
-            // Reset tabs to overview
+            // Reset tabs to overview without removing content
             document.querySelectorAll('.tab-button').forEach(btn => btn.classList.remove('active'));
             document.querySelectorAll('.tab-content').forEach(content => content.classList.remove('active'));
             document.querySelector('.tab-button[data-tab="overview"]').classList.add('active');
             document.getElementById('overview').classList.add('active');
 
-            // Clear other dynamic UI (e.g., group summaries, charts)
-            document.getElementById('group-summary-table').innerHTML = '';
-            document.getElementById('overview-stats-table').innerHTML = '';
-            document.getElementById('detail-analysis-content').innerHTML = '';
-            document.getElementById('fourfold-results').innerHTML = '';
-            document.getElementById('fourfold-export').style.display = 'none';
-
-            // Reset visualization selections if they exist
-            const vizGroupSelection = document.getElementById('viz-group-selection');
-            if (vizGroupSelection) vizGroupSelection.innerHTML = '';
-
-            // Reset any other dynamic elements (add more if needed)
             console.log('Analysis reset completed. Ready for fresh analysis.');
         }
 
@@ -7556,6 +7589,9 @@
 
                     // Update analysis results (fresh)
                     updateAnalysisResults();
+
+                    // Explicitly update parameter dropdowns after reset
+                    updateParameterDropdowns();
 
                     // Show results
                     document.getElementById('analysis-results').style.display = 'block';
@@ -7658,7 +7694,41 @@
                     const valueElement = control.querySelector('.condition-value');
                     if (valueElement) {
                         if (scaleTypes[paramType].numeric) {
-                            conditionValue = utils.parseNumericValue(valueElement.value);
+
+                            // Use the same parsing logic as in updateConditionControls
+                            const parseUserInput = (input) => {
+                                if (!input || input.trim() === '') return NaN;
+
+                                let cleaned = input.trim();
+
+                                // Same logic as above...
+                                const dotCount = (cleaned.match(/\./g) || []).length;
+                                const commaCount = (cleaned.match(/,/g) || []).length;
+
+                                if (dotCount === 0 && commaCount === 1) {
+                                    cleaned = cleaned.replace(',', '.');
+                                } else if (dotCount > 1 && commaCount === 0) {
+                                    const parts = cleaned.split('.');
+                                    cleaned = parts.slice(0, -1).join('') + '.' + parts[parts.length - 1];
+                                } else if (dotCount === 0 && commaCount > 1) {
+                                    const parts = cleaned.split(',');
+                                    cleaned = parts.slice(0, -1).join('') + '.' + parts[parts.length - 1];
+                                } else if (dotCount >= 1 && commaCount >= 1) {
+                                    const lastDot = cleaned.lastIndexOf('.');
+                                    const lastComma = cleaned.lastIndexOf(',');
+
+                                    if (lastComma > lastDot) {
+                                        cleaned = cleaned.replace(/\./g, '').replace(',', '.');
+                                    } else {
+                                        cleaned = cleaned.replace(/,/g, '');
+                                    }
+                                }
+
+                                return parseFloat(cleaned);
+                            };
+
+                            conditionValue = parseUserInput(valueElement.value);
+
                         } else {
                             conditionValue = valueElement.value;
                         }
@@ -8265,15 +8335,41 @@
          */
         function updateDetailAnalysis() {
             const paramName = document.getElementById('detail-parameter-select').value;
+            const contentDiv = document.getElementById('detail-analysis-content');
 
-            if (!paramName || !scaleTypes[globalState.columnTypes[paramName]].numeric) {
-                // Show empty content
-                document.getElementById('detail-analysis-content').innerHTML =
-                    '<p style="text-align: center; color: #666; margin: 40px 0;">Please select a numeric parameter (ordinal, interval, or ratio scale).</p>';
+            if (!contentDiv) {
+                console.error('detail-analysis-content element not found');
                 return;
             }
 
-            // Collect data for each group
+            // Prüfe auf gültigen numerischen Parameter
+            if (!paramName || !globalState.columnTypes[paramName] || !scaleTypes[globalState.columnTypes[paramName]].numeric) {
+                // Verstecke Inhalte ohne sie zu löschen
+                const allContent = contentDiv.querySelectorAll('.flex-container, .chart-container, .stats-table-container, h4, [style*="margin-top: 30px;"]');
+                allContent.forEach(el => el.style.display = 'none');
+
+                // Zeige Platzhalter-Nachricht (erstelle sie wenn nötig)
+                let emptyMsg = contentDiv.querySelector('.empty-message');
+                if (!emptyMsg) {
+                    emptyMsg = document.createElement('div');
+                    emptyMsg.className = 'empty-message';
+                    emptyMsg.innerHTML = '<p style="text-align: center; color: var(--text-light); margin: 40px 0;">Please select a numeric parameter (ordinal, interval, or ratio scale).</p>';
+                    contentDiv.insertBefore(emptyMsg, contentDiv.firstChild);
+                }
+                emptyMsg.style.display = 'block';
+
+                return;
+            }
+
+            // Verstecke Platzhalter
+            const emptyMsg = contentDiv.querySelector('.empty-message');
+            if (emptyMsg) emptyMsg.style.display = 'none';
+
+            // Zeige alle Inhalte
+            const allContent = contentDiv.querySelectorAll('.flex-container, .chart-container, .stats-table-container, h4, [style*="margin-top: 30px;"]');
+            allContent.forEach(el => el.style.display = '');
+
+            // Sammle Daten
             const groupData = {};
             Object.keys(globalState.currentGroups).forEach(groupId => {
                 groupData[groupId] = globalState.processedData[groupId]
@@ -8281,19 +8377,11 @@
                     .filter(val => !isNaN(val));
             });
 
-            // Mean chart
+            // Update components
             updateDetailMeanChart(paramName, groupData);
-
-            // Distribution chart
             updateDetailDistributionChart(paramName, groupData);
-
-            // Detailed statistics table
             updateDetailStatsTable(paramName, groupData);
-
-            // Initialize histogram group selection
             initializeHistogramGroupSelection(paramName, groupData);
-
-            // Create histogram with all groups selected initially
             updateDetailHistogram(paramName, groupData);
         }
 
@@ -8301,6 +8389,11 @@
          * Update mean value chart with error bars
          */
         function updateDetailMeanChart(paramName, groupData) {
+            const canvas = document.getElementById('detail-mean-chart');
+            if (!canvas) {
+                console.error('Canvas "detail-mean-chart" not found');
+                return;  // Beende die Funktion, wenn das Canvas fehlt
+            }
             const ctx = document.getElementById('detail-mean-chart').getContext('2d');
             const paramType = globalState.columnTypes[paramName];
 
@@ -8457,6 +8550,11 @@
          * Update distribution comparison chart
          */
         function updateDetailDistributionChart(paramName, groupData) {
+            const canvas = document.getElementById('detail-distribution-chart');
+            if (!canvas) {
+                console.error('Canvas "detail-distribution-chart" not found');
+                return;
+            }
             const ctx = document.getElementById('detail-distribution-chart').getContext('2d');
             const paramType = globalState.columnTypes[paramName];
 
@@ -8711,6 +8809,11 @@
          * Update histogram chart for distribution analysis
          */
         function updateDetailHistogram(paramName, groupData) {
+            const canvas = document.getElementById('detail-histogram-chart');
+            if (!canvas) {
+                console.error('Canvas "detail-histogram-chart" not found');
+                return;
+            }
             const ctx = document.getElementById('detail-histogram-chart').getContext('2d');
             const paramType = globalState.columnTypes[paramName];
 
@@ -10851,7 +10954,7 @@
             container.style.width = canvas.width + 'px';
 
             const title = document.createElement('h3');
-            title.textContent = chartId.replace(/-/g, ' ').replace(/chart/g, 'Chart');
+            title.textContent = chartId.replace(/-/g, ' ').replace(/chart/g, '').trim() + ' Chart';
             title.style.textAlign = 'center';
             title.style.fontFamily = 'Arial, sans-serif';
             title.style.marginBottom = '10px';
@@ -11831,6 +11934,24 @@
                 initializeGroupDefinition();
                 utils.showSuccess('Groups and constellations have been reset.');
             }
+        }
+
+        function resetDetailAnalysisContent() {
+            // Zerstöre nur die Charts, nicht die DOM-Struktur
+            utils.destroyChart('detail-mean-chart');
+            utils.destroyChart('detail-distribution-chart');
+            utils.destroyChart('detail-histogram-chart');
+
+            // Leere nur die dynamischen Inhalte
+            const statsTable = document.getElementById('detail-stats-table');
+            if (statsTable) statsTable.innerHTML = '';
+
+            const histogramSelection = document.getElementById('histogram-group-selection');
+            if (histogramSelection) histogramSelection.innerHTML = '';
+
+            // Reset dropdown selection
+            const detailSelect = document.getElementById('detail-parameter-select');
+            if (detailSelect) detailSelect.value = '';
         }
 
         /**
