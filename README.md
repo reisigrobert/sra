@@ -75,8 +75,8 @@ Simply visit [https://reisigrobert.github.io/sra](https://reisigrobert.github.io
 
 For absolute certainty that no external connections are made, download all files locally:
 
-1. **Download the SRA application:**
-   Download the index.htm file to your device
+1. **Download the SRA application:**  
+   Download the index.html file to your device
 
 2. **Download required libraries:**
 
