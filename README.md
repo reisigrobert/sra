@@ -76,8 +76,8 @@ Simply visit [https://reisigrobert.github.io/sra](https://reisigrobert.github.io
 For absolute certainty that no external connections are made, download all files locally:
 
 1. **Download the SRA application:**
-   - Get the latest release from [GitHub](https://github.com/reisigrobert/sra)
-   - Or clone: `git clone https://github.com/reisigrobert/sra.git`
+   1.1 Get the latest release from [GitHub](https://github.com/reisigrobert/sra)
+   1.2 Download the index.htm file to your device
 
 2. **Download required libraries:**
 
